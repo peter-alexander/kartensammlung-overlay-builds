@@ -77,7 +77,23 @@ require_file "$OUTPUT_DIR/i70.geojson"
 
 if [ "$BUILD_PMTILES" = true ]; then
 	log "Erzeuge PMTiles"
-	"$TIPPECANOE_BIN" 		-Z8 		-z14 		--force 		--no-tile-size-limit 		-o "$PMTILES_FILE" 		"$OUTPUT_DIR/FAHRRADABSTELLANLAGEOGD.json" 		"$OUTPUT_DIR/STRASSENGRAPHOGD.json" 		"$OUTPUT_DIR/k25.geojson" 		"$OUTPUT_DIR/k45.geojson" 		"$OUTPUT_DIR/k60.geojson" 		"$OUTPUT_DIR/k70.geojson" 		"$OUTPUT_DIR/i25.geojson" 		"$OUTPUT_DIR/i45.geojson" 		"$OUTPUT_DIR/i60.geojson" 		"$OUTPUT_DIR/i70.geojson"
+	"$TIPPECANOE_BIN" \
+		-Z8 \
+		-z14 \
+		--force \
+		--no-tile-size-limit \
+		--no-feature-limit \
+		-o "$PMTILES_FILE" \
+		"$OUTPUT_DIR/FAHRRADABSTELLANLAGEOGD.json" \
+		"$OUTPUT_DIR/STRASSENGRAPHOGD.json" \
+		"$OUTPUT_DIR/k25.geojson" \
+		"$OUTPUT_DIR/k45.geojson" \
+		"$OUTPUT_DIR/k60.geojson" \
+		"$OUTPUT_DIR/k70.geojson" \
+		"$OUTPUT_DIR/i25.geojson" \
+		"$OUTPUT_DIR/i45.geojson" \
+		"$OUTPUT_DIR/i60.geojson" \
+		"$OUTPUT_DIR/i70.geojson"
 fi
 
 if [ "$BUILD_PBF_TILES" = true ]; then
