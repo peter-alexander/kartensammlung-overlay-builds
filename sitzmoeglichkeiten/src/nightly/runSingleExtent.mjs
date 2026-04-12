@@ -27,6 +27,12 @@ const CONFIG = {
 		maxLat: 48.34164617237459
 	},
 
+	overpass: {
+		maxRounds: 4,
+		retryDelaysMs: [90_000, 180_000, 300_000],
+		requestTimeoutMs: 60_000
+	},
+	
 	analysis: {
 		includeBenches: false,
 		options: {
@@ -202,6 +208,7 @@ async function main() {
 		extent3857,
 		includeBenches: CONFIG.analysis.includeBenches,
 		options: CONFIG.analysis.options,
+		overpass: CONFIG.overpass,
 		logger: console
 	});
 
