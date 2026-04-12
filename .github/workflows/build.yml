@@ -57,7 +57,7 @@ jobs:
         env:
           PATH: ${{ github.workspace }}/.local/bin:${{ env.PATH }}
         run: |
-          node rge-analyse/build.mjs
+          /usr/bin/time -v node rge-analyse/build.mjs
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -126,7 +126,7 @@ jobs:
           BUILD_PBF_TILES: ${{ env.BUILD_LEGACY }}
         run: |
           chmod +x radparken/run.sh
-          bash radparken/run.sh
+          /usr/bin/time -v bash radparken/run.sh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -195,7 +195,7 @@ jobs:
           BUILD_PBF_TILES: ${{ env.BUILD_LEGACY }}
         run: |
           chmod +x sitzmoeglichkeiten/run.sh
-          bash sitzmoeglichkeiten/run.sh
+          /usr/bin/time -v bash sitzmoeglichkeiten/run.sh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
