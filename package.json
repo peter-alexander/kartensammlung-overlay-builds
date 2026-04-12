@@ -1,0 +1,20 @@
+{
+	"name": "kartensammlung-overlay-builds",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build:rge-analyse": "node rge-analyse/build.mjs",
+		"build:radparken:data": "node radparken/build.mjs ./radparken/input ./radparken/output",
+		"build:radparken": "bash ./radparken/run.sh",
+		"build:sitzmoeglichkeiten": "bash ./sitzmoeglichkeiten/run.sh"
+	},
+	"dependencies": {
+		"geos-wasm": "^3.1.1",
+		"jsts": "^2.12.1",
+		"ol": "^10.8.0",
+		"osmtogeojson": "^3.0.0-beta.5",
+		"proj4": "^2.20.8",
+		"rbush": "^4.0.1",
+		"wellknown": "^0.5.0"
+	}
+}
