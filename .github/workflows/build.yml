@@ -87,6 +87,11 @@ jobs:
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}RgE-Analyse"
           .github/scripts/lftp-upload.sh rge-analyse/build/rge_analyse.geojson "$REMOTE_BASE/rge_analyse.geojson"
 
+      - name: Ping updatedRgeAnalyse
+        if: success()
+        run: |
+          curl -fsS -o /dev/null "${{ vars.MAIN_SERVER }}/updatedRgeAnalyse.php?date=$(date +%s)"
+
   radparken:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
     runs-on: ubuntu-latest
@@ -151,6 +156,11 @@ jobs:
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radparken"
           .github/scripts/lftp-upload.sh radparken/build/tiles "$REMOTE_BASE/tiles"
 
+      - name: Ping updatedRadparken
+        if: success()
+        run: |
+          curl -fsS -o /dev/null "${{ vars.MAIN_SERVER }}/updatedRadparken.php?date=$(date +%s)"
+
   sitzmoeglichkeiten:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
     runs-on: ubuntu-latest
@@ -214,3 +224,8 @@ jobs:
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Sitzmoeglichkeiten"
           .github/scripts/lftp-upload.sh sitzmoeglichkeiten/out/tiles "$REMOTE_BASE/tiles"
+
+      - name: Ping Lima updatedSitzmoeglichkeiten
+        if: success()
+        run: |
+          curl -fsS -o /dev/null "${{ vars.MAIN_SERVER }}/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
