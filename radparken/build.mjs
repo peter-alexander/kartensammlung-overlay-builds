@@ -574,15 +574,25 @@ function buildStreetOutputCollection(featureCollection) {
 }
 
 function buildParkingOutputCollection(featureCollection) {
-	return mapFeatureCollection(featureCollection, (properties) => {
-		const result = {};
+	return {
+		type: "FeatureCollection",
+		features: featureCollection.features.map((feature) => {
+			const result = {};
 
-		if (properties.ANZAHL != null) {
-			result.ANZAHL = properties.ANZAHL;
-		}
+			if (feature.properties?.ANZAHL != null) {
+				result.ANZAHL = feature.properties.ANZAHL;
+			}
 
-		return result;
-	});
+			return {
+				type: "Feature",
+				tippecanoe: {
+					minzoom: 14
+				},
+				properties: result,
+				geometry: feature.geometry
+			};
+		})
+	};
 }
 
 function geometryToFeatureCollection(geometry, properties = {}) {
