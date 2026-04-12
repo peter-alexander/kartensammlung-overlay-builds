@@ -9,13 +9,15 @@ export async function runBenchAnalysisNode({
 	includeBenches = false,
 	logger = console,
 	options = {},
+	overpass = {},
 	fetchJson = null
 }) {
 	const deps = getNodeDeps();
 
 	const effectiveFetchJson = fetchJson ?? createOverpassFetcher({
 		fetchImpl: globalThis.fetch,
-		logger
+		logger,
+		...overpass
 	});
 
 	return runBenchAnalysisCore({
