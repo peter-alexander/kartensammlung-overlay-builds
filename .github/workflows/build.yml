@@ -90,7 +90,7 @@ jobs:
       - name: Ping updatedRgeAnalyse
         if: success()
         run: |
-          curl -fsS -o /dev/null "${{ vars.MAIN_SERVER }}/updatedRgeAnalyse.php?date=$(date +%s)"
+          curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRgeAnalyse.php?date=$(date +%s)"
 
   radparken:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
@@ -159,7 +159,7 @@ jobs:
       - name: Ping updatedRadparken
         if: success()
         run: |
-          curl -fsS -o /dev/null "${{ vars.MAIN_SERVER }}/updatedRadparken.php?date=$(date +%s)"
+          curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRadparken.php?date=$(date +%s)"
 
   sitzmoeglichkeiten:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
@@ -228,4 +228,4 @@ jobs:
       - name: Ping Lima updatedSitzmoeglichkeiten
         if: success()
         run: |
-          curl -fsS -o /dev/null "${{ vars.MAIN_SERVER }}/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
+          curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
