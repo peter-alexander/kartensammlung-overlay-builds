@@ -49,7 +49,6 @@ export function getFreeOffsetForRoadType(roadType) {
 		case 'path':
 		case 'cycleway':
 		case 'track':
-		case 'pedestrian':
 			return 2.0;
 
 		case 'service':
@@ -58,6 +57,7 @@ export function getFreeOffsetForRoadType(roadType) {
 		case 'unclassified':
 			return 3.0;
 
+		case 'pedestrian':
 		case 'tertiary':
 			return 4.0;
 
