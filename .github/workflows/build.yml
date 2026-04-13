@@ -20,6 +20,7 @@ on:
         type: boolean
   schedule:
     - cron: '23 5 * * *'
+      timezone: 'Europe/Vienna'
 
 concurrency:
   group: overlay-builds
