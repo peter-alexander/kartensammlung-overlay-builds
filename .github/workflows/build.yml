@@ -53,11 +53,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
-
       - name: Restore tippecanoe cache
         id: cache-tippecanoe
         uses: actions/cache@v5
@@ -66,6 +61,12 @@ jobs:
             ${{ github.workspace }}/.local/bin/tippecanoe
             ${{ github.workspace }}/.local/bin/tile-join
           key: ${{ runner.os }}-tippecanoe-${{ hashFiles('.github/scripts/build-tippecanoe.sh', '.github/tippecanoe-version.txt') }}
+
+      - name: Install system dependencies
+        if: steps.cache-tippecanoe.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
 
       - name: Build tippecanoe
         if: steps.cache-tippecanoe.outputs.cache-hit != 'true'
