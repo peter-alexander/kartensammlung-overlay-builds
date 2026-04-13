@@ -27,7 +27,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tippecanoe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+
+      - name: Restore tippecanoe cache
+        id: cache-tippecanoe
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.local/bin/tippecanoe
+            ${{ github.workspace }}/.local/bin/tile-join
+          key: ${{ runner.os }}-tippecanoe-${{ hashFiles('.github/scripts/build-tippecanoe.sh', '.github/tippecanoe-version.txt') }}
+
+      - name: Build tippecanoe
+        if: steps.cache-tippecanoe.outputs.cache-hit != 'true'
+        run: |
+          chmod +x .github/scripts/build-tippecanoe.sh
+          .github/scripts/build-tippecanoe.sh >/dev/null
+
+      - name: Verify tippecanoe
+        run: |
+          test -x "${GITHUB_WORKSPACE}/.local/bin/tippecanoe"
+          "${GITHUB_WORKSPACE}/.local/bin/tippecanoe" --version || true
+
+      - name: Upload tippecanoe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tippecanoe-bin
+          path: |
+            ${{ github.workspace }}/.local/bin/tippecanoe
+            ${{ github.workspace }}/.local/bin/tile-join
+          if-no-files-found: error
+
   rge-analyse:
+    needs: tippecanoe
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -46,10 +87,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
-      - name: Build tippecanoe
+      - name: Download tippecanoe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tippecanoe-bin
+          path: ${{ github.workspace }}/.local/bin
+
+      - name: Make tippecanoe executable
         run: |
-          chmod +x .github/scripts/build-tippecanoe.sh
-          .github/scripts/build-tippecanoe.sh >/dev/null
+          chmod +x "${GITHUB_WORKSPACE}/.local/bin/tippecanoe"
+          if [ -f "${GITHUB_WORKSPACE}/.local/bin/tile-join" ]; then
+            chmod +x "${GITHUB_WORKSPACE}/.local/bin/tile-join"
+          fi
 
       - name: Install npm dependencies
         run: npm install --no-fund --no-audit
@@ -94,6 +143,7 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRgeAnalyse.php?date=$(date +%s)"
 
   radparken:
+    needs: tippecanoe
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -112,10 +162,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
-      - name: Build tippecanoe
+      - name: Download tippecanoe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tippecanoe-bin
+          path: ${{ github.workspace }}/.local/bin
+
+      - name: Make tippecanoe executable
         run: |
-          chmod +x .github/scripts/build-tippecanoe.sh
-          .github/scripts/build-tippecanoe.sh >/dev/null
+          chmod +x "${GITHUB_WORKSPACE}/.local/bin/tippecanoe"
+          if [ -f "${GITHUB_WORKSPACE}/.local/bin/tile-join" ]; then
+            chmod +x "${GITHUB_WORKSPACE}/.local/bin/tile-join"
+          fi
 
       - name: Install npm dependencies
         run: npm install --no-fund --no-audit
@@ -163,6 +221,7 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRadparken.php?date=$(date +%s)"
 
   sitzmoeglichkeiten:
+    needs: tippecanoe
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -181,10 +240,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
-      - name: Build tippecanoe
+      - name: Download tippecanoe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tippecanoe-bin
+          path: ${{ github.workspace }}/.local/bin
+
+      - name: Make tippecanoe executable
         run: |
-          chmod +x .github/scripts/build-tippecanoe.sh
-          .github/scripts/build-tippecanoe.sh >/dev/null
+          chmod +x "${GITHUB_WORKSPACE}/.local/bin/tippecanoe"
+          if [ -f "${GITHUB_WORKSPACE}/.local/bin/tile-join" ]; then
+            chmod +x "${GITHUB_WORKSPACE}/.local/bin/tile-join"
+          fi
 
       - name: Install npm dependencies
         run: npm install --no-fund --no-audit
