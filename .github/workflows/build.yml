@@ -26,12 +26,32 @@ concurrency:
   group: overlay-builds
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
+  node-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Verify Node/npm toolchain and lockfile installability
+        run: |
+          node -v
+          npm -v
+          npm ci --dry-run --no-fund --no-audit
+
   tippecanoe:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: |
@@ -40,7 +60,7 @@ jobs:
 
       - name: Restore tippecanoe cache
         id: cache-tippecanoe
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ github.workspace }}/.local/bin/tippecanoe
@@ -59,7 +79,7 @@ jobs:
           "${GITHUB_WORKSPACE}/.local/bin/tippecanoe" --version || true
 
       - name: Upload tippecanoe artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tippecanoe-bin
           path: |
@@ -68,7 +88,7 @@ jobs:
           if-no-files-found: error
 
   rge-analyse:
-    needs: tippecanoe
+    needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -76,11 +96,12 @@ jobs:
       BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
+          cache: npm
 
       - name: Install system dependencies
         run: |
@@ -88,7 +109,7 @@ jobs:
           sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
       - name: Download tippecanoe artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tippecanoe-bin
           path: ${{ github.workspace }}/.local/bin
@@ -101,7 +122,7 @@ jobs:
           fi
 
       - name: Install npm dependencies
-        run: npm install --no-fund --no-audit
+        run: npm ci --no-fund --no-audit
 
       - name: Build RgE-Analyse
         env:
@@ -110,7 +131,7 @@ jobs:
           /usr/bin/time -v node rge-analyse/build.mjs
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rge-analyse-build
           path: rge-analyse/build/
@@ -143,7 +164,7 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRgeAnalyse.php?date=$(date +%s)"
 
   radparken:
-    needs: tippecanoe
+    needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -151,11 +172,12 @@ jobs:
       BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
+          cache: npm
 
       - name: Install system dependencies
         run: |
@@ -163,7 +185,7 @@ jobs:
           sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
       - name: Download tippecanoe artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tippecanoe-bin
           path: ${{ github.workspace }}/.local/bin
@@ -176,7 +198,7 @@ jobs:
           fi
 
       - name: Install npm dependencies
-        run: npm install --no-fund --no-audit
+        run: npm ci --no-fund --no-audit
 
       - name: Build Radparken
         env:
@@ -188,7 +210,7 @@ jobs:
           /usr/bin/time -v bash radparken/run.sh
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: radparken-build
           path: radparken/build/
@@ -221,7 +243,7 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRadparken.php?date=$(date +%s)"
 
   sitzmoeglichkeiten:
-    needs: tippecanoe
+    needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -229,11 +251,12 @@ jobs:
       BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
+          cache: npm
 
       - name: Install system dependencies
         run: |
@@ -241,7 +264,7 @@ jobs:
           sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
       - name: Download tippecanoe artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tippecanoe-bin
           path: ${{ github.workspace }}/.local/bin
@@ -254,7 +277,7 @@ jobs:
           fi
 
       - name: Install npm dependencies
-        run: npm install --no-fund --no-audit
+        run: npm ci --no-fund --no-audit
 
       - name: Build Sitzmoeglichkeiten
         env:
@@ -266,7 +289,7 @@ jobs:
           /usr/bin/time -v bash sitzmoeglichkeiten/run.sh
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sitzmoeglichkeiten-build
           path: sitzmoeglichkeiten/out/
