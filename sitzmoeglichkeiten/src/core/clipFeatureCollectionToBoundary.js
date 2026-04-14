@@ -1,5 +1,6 @@
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
 import GeoJSONWriter from 'jsts/org/locationtech/jts/io/GeoJSONWriter.js';
+import PreparedGeometryFactory from 'jsts/org/locationtech/jts/geom/prep/PreparedGeometryFactory.js';
 import OverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
 import UnionOp from 'jsts/org/locationtech/jts/operation/union/UnionOp.js';
 
@@ -117,9 +118,13 @@ export async function clipFeatureCollectionToBoundary({
 
 		const boundaryFeatureCollection = await fetchBoundaryFeatureCollection(boundaryUrl);
 		const boundaryGeometry = buildBoundaryGeometry(boundaryFeatureCollection, reader);
+		const boundaryEnvelope = boundaryGeometry.getEnvelopeInternal();
+		const preparedBoundary = PreparedGeometryFactory.prepare(boundaryGeometry);
 
 		const clippedFeatures = [];
 		let droppedFeatures = 0;
+		let keptUnchanged = 0;
+		let intersectedFeatures = 0;
 		let splitParts = 0;
 
 		for (const feature of inputFeatures) {
@@ -131,6 +136,27 @@ export async function clipFeatureCollectionToBoundary({
 			const inputGeometry = reader.read(feature.geometry);
 
 			if (!inputGeometry || inputGeometry.isEmpty()) {
+				droppedFeatures++;
+				continue;
+			}
+
+			const inputEnvelope = inputGeometry.getEnvelopeInternal();
+
+			if (boundaryEnvelope.disjoint(inputEnvelope)) {
+				droppedFeatures++;
+				continue;
+			}
+
+			if (
+				boundaryEnvelope.covers(inputEnvelope) &&
+				preparedBoundary.covers(inputGeometry)
+			) {
+				clippedFeatures.push(feature);
+				keptUnchanged++;
+				continue;
+			}
+
+			if (!preparedBoundary.intersects(inputGeometry)) {
 				droppedFeatures++;
 				continue;
 			}
@@ -153,6 +179,7 @@ export async function clipFeatureCollectionToBoundary({
 				continue;
 			}
 
+			intersectedFeatures++;
 			splitParts += Math.max(0, lineGeometries.length - 1);
 
 			for (const lineGeometry of lineGeometries) {
@@ -166,6 +193,8 @@ export async function clipFeatureCollectionToBoundary({
 			before: inputFeatures.length,
 			after: clippedFeatures.length,
 			droppedFeatures,
+			keptUnchanged,
+			intersectedFeatures,
 			splitParts
 		});
 
