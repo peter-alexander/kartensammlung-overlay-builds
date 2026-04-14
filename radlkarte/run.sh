@@ -209,9 +209,9 @@ fi
 
 log "Erzeuge PMTiles"
 "$TIPPECANOE_BIN" \
-	-Z5 \
+	-Z1 \
 	-z14 \
-	-B5 \
+	-B1 \
 	--force \
 	--no-feature-limit \
 	--no-tile-size-limit \
