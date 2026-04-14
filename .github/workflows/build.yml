@@ -328,6 +328,8 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
       - uses: actions/checkout@v6
 
@@ -375,5 +377,12 @@ jobs:
           EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
           EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
         run: |
-          chmod +x .github/scripts/lftp-upload.sh
-          .github/scripts/lftp-upload.sh radlkarte/build/Radlkarte/radlkarte.pmtiles "Radlkarte/radlkarte.pmtiles"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlkarte"
+
+          curl --fail --silent --show-error \
+            --ftp-ssl-reqd \
+            --ftp-pasv \
+            --ftp-create-dirs \
+            --user "${EASYNAME_FTP_USER}:${EASYNAME_FTP_PASSWORD}" \
+            --upload-file "radlkarte/build/Radlkarte/radlkarte.pmtiles" \
+            "ftp://${EASYNAME_FTP_HOST}/${REMOTE_BASE}/radlkarte.pmtiles"
