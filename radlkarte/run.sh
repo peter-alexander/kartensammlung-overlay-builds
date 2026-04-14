@@ -209,9 +209,11 @@ fi
 
 log "Erzeuge PMTiles"
 "$TIPPECANOE_BIN" \
-	-Z8 \
+	-Z5 \
 	-z14 \
+	-B5 \
 	--force \
+	--no-feature-limit \
 	--no-tile-size-limit \
 	--no-feature-limit \
 	--layer="$LAYER_NAME" \
