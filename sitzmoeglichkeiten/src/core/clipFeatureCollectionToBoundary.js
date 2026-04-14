@@ -203,6 +203,8 @@ export async function clipFeatureCollectionToBoundary({
 			features: clippedFeatures
 		};
 	} catch (err) {
+		logger?.error?.(err?.stack || String(err));
+
 		if (strict) {
 			throw err;
 		}
