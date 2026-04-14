@@ -386,3 +386,9 @@ jobs:
             --user "${EASYNAME_FTP_USER}:${EASYNAME_FTP_PASSWORD}" \
             --upload-file "radlkarte/build/Radlkarte/radlkarte.pmtiles" \
             "ftp://${EASYNAME_FTP_HOST}/${REMOTE_BASE}/radlkarte.pmtiles"
+
+
+      - name: Ping updatedRadlkarte
+        if: success()
+        run: |
+          curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRadlkarte.php?date=$(date +%s)"
