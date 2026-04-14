@@ -13,6 +13,7 @@ on:
           - rge-analyse
           - radparken
           - sitzmoeglichkeiten
+          - radlkarte
       build_legacy:
         description: Build legacy output (RgE geojson / tiles directories)
         required: true
@@ -107,7 +108,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
 
       - name: Download tippecanoe artifact
         uses: actions/download-artifact@v8
@@ -321,3 +322,58 @@ jobs:
         if: success()
         run: |
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
+
+  radlkarte:
+    needs: [tippecanoe, node-health]
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+
+      - name: Download tippecanoe artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: tippecanoe-bin
+          path: ${{ github.workspace }}/.local/bin
+
+      - name: Make tippecanoe executable
+        run: |
+          chmod +x "${GITHUB_WORKSPACE}/.local/bin/tippecanoe"
+          if [ -f "${GITHUB_WORKSPACE}/.local/bin/tile-join" ]; then
+            chmod +x "${GITHUB_WORKSPACE}/.local/bin/tile-join"
+          fi
+
+      - name: Build Radlkarte
+        env:
+          TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x radlkarte/run.sh
+          /usr/bin/time -v bash radlkarte/run.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: radlkarte-build
+          path: radlkarte/build/Radlkarte/
+          if-no-files-found: error
+
+      - name: Deploy PMTiles
+        env:
+          EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+          EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+          EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          .github/scripts/lftp-upload.sh radlkarte/build/Radlkarte/radlkarte.pmtiles "Radlkarte/radlkarte.pmtiles"

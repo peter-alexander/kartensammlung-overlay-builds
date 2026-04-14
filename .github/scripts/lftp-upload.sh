@@ -22,6 +22,32 @@ fi
 SSL_VERIFY="${LFTP_SSL_VERIFY:-no}"
 PARALLEL="${LFTP_PARALLEL:-4}"
 
+if [ -f "$LOCAL_PATH" ] && command -v curl >/dev/null 2>&1; then
+	CURL_URL="ftp://${EASYNAME_FTP_HOST}/${REMOTE_PATH}"
+	CURL_ARGS=(
+		--fail
+		--silent
+		--show-error
+		--ftp-ssl-reqd
+		--user "${EASYNAME_FTP_USER}:${EASYNAME_FTP_PASSWORD}"
+		--upload-file "$LOCAL_PATH"
+		--ftp-create-dirs
+		"$CURL_URL"
+	)
+
+	if [ "$SSL_VERIFY" = "no" ]; then
+		CURL_ARGS+=(--insecure)
+	fi
+
+	curl "${CURL_ARGS[@]}"
+	exit 0
+fi
+
+if ! command -v lftp >/dev/null 2>&1; then
+	echo "lftp ist nicht installiert (für Verzeichnis-Uploads erforderlich)." >&2
+	exit 1
+fi
+
 LFTP_CMDS=$(mktemp)
 trap 'rm -f "$LFTP_CMDS"' EXIT
 
