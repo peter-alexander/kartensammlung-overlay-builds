@@ -6,7 +6,8 @@
 		"build:rge-analyse": "node rge-analyse/build.mjs",
 		"build:radparken:data": "node radparken/build.mjs ./radparken/input ./radparken/output",
 		"build:radparken": "bash ./radparken/run.sh",
-		"build:sitzmoeglichkeiten": "bash ./sitzmoeglichkeiten/run.sh"
+		"build:sitzmoeglichkeiten": "bash ./sitzmoeglichkeiten/run.sh",
+		"build:radlkarte": "bash ./radlkarte/run.sh"
 	},
 	"dependencies": {
 		"geos-wasm": "^3.1.1",
