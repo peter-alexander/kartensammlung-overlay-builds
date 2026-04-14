@@ -49,6 +49,22 @@ validate_geojson() {
 	' "$file"
 }
 
+validate_pmtiles_magic() {
+	local file="$1"
+	node --eval '
+		const fs = require("node:fs");
+		const file = process.argv[1];
+		const fd = fs.openSync(file, "r");
+		const header = Buffer.alloc(7);
+		fs.readSync(fd, header, 0, 7, 0);
+		fs.closeSync(fd);
+		if (header.toString("utf8") !== "PMTiles") {
+			console.error(`Ungültiger PMTiles-Header in ${file}: ${header.toString("hex")}`);
+			process.exit(1);
+		}
+	' "$file"
+}
+
 github_headers() {
 	local accept_header="$1"
 
@@ -203,6 +219,7 @@ log "Erzeuge PMTiles"
 	"${geojson_files[@]}"
 
 require_file "$TMP_PMTILES_FILE"
+validate_pmtiles_magic "$TMP_PMTILES_FILE"
 publish_pmtiles_atomically "$TMP_PMTILES_FILE" "$PUBLISHED_PMTILES_FILE"
 rm -f "$TMP_PMTILES_FILE"
 
