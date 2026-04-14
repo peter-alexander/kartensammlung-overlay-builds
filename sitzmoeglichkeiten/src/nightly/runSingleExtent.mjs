@@ -6,6 +6,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { fromLonLat } from 'ol/proj.js';
 
 import { runBenchAnalysisNode } from '../adapters/nodeRunner.js';
+import { clipFeatureCollectionToBoundary } from '../core/clipFeatureCollectionToBoundary.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +43,12 @@ const CONFIG = {
 			thresholds: [25, 50, 75],
 			step: 10
 		}
+	},
+
+	boundaryClip: {
+		enabled: process.env.KS_CLIP_TO_WIEN_BOUNDARY !== '0',
+		strict: process.env.KS_CLIP_TO_WIEN_BOUNDARY_STRICT === '1',
+		wfsUrl: process.env.KS_WIEN_BOUNDARY_WFS_URL || 'https://data.wien.gv.at/daten/geo?service=WFS&request=GetFeature&version=1.1.0&typeName=ogdwien:LANDESGRENZEOGD&srsName=EPSG:4326&outputFormat=json'
 	},
 
 	output: {
@@ -216,6 +223,24 @@ async function main() {
 
 	console.log(`Analyse fertig in ${((analysisFinishedMs - analysisStartedMs) / 1000).toFixed(1)} s`);
 
+	let finalGeojson = geojson;
+
+	if (CONFIG.boundaryClip.enabled) {
+		console.log(`Lade Wien-Grenze und clippe Output: ${CONFIG.boundaryClip.wfsUrl}`);
+
+		const clipStartedMs = Date.now();
+
+		finalGeojson = await clipFeatureCollectionToBoundary({
+			featureCollection: geojson,
+			boundaryUrl: CONFIG.boundaryClip.wfsUrl,
+			strict: CONFIG.boundaryClip.strict,
+			logger: console
+		});
+
+		console.log(`Wien-Clip fertig in ${((Date.now() - clipStartedMs) / 1000).toFixed(1)} s`);
+		console.log(`Features nach Wien-Clip: ${finalGeojson?.features?.length ?? 0}`);
+	}
+
 	const willRunTippecanoe =
 		CONFIG.tippecanoe.enabled &&
 		(CONFIG.tippecanoe.exportPmtiles || CONFIG.tippecanoe.exportTileDirectory);
@@ -224,7 +249,7 @@ async function main() {
 
 	if (mustWriteGeoJsonFile) {
 		console.log(`Schreibe GeoJSON: ${paths.geojsonFile}`);
-		await writeFile(paths.geojsonFile, JSON.stringify(geojson), 'utf8');
+		await writeFile(paths.geojsonFile, JSON.stringify(finalGeojson), 'utf8');
 	}
 
 	if (willRunTippecanoe && CONFIG.tippecanoe.exportPmtiles) {
@@ -283,6 +308,12 @@ async function main() {
 			bounds4326: CONFIG.bounds4326,
 			extent3857,
 			analysis: CONFIG.analysis,
+			boundaryClip: {
+				enabled: CONFIG.boundaryClip.enabled,
+				strict: CONFIG.boundaryClip.strict,
+				wfsUrl: CONFIG.boundaryClip.wfsUrl
+			},
+			featureCountBeforeBoundaryClip: geojson?.features?.length ?? null,
 			output: {
 				geojsonFile: (
 					mustWriteGeoJsonFile &&
@@ -299,7 +330,7 @@ async function main() {
 				exportPmtiles: CONFIG.tippecanoe.exportPmtiles,
 				exportTileDirectory: CONFIG.tippecanoe.exportTileDirectory
 			} : null,
-			featureCount: geojson?.features?.length ?? null
+			featureCount: finalGeojson?.features?.length ?? null
 		});
 
 		console.log(`Manifest: ${paths.manifestFile}`);
