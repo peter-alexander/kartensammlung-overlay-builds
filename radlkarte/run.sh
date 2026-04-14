@@ -8,7 +8,7 @@ TIPPECANOE_BIN="${TIPPECANOE_BIN:-tippecanoe}"
 
 PUBLISH_DIR="${PUBLISH_DIR:-$BUILD_DIR/Radlkarte}"
 PUBLISHED_PMTILES_FILE="$PUBLISH_DIR/radlkarte.pmtiles"
-TMP_PMTILES_FILE="$BUILD_DIR/.radlkarte.pmtiles.tmp"
+TMP_PMTILES_FILE="$BUILD_DIR/.radlkarte.pmtiles"
 LAYER_NAME="radlkarte"
 GITHUB_OWNER="markusstraub"
 GITHUB_REPO="radlkarte"
