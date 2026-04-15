@@ -22,6 +22,10 @@ on:
   schedule:
     - cron: '23 5 * * *'
       timezone: 'Europe/Vienna'
+    - cron: '53 5 * * *'
+      timezone: 'Europe/Vienna'
+    - cron: '23 6 * * *'
+      timezone: 'Europe/Vienna'
 
 concurrency:
   group: overlay-builds
@@ -31,7 +35,43 @@ permissions:
   contents: read
 
 jobs:
+
+
+  scheduled-guard:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.evaluate.outputs.should_run }}
+      daily_cache_key: ${{ steps.key.outputs.daily_cache_key }}
+    steps:
+      - name: Compose daily cache key
+        id: key
+        run: |
+          echo "daily_cache_key=overlay-builds-${{ github.workflow }}-${{ github.ref_name }}-$(TZ=Europe/Vienna date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore daily run marker
+        id: restore-marker
+        uses: actions/cache/restore@v4
+        with:
+          path: .github/.daily-run-marker
+          key: ${{ steps.key.outputs.daily_cache_key }}
+          lookup-only: true
+
+      - name: Decide whether this scheduled run should execute
+        id: evaluate
+        run: |
+          if [ "${{ steps.restore-marker.outputs.cache-hit }}" = "true" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Scheduled build was already executed today."
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "No marker found for today. Scheduled build will run."
+          fi
+
   node-health:
+    if: ${{ github.event_name != 'schedule' || needs.scheduled-guard.outputs.should_run == 'true' }}
+    needs: [scheduled-guard]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -49,6 +89,8 @@ jobs:
           npm ci --dry-run --no-fund --no-audit
 
   tippecanoe:
+    if: ${{ github.event_name != 'schedule' || needs.scheduled-guard.outputs.should_run == 'true' }}
+    needs: [scheduled-guard]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -90,8 +132,8 @@ jobs:
           if-no-files-found: error
 
   rge-analyse:
-    needs: [tippecanoe, node-health]
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse' }}
+    needs: [scheduled-guard, tippecanoe, node-health]
+    if: ${{ (github.event_name != 'schedule' || needs.scheduled-guard.outputs.should_run == 'true') && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse') }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -166,8 +208,8 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRgeAnalyse.php?date=$(date +%s)"
 
   radparken:
-    needs: [tippecanoe, node-health]
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
+    needs: [scheduled-guard, tippecanoe, node-health]
+    if: ${{ (github.event_name != 'schedule' || needs.scheduled-guard.outputs.should_run == 'true') && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken') }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -245,8 +287,8 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRadparken.php?date=$(date +%s)"
 
   sitzmoeglichkeiten:
-    needs: [tippecanoe, node-health]
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
+    needs: [scheduled-guard, tippecanoe, node-health]
+    if: ${{ (github.event_name != 'schedule' || needs.scheduled-guard.outputs.should_run == 'true') && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten') }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -324,8 +366,8 @@ jobs:
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
 
   radlkarte:
-    needs: [tippecanoe, node-health]
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte' }}
+    needs: [scheduled-guard, tippecanoe, node-health]
+    if: ${{ (github.event_name != 'schedule' || needs.scheduled-guard.outputs.should_run == 'true') && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -392,3 +434,21 @@ jobs:
         if: success()
         run: |
           curl -fsS -o /dev/null "${{ secrets.MAIN_SERVER }}/updatedRadlkarte.php?date=$(date +%s)"
+
+
+  mark-scheduled-run:
+    needs: [scheduled-guard, rge-analyse, radparken, sitzmoeglichkeiten, radlkarte]
+    if: ${{ github.event_name == 'schedule' && needs.scheduled-guard.outputs.should_run == 'true' && success() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create daily marker file
+        run: |
+          mkdir -p .github/.daily-run-marker
+          printf 'scheduled run finished at %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .github/.daily-run-marker/status.txt
+
+      - name: Save daily run marker
+        uses: actions/cache/save@v4
+        with:
+          path: .github/.daily-run-marker
+          key: ${{ needs.scheduled-guard.outputs.daily_cache_key }}
