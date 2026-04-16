@@ -1,7 +1,7 @@
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
 import GeoJSONWriter from 'jsts/org/locationtech/jts/io/GeoJSONWriter.js';
-import PreparedGeometryFactory from 'jsts/org/locationtech/jts/geom/prep/PreparedGeometryFactory.js';
 import OverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
+import RelateOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import UnionOp from 'jsts/org/locationtech/jts/operation/union/UnionOp.js';
 
 function cloneFeatureWithGeometry(feature, geometry) {
@@ -119,7 +119,6 @@ export async function clipFeatureCollectionToBoundary({
 		const boundaryFeatureCollection = await fetchBoundaryFeatureCollection(boundaryUrl);
 		const boundaryGeometry = buildBoundaryGeometry(boundaryFeatureCollection, reader);
 		const boundaryEnvelope = boundaryGeometry.getEnvelopeInternal();
-		const preparedBoundary = PreparedGeometryFactory.prepare(boundaryGeometry);
 
 		const clippedFeatures = [];
 		let droppedFeatures = 0;
@@ -141,26 +140,28 @@ export async function clipFeatureCollectionToBoundary({
 			}
 
 			const inputEnvelope = inputGeometry.getEnvelopeInternal();
-
+			
 			if (boundaryEnvelope.disjoint(inputEnvelope)) {
 				droppedFeatures++;
 				continue;
 			}
-
+			
+			const relation = RelateOp.relate(boundaryGeometry, inputGeometry);
+			
 			if (
 				boundaryEnvelope.covers(inputEnvelope) &&
-				preparedBoundary.covers(inputGeometry)
+				relation.isCovers()
 			) {
 				clippedFeatures.push(feature);
 				keptUnchanged++;
 				continue;
 			}
-
-			if (!preparedBoundary.intersects(inputGeometry)) {
+			
+			if (!relation.isIntersects()) {
 				droppedFeatures++;
 				continue;
 			}
-
+			
 			const clippedGeometry = OverlayOp.overlayOp(
 				inputGeometry,
 				boundaryGeometry,
