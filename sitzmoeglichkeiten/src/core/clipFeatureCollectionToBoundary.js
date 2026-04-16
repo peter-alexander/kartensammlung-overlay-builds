@@ -67,6 +67,10 @@ function buildBoundaryGeometry(boundaryFeatureCollection, reader) {
 		throw new Error('Wien-Grenze enthält keine verwertbare Geometrie.');
 	}
 
+	if (typeof boundaryGeometry.norm === 'function') {
+		boundaryGeometry.norm();
+	}
+
 	return boundaryGeometry;
 }
 
@@ -81,9 +85,20 @@ async function fetchBoundaryFeatureCollection(boundaryUrl) {
 		throw new Error(`Wien-Grenze konnte nicht geladen werden (HTTP ${response.status}).`);
 	}
 
-	const json = await response.json();
+	const text = await response.text();
 
-	if (!json || json.type !== 'FeatureCollection') {
+	if (!text || !text.trim()) {
+		throw new Error('Wien-Grenze lieferte leere Antwort.');
+	}
+
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch (err) {
+		throw new Error(`Wien-Grenze ist kein gültiges JSON: ${err?.message || String(err)}`);
+	}
+
+	if (!json || json.type !== 'FeatureCollection' || !Array.isArray(json.features)) {
 		throw new Error('Wien-Grenze ist kein GeoJSON-FeatureCollection.');
 	}
 
@@ -140,28 +155,21 @@ export async function clipFeatureCollectionToBoundary({
 			}
 
 			const inputEnvelope = inputGeometry.getEnvelopeInternal();
-			
+
 			if (boundaryEnvelope.disjoint(inputEnvelope)) {
 				droppedFeatures++;
 				continue;
 			}
-			
-			const relation = RelateOp.relate(boundaryGeometry, inputGeometry);
-			
-			if (
-				boundaryEnvelope.covers(inputEnvelope) &&
-				relation.isCovers()
-			) {
-				clippedFeatures.push(feature);
-				keptUnchanged++;
-				continue;
+
+			if (boundaryEnvelope.covers(inputEnvelope)) {
+				const relation = RelateOp.relate(boundaryGeometry, inputGeometry);
+				if (relation.isCovers()) {
+					clippedFeatures.push(feature);
+					keptUnchanged++;
+					continue;
+				}
 			}
-			
-			if (!relation.isIntersects()) {
-				droppedFeatures++;
-				continue;
-			}
-			
+
 			const clippedGeometry = OverlayOp.overlayOp(
 				inputGeometry,
 				boundaryGeometry,
@@ -170,6 +178,29 @@ export async function clipFeatureCollectionToBoundary({
 
 			if (!clippedGeometry || clippedGeometry.isEmpty()) {
 				droppedFeatures++;
+				continue;
+			}
+
+			const clippedType = clippedGeometry.getGeometryType();
+
+			if (clippedType === 'LineString' || clippedType === 'LinearRing') {
+				intersectedFeatures++;
+				clippedFeatures.push(
+					cloneFeatureWithGeometry(feature, writer.write(clippedGeometry))
+				);
+				continue;
+			}
+
+			if (clippedType === 'MultiLineString') {
+				intersectedFeatures++;
+				const count = clippedGeometry.getNumGeometries();
+				splitParts += Math.max(0, count - 1);
+
+				for (let i = 0; i < count; i++) {
+					clippedFeatures.push(
+						cloneFeatureWithGeometry(feature, writer.write(clippedGeometry.getGeometryN(i)))
+					);
+				}
 				continue;
 			}
 
