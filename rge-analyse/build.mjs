@@ -37,11 +37,15 @@ const CONFIG = {
 	outDir: path.join(__dirname, 'build'),
 	outGeoJSON: path.join(__dirname, 'build', 'rge_analyse.geojson'),
 	outPMTiles: path.join(__dirname, 'build', 'rge_analyse.pmtiles'),
+	outTileJSONMetadata: path.join(__dirname, 'build', 'rge_analyse.tilejson-metadata.json'),
 	layerName: 'rge_analyse',
 	tippecanoeBin: 'tippecanoe',
 	buildPMTiles: true,
 	minZoom: 8,
 	maxZoom: 17,
+	fetchMaxAttempts: 3,
+	fetchRetryDelayMs: 120000,
+	fetchTimeoutMs: 120000,
 	// Falls du doch eine feste Wien-BBOX verwenden willst, hier ergänzen.
 	// Aktuell werden die Wien-OGD-Daten komplett geladen.
 };
@@ -157,23 +161,125 @@ const jstsIntersects = (a, b) => RelateOp.intersects(a, b);
 ////////////////////////////////////////////////////////////////////////////////
 // Hilfsfunktionen
 ////////////////////////////////////////////////////////////////////////////////
-async function fetchJson(url) {
-	const res = await fetch(url, {
-		headers: {
-			'User-Agent': 'Kartensammlung-RgE-Build/1.0',
-			'Accept': 'application/json',
-		},
-	});
+function log(message) {
+	console.log(`[RGE] ${message}`);
+}
 
-	if (!res.ok) {
-		throw new Error(`Fetch failed (${res.status}) for ${url}`);
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isObject(value) {
+	return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateGeoJSONLike(data, label) {
+	if (!isObject(data)) {
+		throw new Error(`${label}: JSON ist kein Objekt`);
 	}
 
-	return await res.json();
+	if (typeof data.type !== 'string' || data.type.length === 0) {
+		throw new Error(`${label}: JSON hat kein gültiges "type"`);
+	}
+
+	if (data.type === 'FeatureCollection' && !Array.isArray(data.features)) {
+		throw new Error(`${label}: FeatureCollection ohne "features"-Array`);
+	}
+
+	if (data.type === 'Feature' && !('geometry' in data)) {
+		throw new Error(`${label}: Feature ohne "geometry"`);
+	}
+}
+
+function safeJsonParse(text, label) {
+	try {
+		return JSON.parse(text);
+	} catch (err) {
+		throw new Error(`${label}: ungültiges JSON (${err.message})`);
+	}
+}
+
+async function fetchTextWithTimeout(url, options = {}, timeoutMs = 120000) {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+	try {
+		return await fetch(url, {
+			...options,
+			signal: controller.signal,
+		});
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+async function fetchJsonWithRetry(url, label) {
+	const maxAttempts = CONFIG.fetchMaxAttempts;
+	const retryDelayMs = CONFIG.fetchRetryDelayMs;
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const res = await fetchTextWithTimeout(
+				url,
+				{
+					headers: {
+						'User-Agent': 'Kartensammlung-RgE-Build/1.0',
+						'Accept': 'application/json',
+					},
+				},
+				CONFIG.fetchTimeoutMs
+			);
+
+			if (!res.ok) {
+				throw new Error(`HTTP ${res.status}`);
+			}
+
+			const text = await res.text();
+
+			if (!text || !text.trim()) {
+				throw new Error('leere Antwort');
+			}
+
+			const json = safeJsonParse(text, label);
+			validateGeoJSONLike(json, label);
+
+			log(`${label}: Download erfolgreich und JSON valide`);
+			return json;
+		} catch (err) {
+			log(`${label}: Versuch ${attempt}/${maxAttempts} fehlgeschlagen: ${err.message}`);
+
+			if (attempt >= maxAttempts) {
+				throw new Error(`${label}: nach ${maxAttempts} Versuchen kein gültiges JSON erhalten`);
+			}
+
+			await sleep(retryDelayMs);
+		}
+	}
 }
 
 async function ensureDir(dir) {
 	await fs.mkdir(dir, { recursive: true });
+}
+
+async function writeTextFileAtomic(filePath, content) {
+	const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}`;
+	await fs.writeFile(tmpPath, content, 'utf8');
+	await fs.rename(tmpPath, filePath);
+}
+
+async function writeJsonFileAtomic(filePath, value, pretty = false) {
+	const jsonText = pretty
+		? `${JSON.stringify(value, null, '\t')}\n`
+		: JSON.stringify(value);
+
+	safeJsonParse(jsonText, `Output ${path.basename(filePath)}`);
+	await writeTextFileAtomic(filePath, jsonText);
+}
+
+async function writeGeoJsonStringAtomic(filePath, geojsonText) {
+	const parsed = safeJsonParse(geojsonText, `Output ${path.basename(filePath)}`);
+	validateGeoJSONLike(parsed, `Output ${path.basename(filePath)}`);
+	await writeTextFileAtomic(filePath, geojsonText);
 }
 
 function isValidLineString(geom) {
@@ -262,8 +368,8 @@ function findAllNodes(lines, tolerance) {
 		const key = hash(x, y);
 		if (nodeMap.has(key)) return nodeMap.get(key);
 		const id = nodes.push([x, y]) - 1;
-		nodeMap.set(key, id);
 		nodeToLines[id] = new Set();
+		nodeMap.set(key, id);
 		return id;
 	}
 
@@ -273,7 +379,7 @@ function findAllNodes(lines, tolerance) {
 		lineStrings.forEach((ls) => {
 			ls.getCoordinates().forEach((pt) => {
 				const idx = findOrCreate(pt);
-				if (idx !== -1) nodeToLines[idx].add(f);
+				nodeToLines[idx].add(f);
 			});
 		});
 	});
@@ -308,7 +414,6 @@ function findStrassenAlongEinbahn(
 	einbahnFeatures,
 	{ searchBuffer, alignTolerance, minRatioStrasse, minRatioEinbahn }
 ) {
-
 	const tree = new RBush();
 	tree.load(
 		strassenAllFeatures.map((f) => {
@@ -667,15 +772,15 @@ async function main() {
 	await ensureDir(CONFIG.outDir);
 
 	const t0 = performance.now();
-	console.log('[RGE] Starte Ganz-Wien-Build …');
+	log('Starte Ganz-Wien-Build …');
 
 	const [maskenRaw, einbahnRaw, strassenRaw] = await Promise.all([
-		fetchJson(urlMasken),
-		fetchJson(urlEinbahn),
-		fetchJson(urlStrassen),
+		fetchJsonWithRetry(urlMasken, 'Masken'),
+		fetchJsonWithRetry(urlEinbahn, 'Einbahnen'),
+		fetchJsonWithRetry(urlStrassen, 'Straßen'),
 	]);
 
-	console.log('[RGE] Downloads abgeschlossen.');
+	log('Alle Downloads abgeschlossen und valide.');
 
 	const maskAllFeatures = format31256to3857.readFeatures(maskenRaw);
 	const radnetzAllFeatures = maskAllFeatures.filter((f) => String(f.getId() || '').includes('RADWEGE'));
@@ -684,13 +789,13 @@ async function main() {
 	const einbahnAllFeatures = format31256to3857.readFeatures(einbahnRaw);
 	const strassenAllFeatures = format31256to3857.readFeatures(strassenRaw);
 
-	console.log(
-		`[RGE] Input: mask=${maskAllFeatures.length}, einbahn=${einbahnAllFeatures.length}, strassen=${strassenAllFeatures.length}`
+	log(
+		`Input: mask=${maskAllFeatures.length}, einbahn=${einbahnAllFeatures.length}, strassen=${strassenAllFeatures.length}`
 	);
 
 	syncNodesBetweenLayers(einbahnAllFeatures, strassenAllFeatures, EINBAHN_TOLERANCE);
 	syncNodesBetweenLayers(strassenAllFeatures, einbahnAllFeatures, STRASSEN_TOLERANCE);
-	console.log('[RGE] Node-Synchronisierung fertig.');
+	log('Node-Synchronisierung fertig.');
 
 	const { nodes, nodeToLines } = findAllNodes(strassenAllFeatures, FIND_NODE_TOLERANCE);
 	const intersections = nodes
@@ -722,7 +827,7 @@ async function main() {
 		});
 	});
 
-	console.log(`[RGE] Einbahnen gesplittet: ${einbahnSplitRaw.length}`);
+	log(`Einbahnen gesplittet: ${einbahnSplitRaw.length}`);
 
 	const { einbahnen: matchedEinbahnen } = findStrassenAlongEinbahn(strassenAllFeatures, einbahnSplitRaw, {
 		searchBuffer: RTREE_SEARCH_BUFFER,
@@ -731,7 +836,7 @@ async function main() {
 		minRatioEinbahn: MIN_RATIO_EINBAHN,
 	});
 
-	console.log(`[RGE] Gematchte Einbahnen: ${matchedEinbahnen.length}`);
+	log(`Gematchte Einbahnen: ${matchedEinbahnen.length}`);
 
 	const MaskenFeatures = [];
 	function addFeaturesWithBuffer(source, getBuf) {
@@ -815,28 +920,24 @@ async function main() {
 	const alleEinbahnenFinal = [...freizugebendeEinbahnFeatures, ...offeneEinbahnFeatures];
 	const dissolved = dissolveConnectedLines(alleEinbahnenFinal, 1);
 
-	console.log(`[RGE] Finale Features nach dissolve: ${dissolved.length}`);
+	log(`Finale Features nach dissolve: ${dissolved.length}`);
 
 	const geojsonString = format3857to4326.writeFeatures(dissolved, {
 		decimals: 6,
 	});
 
-	await fs.writeFile(CONFIG.outGeoJSON, geojsonString, 'utf8');
-	await fs.writeFile(
-		path.join(CONFIG.outDir, 'rge_analyse.tilejson-metadata.json'),
-		JSON.stringify(buildTileJSONMetadata(), null, '\t'),
-		'utf8'
-	);
+	await writeGeoJsonStringAtomic(CONFIG.outGeoJSON, geojsonString);
+	await writeJsonFileAtomic(CONFIG.outTileJSONMetadata, buildTileJSONMetadata(), true);
 
-	console.log(`[RGE] GeoJSON geschrieben: ${CONFIG.outGeoJSON}`);
+	log(`GeoJSON geschrieben: ${CONFIG.outGeoJSON}`);
 
 	const builtPMTiles = await buildPMTilesIfPossible();
 	if (builtPMTiles) {
-		console.log(`[RGE] PMTiles geschrieben: ${CONFIG.outPMTiles}`);
+		log(`PMTiles geschrieben: ${CONFIG.outPMTiles}`);
 	}
 
 	const ms = Math.round(performance.now() - t0);
-	console.log(`[RGE] Fertig in ${ms} ms`);
+	log(`Fertig in ${ms} ms`);
 }
 
 main().catch((err) => {
