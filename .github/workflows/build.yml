@@ -20,7 +20,7 @@ on:
         default: true
         type: boolean
   schedule:
-    - cron: '23 4 * * *'
+    - cron: '23 3 * * *'
 
 concurrency:
   group: overlay-builds
