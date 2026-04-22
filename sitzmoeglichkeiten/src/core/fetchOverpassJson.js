@@ -63,14 +63,16 @@ export function createOverpassFetcher({
 	fetchImpl = globalThis.fetch,
 	logger = console,
 	endpoints = [
-		'https://overpass-api.de/api/interpreter',
 		'https://overpass.private.coffee/api/interpreter',
-		'https://overpass.kumi.systems/api/interpreter',
+		'https://overpass.osm.jp/api/interpreter',
+		'https://overpass-api.de/api/interpreter',
 		'https://lz4.overpass-api.de/api/interpreter'
 	],
 	maxRounds = 4,
-	retryDelaysMs = [90_000, 180_000, 300_000],
-	requestTimeoutMs = 60_000
+	retryDelaysMs = [120_000, 240_000, 600_000],
+	requestTimeoutMs = 75_000,
+	userAgent = process.env.KS_OVERPASS_USER_AGENT ||
+		'Kartensammlung-Overlay-Builds/1.0 (+https://github.com/peter-alexander/kartensammlung-overlay-builds)'
 } = {}) {
 	if (typeof fetchImpl !== 'function') {
 		throw new Error('No fetch implementation available.');
@@ -104,7 +106,9 @@ export function createOverpassFetcher({
 						method: 'POST',
 						body: 'data=' + encodeURIComponent(query),
 						headers: {
-							'Content-Type': 'application/x-www-form-urlencoded'
+							'User-Agent': userAgent,
+							'Accept': 'application/json, text/plain;q=0.9, */*;q=0.8',
+							'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
 						},
 						signal: controller.signal
 					});
@@ -122,15 +126,19 @@ export function createOverpassFetcher({
 							sawRetryableFailure = true;
 						}
 
+						const bodyText = await res.text().catch(() => '');
+
 						failures.push({
 							round: roundNumber,
 							endpoint,
 							type: 'http',
-							status: res.status
+							status: res.status,
+							body: bodyText.slice(0, 400)
 						});
 
 						logger?.warn?.(
-							`Overpass endpoint ${endpoint} responded with HTTP ${res.status} in round ${roundNumber}/${maxRounds}.`
+							`Overpass endpoint ${endpoint} responded with HTTP ${res.status} in round ${roundNumber}/${maxRounds}` +
+							(bodyText ? ` | Body: ${bodyText.slice(0, 400).replace(/\s+/g, ' ')}` : '')
 						);
 
 						continue;
@@ -140,6 +148,7 @@ export function createOverpassFetcher({
 
 					if (!json || typeof json !== 'object' || !Array.isArray(json.elements)) {
 						sawRetryableFailure = true;
+
 						failures.push({
 							round: roundNumber,
 							endpoint,
@@ -160,11 +169,10 @@ export function createOverpassFetcher({
 					}
 
 					return json;
-				}
-				catch (err) {
+				} catch (err) {
 					clearTimeout(timeoutId);
-
 					sawRetryableFailure = true;
+
 					failures.push({
 						round: roundNumber,
 						endpoint,
@@ -203,7 +211,6 @@ export function createOverpassFetcher({
 				logger?.warn?.(
 					`All Overpass endpoints failed in round ${roundNumber}/${maxRounds}. Waiting ${formatMs(delayMs)} before retry.`
 				);
-
 				await sleep(delayMs);
 			}
 		}
@@ -211,7 +218,7 @@ export function createOverpassFetcher({
 		const summary = failures
 			.map((failure) => {
 				if (failure.type === 'http') {
-					return `R${failure.round} ${failure.endpoint} -> HTTP ${failure.status}`;
+					return `R${failure.round} ${failure.endpoint} -> HTTP ${failure.status}${failure.body ? ` (${failure.body})` : ''}`;
 				}
 
 				if (failure.type === 'invalid-json') {
