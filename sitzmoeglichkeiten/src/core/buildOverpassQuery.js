@@ -84,14 +84,13 @@ export function buildOverpassQuery({
 
 	const highwayFilterLine = `way["highway"~"${highwayRegex}"]${valueAusschluss}${tagAusschluss}(${bbox});`;
 
-	const query = `[out:json];
+const query = `[out:json][timeout:60];
 (
 	${sitzFilters}
 	${fussgaengerFilters}
 	${highwayFilterLine}
 );
 out geom;`;
-
 	return {
 		query,
 		seatKeyVals
