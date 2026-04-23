@@ -6,26 +6,22 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { fromLonLat } from 'ol/proj.js';
 
 import { runBenchAnalysisNode } from '../adapters/nodeRunner.js';
-import { clipGeoJsonFileToBoundary } from '../core/clipGeoJsonFileToBoundary.js';
+import { clipFeatureCollectionToBoundary } from '../core/clipFeatureCollectionToBoundary.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const GDAL_TIPPECANOE_PROPERTY = '__ks_tippecanoe_json';
-
 const CONFIG = {
 	bounds4326: {
 		// Hier deinen korrigierten Extent eintragen
-
-		// ZL12 Testkachel
+		//ZL12 Testkachel
 		/*
 		minLon: 16.34765625,
 		minLat: 48.166085419012525,
 		maxLon: 16.435546875,
 		maxLat: 48.2246726495652
 		*/
-
-		// Wien 4 Z11-Kacheln
+		//Wien 4 Z11-Kacheln
 		minLon: 16.171875,
 		minLat: 48.1074311884804,
 		maxLon: 16.59375,
@@ -37,7 +33,7 @@ const CONFIG = {
 		retryDelaysMs: [120_000, 240_000, 600_000],
 		requestTimeoutMs: 60_000
 	},
-
+	
 	analysis: {
 		includeBenches: false,
 		options: {
@@ -52,9 +48,7 @@ const CONFIG = {
 	boundaryClip: {
 		enabled: process.env.KS_CLIP_TO_WIEN_BOUNDARY !== '0',
 		strict: process.env.KS_CLIP_TO_WIEN_BOUNDARY_STRICT === '1',
-		sourceFile: process.env.KS_WIEN_BOUNDARY_FILE || null,
-		wfsUrl: process.env.KS_WIEN_BOUNDARY_WFS_URL || 'https://data.wien.gv.at/daten/geo?service=WFS&request=GetFeature&version=1.1.0&typeName=ogdwien:LANDESGRENZEOGD&srsName=EPSG:4326&outputFormat=json',
-		ogr2ogrBin: process.env.OGR2OGR_BIN || 'ogr2ogr'
+		wfsUrl: process.env.KS_WIEN_BOUNDARY_WFS_URL || 'https://data.wien.gv.at/daten/geo?service=WFS&request=GetFeature&version=1.1.0&typeName=ogdwien:LANDESGRENZEOGD&srsName=EPSG:4326&outputFormat=json'
 	},
 
 	output: {
@@ -68,10 +62,12 @@ const CONFIG = {
 	tippecanoe: {
 		enabled: process.env.KS_ENABLE_TIPPECANOE !== '0',
 		bin: process.env.TIPPECANOE_BIN || 'tippecanoe',
+
 		exportPmtiles: process.env.KS_EXPORT_PMTILES !== '0',
 		exportTileDirectory: process.env.KS_EXPORT_TILE_DIR !== '0',
 		tileDirectoryName: 'tiles',
 		cleanTileDirectoryBeforeExport: true,
+
 		layer: 'sitzdistanz',
 		name: 'Wien Sitzdistanz',
 		description: 'Nightly generated accessibility tiles for seating opportunities in Vienna',
@@ -106,14 +102,12 @@ function buildOutputPaths(config) {
 	const pmtilesFile = path.join(config.output.dir, `${config.output.baseName}.pmtiles`);
 	const tileDirectory = path.join(config.output.dir, config.tippecanoe.tileDirectoryName);
 	const manifestFile = path.join(config.output.dir, `${config.output.baseName}.manifest.json`);
-	const preClipGeojsonFile = path.join(config.output.dir, `${config.output.baseName}.preclip.geojson`);
 
 	return {
 		geojsonFile,
 		pmtilesFile,
 		tileDirectory,
-		manifestFile,
-		preClipGeojsonFile
+		manifestFile
 	};
 }
 
@@ -176,57 +170,6 @@ function buildTippecanoeArgs(config, geojsonFile, target) {
 	return args;
 }
 
-function prepareFeatureCollectionForGdalClip(featureCollection) {
-	return {
-		...featureCollection,
-		features: (featureCollection?.features || []).map((feature) => {
-			const properties = feature?.properties ? { ...feature.properties } : {};
-
-			if (feature?.tippecanoe && Object.keys(feature.tippecanoe).length > 0) {
-				properties[GDAL_TIPPECANOE_PROPERTY] = JSON.stringify(feature.tippecanoe);
-			}
-
-			const prepared = {
-				...feature,
-				properties
-			};
-
-			delete prepared.tippecanoe;
-
-			return prepared;
-		})
-	};
-}
-
-function restoreFeatureCollectionAfterGdalClip(featureCollection, logger = console) {
-	return {
-		...featureCollection,
-		features: (featureCollection?.features || []).map((feature) => {
-			const properties = feature?.properties ? { ...feature.properties } : {};
-			const encodedTippecanoe = properties[GDAL_TIPPECANOE_PROPERTY];
-
-			delete properties[GDAL_TIPPECANOE_PROPERTY];
-
-			const restored = {
-				...feature,
-				properties
-			};
-
-			if (typeof encodedTippecanoe === 'string' && encodedTippecanoe.trim()) {
-				try {
-					restored.tippecanoe = JSON.parse(encodedTippecanoe);
-				} catch (err) {
-					logger?.warn?.(
-						`Konnte tippecanoe-Metadaten nach GDAL-Clip nicht wiederherstellen: ${err?.message || String(err)}`
-					);
-				}
-			}
-
-			return restored;
-		})
-	};
-}
-
 async function runCommand(bin, args) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(bin, args, {
@@ -235,6 +178,7 @@ async function runCommand(bin, args) {
 		});
 
 		child.once('error', reject);
+
 		child.once('exit', (code) => {
 			if (code === 0) {
 				resolve();
@@ -276,48 +220,30 @@ async function main() {
 	});
 
 	const analysisFinishedMs = Date.now();
+
 	console.log(`Analyse fertig in ${((analysisFinishedMs - analysisStartedMs) / 1000).toFixed(1)} s`);
 
 	let finalGeojson = geojson;
-	let finalFeatureCount = geojson?.features?.length ?? null;
 
 	if (CONFIG.boundaryClip.enabled) {
-		const boundaryLabel = CONFIG.boundaryClip.sourceFile || CONFIG.boundaryClip.wfsUrl;
-		console.log(`Bereite Wien-Clip via GDAL vor: ${boundaryLabel}`);
+		console.log(`Lade Wien-Grenze und clippe Output: ${CONFIG.boundaryClip.wfsUrl}`);
 
 		const clipStartedMs = Date.now();
 
-		try {
-			const preparedForClip = prepareFeatureCollectionForGdalClip(geojson);
+		finalGeojson = await clipFeatureCollectionToBoundary({
+			featureCollection: geojson,
+			boundaryUrl: CONFIG.boundaryClip.wfsUrl,
+			strict: CONFIG.boundaryClip.strict,
+			logger: console
+		});
 
-			console.log(`Schreibe Analyse-GeoJSON für Wien-Clip: ${paths.preClipGeojsonFile}`);
-			await writeFile(paths.preClipGeojsonFile, JSON.stringify(preparedForClip), 'utf8');
-
-			const clipResult = await clipGeoJsonFileToBoundary({
-				inputFile: paths.preClipGeojsonFile,
-				boundaryUrl: CONFIG.boundaryClip.sourceFile ? null : CONFIG.boundaryClip.wfsUrl,
-				boundaryFile: CONFIG.boundaryClip.sourceFile,
-				strict: CONFIG.boundaryClip.strict,
-				ogr2ogrBin: CONFIG.boundaryClip.ogr2ogrBin,
-				logger: console
-			});
-
-			finalGeojson = restoreFeatureCollectionAfterGdalClip(clipResult.featureCollection, console);
-			finalFeatureCount = finalGeojson?.features?.length ?? null;
-
-			if (clipResult.skipped) {
-				console.warn('Wien-Clip wurde übersprungen, ungeclipptes GeoJSON wird weiterverwendet.');
-			}
-
-			console.log(`Wien-Clip fertig in ${((Date.now() - clipStartedMs) / 1000).toFixed(1)} s`);
-			console.log(`Features nach Wien-Clip: ${finalFeatureCount ?? 0}`);
-		} finally {
-			await rm(paths.preClipGeojsonFile, { force: true });
-		}
+		console.log(`Wien-Clip fertig in ${((Date.now() - clipStartedMs) / 1000).toFixed(1)} s`);
+		console.log(`Features nach Wien-Clip: ${finalGeojson?.features?.length ?? 0}`);
 	}
 
-	const willRunTippecanoe = CONFIG.tippecanoe.enabled
-		&& (CONFIG.tippecanoe.exportPmtiles || CONFIG.tippecanoe.exportTileDirectory);
+	const willRunTippecanoe =
+		CONFIG.tippecanoe.enabled &&
+		(CONFIG.tippecanoe.exportPmtiles || CONFIG.tippecanoe.exportTileDirectory);
 
 	const mustWriteGeoJsonFile = CONFIG.output.writeGeoJson || willRunTippecanoe;
 
@@ -385,36 +311,26 @@ async function main() {
 			boundaryClip: {
 				enabled: CONFIG.boundaryClip.enabled,
 				strict: CONFIG.boundaryClip.strict,
-				sourceFile: CONFIG.boundaryClip.sourceFile,
-				wfsUrl: CONFIG.boundaryClip.wfsUrl,
-				ogr2ogrBin: CONFIG.boundaryClip.ogr2ogrBin
+				wfsUrl: CONFIG.boundaryClip.wfsUrl
 			},
 			featureCountBeforeBoundaryClip: geojson?.features?.length ?? null,
 			output: {
 				geojsonFile: (
-					mustWriteGeoJsonFile
-					&& (CONFIG.output.writeGeoJson || CONFIG.output.keepGeoJsonAfterTippecanoe)
-				)
-					? paths.geojsonFile
-					: null,
-				pmtilesFile: (willRunTippecanoe && CONFIG.tippecanoe.exportPmtiles)
-					? paths.pmtilesFile
-					: null,
-				tileDirectory: (willRunTippecanoe && CONFIG.tippecanoe.exportTileDirectory)
-					? paths.tileDirectory
-					: null
+					mustWriteGeoJsonFile &&
+					(CONFIG.output.writeGeoJson || CONFIG.output.keepGeoJsonAfterTippecanoe)
+				) ? paths.geojsonFile : null,
+				pmtilesFile: (willRunTippecanoe && CONFIG.tippecanoe.exportPmtiles) ? paths.pmtilesFile : null,
+				tileDirectory: (willRunTippecanoe && CONFIG.tippecanoe.exportTileDirectory) ? paths.tileDirectory : null
 			},
-			tippecanoe: willRunTippecanoe
-				? {
-					bin: CONFIG.tippecanoe.bin,
-					layer: CONFIG.tippecanoe.layer,
-					name: CONFIG.tippecanoe.name,
-					description: CONFIG.tippecanoe.description,
-					exportPmtiles: CONFIG.tippecanoe.exportPmtiles,
-					exportTileDirectory: CONFIG.tippecanoe.exportTileDirectory
-				}
-				: null,
-			featureCount: finalFeatureCount
+			tippecanoe: willRunTippecanoe ? {
+				bin: CONFIG.tippecanoe.bin,
+				layer: CONFIG.tippecanoe.layer,
+				name: CONFIG.tippecanoe.name,
+				description: CONFIG.tippecanoe.description,
+				exportPmtiles: CONFIG.tippecanoe.exportPmtiles,
+				exportTileDirectory: CONFIG.tippecanoe.exportTileDirectory
+			} : null,
+			featureCount: finalGeojson?.features?.length ?? null
 		});
 
 		console.log(`Manifest: ${paths.manifestFile}`);
