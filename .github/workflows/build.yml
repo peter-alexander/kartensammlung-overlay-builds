@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   node-health:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -48,7 +48,7 @@ jobs:
           npm ci --dry-run --no-fund --no-audit
 
   tippecanoe:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -91,7 +91,7 @@ jobs:
   rge-analyse:
     needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
       BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
@@ -167,7 +167,7 @@ jobs:
   radparken:
     needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
       BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
@@ -246,7 +246,7 @@ jobs:
   sitzmoeglichkeiten:
     needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
       BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
@@ -262,11 +262,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp gdal-bin
-
-      - name: Verify GDAL
-        run: |
-          ogr2ogr --version
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev lftp
 
       - name: Download tippecanoe artifact
         uses: actions/download-artifact@v8
@@ -287,7 +283,6 @@ jobs:
       - name: Build Sitzmoeglichkeiten
         env:
           TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
-          OGR2OGR_BIN: ogr2ogr
           BUILD_PMTILES: true
           BUILD_PBF_TILES: ${{ env.BUILD_LEGACY }}
         run: |
@@ -330,7 +325,7 @@ jobs:
   radlkarte:
     needs: [tippecanoe, node-health]
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
