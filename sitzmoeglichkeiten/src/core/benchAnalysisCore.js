@@ -82,7 +82,6 @@ export async function runBenchAnalysisCore({
 	});
 
 	const json = await fetchJson(query);
-	const osmGeoJson = deps.osmtogeojson(json, { flatProperties: false });
 
 	const allFeat = geoJsonFmt.readFeatures(osmGeoJson, {
 		dataProjection: 'EPSG:4326',
