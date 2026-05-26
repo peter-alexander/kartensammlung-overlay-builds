@@ -15,7 +15,7 @@ const CONFIG = {
 	overpass: {
 		maxRounds: 4,
 		retryDelaysMs: [120_000, 240_000, 600_000],
-		requestTimeoutMs: 60_000
+		requestTimeoutMs: 360_000
 	},
 
 	analysis: {
