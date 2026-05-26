@@ -2,7 +2,7 @@ export const REGIONS = [
 	{
 		id: 'wien',
 		name: 'Wien',
-		enabled: true,
+		enabled: false,
 		bounds4326: {
 			minLon: 16.171875,
 			minLat: 48.1074311884804,
@@ -21,10 +21,10 @@ export const REGIONS = [
 		name: 'München + 10 km',
 		enabled: true,
 		bounds4326: {
-			minLon: 11.30,
-			minLat: 47.95,
-			maxLon: 11.85,
-			maxLat: 48.30
+			minLon: 11.222,
+			minLat: 47.96,
+			maxLon: 11.88,
+			maxLat: 48.345
 		},
 		boundaryClip: {
 			enabled: false
