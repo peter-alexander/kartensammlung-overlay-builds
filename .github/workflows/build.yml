@@ -249,8 +249,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      #BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
-      BUILD_LEGACY: 'false'
+      BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
       - uses: actions/checkout@v6
