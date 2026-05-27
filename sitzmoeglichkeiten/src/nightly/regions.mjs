@@ -1,3 +1,9 @@
+import { fileURLToPath } from 'node:url';
+
+const MUENCHEN_10KM_BOUNDARY_FILE = fileURLToPath(
+	new URL('../boundaries/muenchen_10km.geojson', import.meta.url)
+);
+
 export const REGIONS = [
 	{
 		id: 'wien',
@@ -27,7 +33,8 @@ export const REGIONS = [
 			maxLat: 48.345
 		},
 		boundaryClip: {
-			enabled: false
+			enabled: true,
+			file: MUENCHEN_10KM_BOUNDARY_FILE
 		}
 	}
 ];
