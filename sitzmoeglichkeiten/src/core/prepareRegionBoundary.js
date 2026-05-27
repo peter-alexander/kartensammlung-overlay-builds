@@ -2,7 +2,6 @@ import fs from 'node:fs/promises';
 
 import proj4 from 'proj4';
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
-import GeoJSONWriter from 'jsts/org/locationtech/jts/io/GeoJSONWriter.js';
 import BufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
 import UnionOp from 'jsts/org/locationtech/jts/operation/union/UnionOp.js';
 
@@ -37,6 +36,82 @@ function isCoordinateObject(value) {
 		typeof value.x === 'number' &&
 		typeof value.y === 'number'
 	);
+}
+
+function coordinateToPosition(coord) {
+	if (isPositionArray(coord)) {
+		return [coord[0], coord[1]];
+	}
+
+	if (isCoordinateObject(coord)) {
+		return [coord.x, coord.y];
+	}
+
+	if (coord && typeof coord.getX === 'function' && typeof coord.getY === 'function') {
+		return [coord.getX(), coord.getY()];
+	}
+
+	throw new Error('Unbekanntes Koordinatenformat aus JSTS.');
+}
+
+function ringToPositions(ring) {
+	const coordinates = ring.getCoordinates();
+	return coordinates.map((coord) => coordinateToPosition(coord));
+}
+
+function polygonToCoordinates(polygon) {
+	const rings = [ringToPositions(polygon.getExteriorRing())];
+	const holeCount = typeof polygon.getNumInteriorRing === 'function'
+		? polygon.getNumInteriorRing()
+		: 0;
+
+	for (let i = 0; i < holeCount; i++) {
+		rings.push(ringToPositions(polygon.getInteriorRingN(i)));
+	}
+
+	return rings;
+}
+
+function collectPolygonCoordinatesFromJstsGeometry(geometry, out = []) {
+	if (!geometry || geometry.isEmpty()) {
+		return out;
+	}
+
+	const type = geometry.getGeometryType();
+
+	if (type === 'Polygon') {
+		out.push(polygonToCoordinates(geometry));
+		return out;
+	}
+
+	if (type === 'MultiPolygon' || type === 'GeometryCollection') {
+		for (let i = 0; i < geometry.getNumGeometries(); i++) {
+			collectPolygonCoordinatesFromJstsGeometry(geometry.getGeometryN(i), out);
+		}
+		return out;
+	}
+
+	throw new Error(`Puffer ergab unerwarteten Geometrietyp: ${type}`);
+}
+
+function jstsPolygonalGeometryToGeoJSON(geometry) {
+	const polygons = collectPolygonCoordinatesFromJstsGeometry(geometry);
+
+	if (polygons.length === 0) {
+		throw new Error('Puffergeometrie enthält keine Polygone.');
+	}
+
+	if (polygons.length === 1) {
+		return {
+			type: 'Polygon',
+			coordinates: polygons[0]
+		};
+	}
+
+	return {
+		type: 'MultiPolygon',
+		coordinates: polygons
+	};
 }
 
 export async function loadBoundaryFeatureCollectionFromFile(file, label = 'Grenze') {
@@ -236,7 +311,6 @@ function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label)
 
 	const localFeatureCollection = transformFeatureCollection(featureCollection, toLocal);
 	const reader = new GeoJSONReader();
-	const writer = new GeoJSONWriter();
 	const localBoundaryGeometry = buildBoundaryGeometry(localFeatureCollection, reader, label);
 	const bufferedLocalGeometry = BufferOp.bufferOp(localBoundaryGeometry, bufferMeters);
 
@@ -253,7 +327,7 @@ function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label)
 					generated: true,
 					bufferMeters
 				},
-				geometry: writer.write(bufferedLocalGeometry)
+				geometry: jstsPolygonalGeometryToGeoJSON(bufferedLocalGeometry)
 			}
 		]
 	};
