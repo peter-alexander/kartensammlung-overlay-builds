@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { once } from 'node:events';
 
 import { fromLonLat } from 'ol/proj.js';
 
@@ -184,11 +186,55 @@ function addRegionProperties(featureCollection, region) {
 	return featureCollection;
 }
 
-function mergeFeatureCollections(collections) {
-	return {
-		type: 'FeatureCollection',
-		features: collections.flatMap((collection) => collection?.features ?? [])
-	};
+function getFeatureCount(regionResults) {
+	let count = 0;
+
+	for (const result of regionResults) {
+		count += result.featureCollection?.features?.length ?? 0;
+	}
+
+	return count;
+}
+
+async function writeMergedFeatureCollectionStream(file, regionResults) {
+	const stream = createWriteStream(file, {
+		encoding: 'utf8'
+	});
+	let first = true;
+	let featureCount = 0;
+
+	function writeChunk(chunk) {
+		if (stream.write(chunk)) {
+			return Promise.resolve();
+		}
+
+		return once(stream, 'drain');
+	}
+
+	try {
+		await writeChunk('{"type":"FeatureCollection","features":[');
+
+		for (const result of regionResults) {
+			for (const feature of result.featureCollection?.features ?? []) {
+				if (!first) {
+					await writeChunk(',');
+				}
+
+				first = false;
+				await writeChunk(JSON.stringify(feature));
+				featureCount++;
+			}
+		}
+
+		await writeChunk(']}');
+		stream.end();
+		await once(stream, 'finish');
+	} catch (err) {
+		stream.destroy();
+		throw err;
+	}
+
+	return featureCount;
 }
 
 async function runRegion(region) {
@@ -282,9 +328,7 @@ async function main() {
 		regionResults.push(result);
 	}
 
-	const mergedGeojson = mergeFeatureCollections(
-		regionResults.map((result) => result.featureCollection)
-	);
+	const featureCount = getFeatureCount(regionResults);
 
 	const willRunTippecanoe =
 		CONFIG.tippecanoe.enabled &&
@@ -295,8 +339,9 @@ async function main() {
 	if (mustWriteGeoJsonFile) {
 		console.log('');
 		console.log(`Schreibe zusammengeführtes GeoJSON: ${paths.geojsonFile}`);
-		console.log(`Features gesamt: ${mergedGeojson.features.length}`);
-		await writeFile(paths.geojsonFile, JSON.stringify(mergedGeojson), 'utf8');
+		console.log(`Features gesamt: ${featureCount}`);
+		const writtenFeatureCount = await writeMergedFeatureCollectionStream(paths.geojsonFile, regionResults);
+		console.log(`GeoJSON geschrieben: ${writtenFeatureCount} Features`);
 	}
 
 	if (willRunTippecanoe && CONFIG.tippecanoe.exportPmtiles) {
@@ -373,7 +418,7 @@ async function main() {
 				exportPmtiles: CONFIG.tippecanoe.exportPmtiles,
 				exportTileDirectory: CONFIG.tippecanoe.exportTileDirectory
 			} : null,
-			featureCount: mergedGeojson.features.length
+			featureCount
 		});
 
 		console.log(`Manifest: ${paths.manifestFile}`);
