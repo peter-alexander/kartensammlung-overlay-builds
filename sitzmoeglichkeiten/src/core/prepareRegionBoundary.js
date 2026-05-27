@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import proj4 from 'proj4';
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
 import GeoJSONWriter from 'jsts/org/locationtech/jts/io/GeoJSONWriter.js';
+import BufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
 import UnionOp from 'jsts/org/locationtech/jts/operation/union/UnionOp.js';
 
 const boundaryCache = new Map();
@@ -217,7 +218,7 @@ function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label)
 	const reader = new GeoJSONReader();
 	const writer = new GeoJSONWriter();
 	const localBoundaryGeometry = buildBoundaryGeometry(localFeatureCollection, reader, label);
-	const bufferedLocalGeometry = localBoundaryGeometry.buffer(bufferMeters);
+	const bufferedLocalGeometry = BufferOp.bufferOp(localBoundaryGeometry, bufferMeters);
 
 	if (!bufferedLocalGeometry || bufferedLocalGeometry.isEmpty()) {
 		throw new Error(`${label}: Puffergeometrie ist leer.`);
