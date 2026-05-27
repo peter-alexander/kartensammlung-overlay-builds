@@ -229,7 +229,9 @@ async function runRegion(region) {
 
 		finalGeojson = await clipFeatureCollectionToBoundary({
 			featureCollection: geojson,
-			boundaryUrl: region.boundaryClip.wfsUrl,
+			boundaryUrl: region.boundaryClip.url ?? null,
+			boundaryFile: region.boundaryClip.file ?? null,
+			innerBoundaryFile: region.boundaryClip.innerFile ?? null,
 			strict: region.boundaryClip.strict === true,
 			logger: console
 		});
