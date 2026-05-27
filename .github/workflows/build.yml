@@ -15,7 +15,7 @@ on:
           - sitzmoeglichkeiten
           - radlkarte
       build_legacy:
-        description: Build legacy output (RgE geojson / tiles directories)
+        description: Build legacy output (GeoJSON / PBF tiles directories)
         required: true
         default: true
         type: boolean
@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
+      BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
       - uses: actions/checkout@v6
@@ -170,7 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
+      BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
       - uses: actions/checkout@v6
@@ -249,7 +249,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      BUILD_LEGACY: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy || true }}
+      BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
     steps:
       - uses: actions/checkout@v6
@@ -375,6 +375,7 @@ jobs:
           EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
           EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
           EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+          LFTP_PARALLEL: 8
         run: |
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlkarte"
 

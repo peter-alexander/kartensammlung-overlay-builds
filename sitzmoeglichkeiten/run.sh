@@ -32,4 +32,4 @@ else
 fi
 
 cd "$SCRIPT_DIR"
-node --max-old-space-size=8192 src/nightly/runSingleExtent.mjs
+node --max-old-space-size=12288 src/nightly/runRegions.mjs
