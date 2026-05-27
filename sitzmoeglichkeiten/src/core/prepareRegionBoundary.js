@@ -20,6 +20,25 @@ function parseFeatureCollection(json, label) {
 	return json;
 }
 
+function isPositionArray(value) {
+	return (
+		Array.isArray(value) &&
+		value.length >= 2 &&
+		typeof value[0] === 'number' &&
+		typeof value[1] === 'number'
+	);
+}
+
+function isCoordinateObject(value) {
+	return (
+		value &&
+		typeof value === 'object' &&
+		!Array.isArray(value) &&
+		typeof value.x === 'number' &&
+		typeof value.y === 'number'
+	);
+}
+
 export async function loadBoundaryFeatureCollectionFromFile(file, label = 'Grenze') {
 	const cacheKey = `file:${file}`;
 
@@ -46,16 +65,17 @@ export async function loadBoundaryFeatureCollectionFromFile(file, label = 'Grenz
 }
 
 function visitPositionsInCoordinates(coords, visit) {
-	if (!Array.isArray(coords)) return;
-
-	if (
-		coords.length >= 2 &&
-		typeof coords[0] === 'number' &&
-		typeof coords[1] === 'number'
-	) {
+	if (isPositionArray(coords)) {
 		visit(coords);
 		return;
 	}
+
+	if (isCoordinateObject(coords)) {
+		visit([coords.x, coords.y]);
+		return;
+	}
+
+	if (!Array.isArray(coords)) return;
 
 	for (const child of coords) {
 		visitPositionsInCoordinates(child, visit);
@@ -76,15 +96,15 @@ function visitPositionsInGeometry(geometry, visit) {
 }
 
 function transformCoordinates(coords, transformPosition) {
-	if (!Array.isArray(coords)) return coords;
-
-	if (
-		coords.length >= 2 &&
-		typeof coords[0] === 'number' &&
-		typeof coords[1] === 'number'
-	) {
+	if (isPositionArray(coords)) {
 		return transformPosition(coords);
 	}
+
+	if (isCoordinateObject(coords)) {
+		return transformPosition([coords.x, coords.y]);
+	}
+
+	if (!Array.isArray(coords)) return coords;
 
 	return coords.map((child) => transformCoordinates(child, transformPosition));
 }
