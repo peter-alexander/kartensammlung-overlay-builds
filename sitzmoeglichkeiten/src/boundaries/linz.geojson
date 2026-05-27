@@ -12891,42 +12891,6 @@
         ]
       },
       "id": "relation/86708"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/25181326",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "86708",
-            "reltags": {
-              "admin_level": "6",
-              "boundary": "administrative",
-              "name": "Linz",
-              "name:ar": "لنتس",
-              "name:prefix:at": "Statutarstadt",
-              "name:sk": "Linec",
-              "name:zh": "林茨",
-              "name:zh-Hant": "林茲",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "ref": "L",
-              "ref:at:gkz": "40101",
-              "type": "boundary",
-              "wikidata": "Q41329",
-              "wikipedia": "de:Linz"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          14.286198,
-          48.3059078
-        ]
-      },
-      "id": "node/25181326"
     }
   ]
 }
