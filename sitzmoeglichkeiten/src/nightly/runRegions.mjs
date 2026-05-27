@@ -223,7 +223,7 @@ async function runRegion(region) {
 	let finalGeojson = geojson;
 
 	if (region.boundaryClip?.enabled) {
-		console.log(`Lade Grenze und clippe Output für ${region.id}: ${region.boundaryClip.wfsUrl}`);
+		console.log(`Lade Grenze und clippe Output für ${region.id}: ${region.boundaryClip.url ?? region.boundaryClip.file ?? '(keine Grenze)'}`);
 
 		const clipStartedMs = Date.now();
 
