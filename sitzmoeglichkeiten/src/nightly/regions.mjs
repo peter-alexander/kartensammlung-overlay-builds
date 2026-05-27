@@ -2,7 +2,7 @@ export const REGIONS = [
 	{
 		id: 'wien',
 		name: 'Wien',
-		enabled: false,
+		enabled: true,
 		bounds4326: {
 			minLon: 16.171875,
 			minLat: 48.1074311884804,
