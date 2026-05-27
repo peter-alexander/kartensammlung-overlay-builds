@@ -82,61 +82,6 @@ function buildBoundaryGeometry(boundaryFeatureCollection, reader, label) {
 	return boundaryGeometry;
 }
 
-async function fetchBoundaryFeatureCollection(boundaryUrl) {
-	if (exactBoundaryFeatureCollectionCache.has(boundaryUrl)) {
-		return exactBoundaryFeatureCollectionCache.get(boundaryUrl);
-	}
-
-	const response = await fetch(boundaryUrl, {
-		headers: {
-			accept: 'application/json'
-		}
-	});
-
-	if (!response.ok) {
-		throw new Error(`Wien-Grenze konnte nicht geladen werden (HTTP ${response.status}).`);
-	}
-
-	const text = await response.text();
-
-	if (!text || !text.trim()) {
-		throw new Error('Wien-Grenze lieferte leere Antwort.');
-	}
-
-	let json;
-	try {
-		json = JSON.parse(text);
-	} catch (err) {
-		throw new Error(`Wien-Grenze ist kein gültiges JSON: ${err?.message || String(err)}`);
-	}
-
-	const parsed = parseFeatureCollectionJson(json, 'Wien-Grenze');
-	exactBoundaryFeatureCollectionCache.set(boundaryUrl, parsed);
-	return parsed;
-}
-
-async function loadInnerBoundaryFeatureCollection() {
-	if (innerBoundaryFeatureCollectionCache) {
-		return innerBoundaryFeatureCollectionCache;
-	}
-
-	const text = await fs.readFile(INNER_BOUNDARY_FILE, 'utf8');
-
-	if (!text || !text.trim()) {
-		throw new Error(`Innere Wien-Grenze ist leer: ${INNER_BOUNDARY_FILE}`);
-	}
-
-	let json;
-	try {
-		json = JSON.parse(text);
-	} catch (err) {
-		throw new Error(`Innere Wien-Grenze ist kein gültiges JSON: ${err?.message || String(err)}`);
-	}
-
-	innerBoundaryFeatureCollectionCache = parseFeatureCollectionJson(json, 'Innere Wien-Grenze');
-	return innerBoundaryFeatureCollectionCache;
-}
-
 async function loadBoundaryFeatureCollectionFromUrl(boundaryUrl, label) {
 	const cacheKey = `url:${boundaryUrl}`;
 
@@ -226,8 +171,8 @@ export async function clipFeatureCollectionToBoundary({
 			throw new Error('featureCollection muss eine GeoJSON-FeatureCollection sein.');
 		}
 
-		if (!boundaryUrl) {
-			throw new Error('boundaryUrl fehlt.');
+		if (!boundaryUrl && !boundaryFile) {
+			throw new Error('boundaryUrl oder boundaryFile fehlt.');
 		}
 
 		const inputFeatures = Array.isArray(featureCollection.features)
@@ -370,7 +315,7 @@ export async function clipFeatureCollectionToBoundary({
 			keptInsideInnerBoundary,
 			intersectedFeatures,
 			splitParts,
-			innerBoundaryFile: INNER_BOUNDARY_FILE
+			innerBoundaryFile
 		});
 
 		return {
