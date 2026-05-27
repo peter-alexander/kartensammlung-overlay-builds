@@ -1,45 +1,119 @@
 import { fileURLToPath } from 'node:url';
 
-const WIEN_INNER_BOUNDARY_FILE = fileURLToPath(
-	new URL('../boundaries/wien_innen.geojson', import.meta.url)
-);
-
-const MUENCHEN_10KM_BOUNDARY_FILE = fileURLToPath(
-	new URL('../boundaries/muenchen_10km.geojson', import.meta.url)
-);
+function boundaryFile(name) {
+	return fileURLToPath(
+		new URL(`../boundaries/${name}.geojson`, import.meta.url)
+	);
+}
 
 export const REGIONS = [
 	{
 		id: 'wien',
 		name: 'Wien',
 		enabled: true,
-		bounds4326: {
-			minLon: 16.171875,
-			minLat: 48.1074311884804,
-			maxLon: 16.59375,
-			maxLat: 48.34164617237459
-		},
-		boundaryClip: {
-			enabled: process.env.KS_CLIP_TO_WIEN_BOUNDARY !== '0',
-			strict: process.env.KS_CLIP_TO_WIEN_BOUNDARY_STRICT === '1',
-			url: process.env.KS_WIEN_BOUNDARY_WFS_URL || 'https://data.wien.gv.at/daten/geo?service=WFS&request=GetFeature&version=1.1.0&typeName=ogdwien:LANDESGRENZEOGD&srsName=EPSG:4326&outputFormat=json',
-			innerFile: WIEN_INNER_BOUNDARY_FILE
+		boundary: {
+			file: boundaryFile('wien'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
 		}
 	},
 
 	{
-		id: 'muenchen-10km',
-		name: 'München + 10 km',
+		id: 'st_poelten',
+		name: 'Sankt Pölten',
 		enabled: true,
-		bounds4326: {
-			minLon: 11.222,
-			minLat: 47.96,
-			maxLon: 11.88,
-			maxLat: 48.345
-		},
-		boundaryClip: {
-			enabled: true,
-			file: MUENCHEN_10KM_BOUNDARY_FILE
+		boundary: {
+			file: boundaryFile('st_poelten'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'eisenstadt',
+		name: 'Eisenstadt',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('eisenstadt'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'graz',
+		name: 'Graz',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('graz'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'klagenfurt',
+		name: 'Klagenfurt',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('klagenfurt'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'linz',
+		name: 'Linz',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('linz'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'salzburg',
+		name: 'Salzburg',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('salzburg'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'innsbruck',
+		name: 'Innsbruck',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('innsbruck'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'bregenz',
+		name: 'Bregenz',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('bregenz'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
+		id: 'muenchen',
+		name: 'München',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('muenchen'),
+			bufferMeters: 10000,
+			overpassMarginMeters: 200
 		}
 	}
 ];
