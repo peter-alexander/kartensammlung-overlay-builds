@@ -143,10 +143,15 @@ async function loadBoundaryFeatureCollectionFromFile(boundaryFile, label) {
 }
 
 async function loadBoundaryFeatureCollection({
+	boundaryFeatureCollection = null,
 	boundaryUrl = null,
 	boundaryFile = null,
 	label = 'Grenze'
 }) {
+	if (boundaryFeatureCollection) {
+		return parseFeatureCollectionJson(boundaryFeatureCollection, label);
+	}
+
 	if (boundaryFile) {
 		return loadBoundaryFeatureCollectionFromFile(boundaryFile, label);
 	}
@@ -155,13 +160,15 @@ async function loadBoundaryFeatureCollection({
 		return loadBoundaryFeatureCollectionFromUrl(boundaryUrl, label);
 	}
 
-	throw new Error(`${label}: boundaryUrl oder boundaryFile fehlt.`);
+	throw new Error(`${label}: boundaryFeatureCollection, boundaryUrl oder boundaryFile fehlt.`);
 }
 
 export async function clipFeatureCollectionToBoundary({
 	featureCollection,
+	boundaryFeatureCollection = null,
 	boundaryUrl = null,
 	boundaryFile = null,
+	innerBoundaryFeatureCollection = null,
 	innerBoundaryFile = null,
 	strict = false,
 	logger = console
@@ -171,8 +178,8 @@ export async function clipFeatureCollectionToBoundary({
 			throw new Error('featureCollection muss eine GeoJSON-FeatureCollection sein.');
 		}
 
-		if (!boundaryUrl && !boundaryFile) {
-			throw new Error('boundaryUrl oder boundaryFile fehlt.');
+		if (!boundaryFeatureCollection && !boundaryUrl && !boundaryFile) {
+			throw new Error('boundaryFeatureCollection, boundaryUrl oder boundaryFile fehlt.');
 		}
 
 		const inputFeatures = Array.isArray(featureCollection.features)
@@ -187,13 +194,18 @@ export async function clipFeatureCollectionToBoundary({
 		const writer = new GeoJSONWriter();
 
 		const exactBoundaryFeatureCollection = await loadBoundaryFeatureCollection({
+			boundaryFeatureCollection,
 			boundaryUrl,
 			boundaryFile,
 			label: 'Clip-Grenze'
 		});
-		
-		const innerBoundaryFeatureCollection = innerBoundaryFile
+
+		const loadedInnerBoundaryFeatureCollection = (
+			innerBoundaryFeatureCollection ||
+			innerBoundaryFile
+		)
 			? await loadBoundaryFeatureCollection({
+				boundaryFeatureCollection: innerBoundaryFeatureCollection,
 				boundaryFile: innerBoundaryFile,
 				label: 'Innere Clip-Grenze'
 			})
@@ -202,17 +214,17 @@ export async function clipFeatureCollectionToBoundary({
 		const exactBoundaryGeometry = buildBoundaryGeometry(
 			exactBoundaryFeatureCollection,
 			reader,
-			'Wien-Grenze'
+			'Clip-Grenze'
 		);
 
-		const innerBoundaryGeometry = innerBoundaryFeatureCollection
+		const innerBoundaryGeometry = loadedInnerBoundaryFeatureCollection
 			? buildBoundaryGeometry(
-				innerBoundaryFeatureCollection,
+				loadedInnerBoundaryFeatureCollection,
 				reader,
 				'Innere Clip-Grenze'
 			)
 			: null;
-		
+
 		const exactBoundaryEnvelope = exactBoundaryGeometry.getEnvelopeInternal();
 		const innerBoundaryEnvelope = innerBoundaryGeometry
 			? innerBoundaryGeometry.getEnvelopeInternal()
@@ -315,6 +327,7 @@ export async function clipFeatureCollectionToBoundary({
 			keptInsideInnerBoundary,
 			intersectedFeatures,
 			splitParts,
+			boundaryFile,
 			innerBoundaryFile
 		});
 
