@@ -1,6 +1,4 @@
 import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import GeoJSONReader from 'jsts/org/locationtech/jts/io/GeoJSONReader.js';
 import GeoJSONWriter from 'jsts/org/locationtech/jts/io/GeoJSONWriter.js';
@@ -8,12 +6,7 @@ import OverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js'
 import RelateOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import UnionOp from 'jsts/org/locationtech/jts/operation/union/UnionOp.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const INNER_BOUNDARY_FILE = path.join(__dirname, '..', 'boundaries', 'wien_innen.geojson');
-
-let innerBoundaryFeatureCollectionCache = null;
-const exactBoundaryFeatureCollectionCache = new Map();
+const boundaryFeatureCollectionCache = new Map();
 
 function cloneFeatureWithGeometry(feature, geometry) {
 	return {
@@ -144,6 +137,82 @@ async function loadInnerBoundaryFeatureCollection() {
 	return innerBoundaryFeatureCollectionCache;
 }
 
+async function loadBoundaryFeatureCollectionFromUrl(boundaryUrl, label) {
+	const cacheKey = `url:${boundaryUrl}`;
+
+	if (boundaryFeatureCollectionCache.has(cacheKey)) {
+		return boundaryFeatureCollectionCache.get(cacheKey);
+	}
+
+	const response = await fetch(boundaryUrl, {
+		headers: {
+			accept: 'application/json'
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error(`${label} konnte nicht geladen werden (HTTP ${response.status}).`);
+	}
+
+	const text = await response.text();
+
+	if (!text || !text.trim()) {
+		throw new Error(`${label} lieferte leere Antwort.`);
+	}
+
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch (err) {
+		throw new Error(`${label} ist kein gültiges JSON: ${err?.message || String(err)}`);
+	}
+
+	const parsed = parseFeatureCollectionJson(json, label);
+	boundaryFeatureCollectionCache.set(cacheKey, parsed);
+	return parsed;
+}
+
+async function loadBoundaryFeatureCollectionFromFile(boundaryFile, label) {
+	const cacheKey = `file:${boundaryFile}`;
+
+	if (boundaryFeatureCollectionCache.has(cacheKey)) {
+		return boundaryFeatureCollectionCache.get(cacheKey);
+	}
+
+	const text = await fs.readFile(boundaryFile, 'utf8');
+
+	if (!text || !text.trim()) {
+		throw new Error(`${label} ist leer: ${boundaryFile}`);
+	}
+
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch (err) {
+		throw new Error(`${label} ist kein gültiges JSON: ${err?.message || String(err)}`);
+	}
+
+	const parsed = parseFeatureCollectionJson(json, label);
+	boundaryFeatureCollectionCache.set(cacheKey, parsed);
+	return parsed;
+}
+
+async function loadBoundaryFeatureCollection({
+	boundaryUrl = null,
+	boundaryFile = null,
+	label = 'Grenze'
+}) {
+	if (boundaryFile) {
+		return loadBoundaryFeatureCollectionFromFile(boundaryFile, label);
+	}
+
+	if (boundaryUrl) {
+		return loadBoundaryFeatureCollectionFromUrl(boundaryUrl, label);
+	}
+
+	throw new Error(`${label}: boundaryUrl oder boundaryFile fehlt.`);
+}
+
 export async function clipFeatureCollectionToBoundary({
 	featureCollection,
 	boundaryUrl = null,
@@ -172,27 +241,37 @@ export async function clipFeatureCollectionToBoundary({
 		const reader = new GeoJSONReader();
 		const writer = new GeoJSONWriter();
 
-		const [
-			exactBoundaryFeatureCollection,
-			innerBoundaryFeatureCollection
-		] = await Promise.all([
-			fetchBoundaryFeatureCollection(boundaryUrl),
-			loadInnerBoundaryFeatureCollection()
-		]);
+		const exactBoundaryFeatureCollection = await loadBoundaryFeatureCollection({
+			boundaryUrl,
+			boundaryFile,
+			label: 'Clip-Grenze'
+		});
+		
+		const innerBoundaryFeatureCollection = innerBoundaryFile
+			? await loadBoundaryFeatureCollection({
+				boundaryFile: innerBoundaryFile,
+				label: 'Innere Clip-Grenze'
+			})
+			: null;
 
 		const exactBoundaryGeometry = buildBoundaryGeometry(
 			exactBoundaryFeatureCollection,
 			reader,
 			'Wien-Grenze'
 		);
-		const innerBoundaryGeometry = buildBoundaryGeometry(
-			innerBoundaryFeatureCollection,
-			reader,
-			'Innere Wien-Grenze'
-		);
 
+		const innerBoundaryGeometry = innerBoundaryFeatureCollection
+			? buildBoundaryGeometry(
+				innerBoundaryFeatureCollection,
+				reader,
+				'Innere Clip-Grenze'
+			)
+			: null;
+		
 		const exactBoundaryEnvelope = exactBoundaryGeometry.getEnvelopeInternal();
-		const innerBoundaryEnvelope = innerBoundaryGeometry.getEnvelopeInternal();
+		const innerBoundaryEnvelope = innerBoundaryGeometry
+			? innerBoundaryGeometry.getEnvelopeInternal()
+			: null;
 
 		const clippedFeatures = [];
 		let droppedFeatures = 0;
@@ -220,7 +299,11 @@ export async function clipFeatureCollectionToBoundary({
 				continue;
 			}
 
-			if (innerBoundaryEnvelope.covers(inputEnvelope)) {
+			if (
+				innerBoundaryGeometry &&
+				innerBoundaryEnvelope &&
+				innerBoundaryEnvelope.covers(inputEnvelope)
+			) {
 				const relation = RelateOp.relate(innerBoundaryGeometry, inputGeometry);
 				if (relation.isCovers()) {
 					clippedFeatures.push(feature);
