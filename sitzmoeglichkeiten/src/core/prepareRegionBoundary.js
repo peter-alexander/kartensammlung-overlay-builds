@@ -19,6 +19,22 @@ function parseFeatureCollection(json, label) {
 	return json;
 }
 
+function safeStringify(value, maxLength = 1200) {
+	let text;
+
+	try {
+		text = JSON.stringify(value);
+	} catch (err) {
+		return `[nicht serialisierbar: ${err?.message || String(err)}]`;
+	}
+
+	if (text.length <= maxLength) {
+		return text;
+	}
+
+	return `${text.slice(0, maxLength)}…`;
+}
+
 function isPositionArray(value) {
 	return (
 		Array.isArray(value) &&
@@ -51,15 +67,32 @@ function coordinateToPosition(coord) {
 		return [coord.getX(), coord.getY()];
 	}
 
-	throw new Error('Unbekanntes Koordinatenformat aus JSTS.');
+	if (coord && typeof coord === 'object') {
+		throw new Error(`Unbekanntes Koordinatenformat aus JSTS. Keys: ${Object.keys(coord).join(', ') || '(keine)'}. Sample: ${safeStringify(coord)}`);
+	}
+
+	throw new Error(`Unbekanntes Koordinatenformat aus JSTS: ${String(coord)}`);
 }
 
 function ringToPositions(ring) {
+	if (!ring || typeof ring.getCoordinates !== 'function') {
+		throw new Error(`JSTS-Ring hat keine getCoordinates()-Funktion. Sample: ${safeStringify(ring)}`);
+	}
+
 	const coordinates = ring.getCoordinates();
+
+	if (!Array.isArray(coordinates) || coordinates.length === 0) {
+		throw new Error(`JSTS-Ring lieferte keine Koordinaten. Sample: ${safeStringify(coordinates)}`);
+	}
+
 	return coordinates.map((coord) => coordinateToPosition(coord));
 }
 
 function polygonToCoordinates(polygon) {
+	if (!polygon || typeof polygon.getExteriorRing !== 'function') {
+		throw new Error(`JSTS-Polygon hat keine getExteriorRing()-Funktion. Type: ${polygon?.getGeometryType?.() ?? typeof polygon}`);
+	}
+
 	const rings = [ringToPositions(polygon.getExteriorRing())];
 	const holeCount = typeof polygon.getNumInteriorRing === 'function'
 		? polygon.getNumInteriorRing()
@@ -94,11 +127,44 @@ function collectPolygonCoordinatesFromJstsGeometry(geometry, out = []) {
 	throw new Error(`Puffer ergab unerwarteten Geometrietyp: ${type}`);
 }
 
-function jstsPolygonalGeometryToGeoJSON(geometry) {
+function describeJstsGeometry(geometry) {
+	if (!geometry) {
+		return { exists: false };
+	}
+
+	return {
+		exists: true,
+		type: geometry.getGeometryType?.() ?? null,
+		isEmpty: typeof geometry.isEmpty === 'function' ? geometry.isEmpty() : null,
+		numGeometries: typeof geometry.getNumGeometries === 'function' ? geometry.getNumGeometries() : null,
+		numPoints: typeof geometry.getNumPoints === 'function' ? geometry.getNumPoints() : null,
+		envelope: (() => {
+			try {
+				const env = geometry.getEnvelopeInternal?.();
+				return env ? {
+					minX: env.getMinX?.(),
+					minY: env.getMinY?.(),
+					maxX: env.getMaxX?.(),
+					maxY: env.getMaxY?.()
+				} : null;
+			} catch (err) {
+				return `Envelope-Fehler: ${err?.message || String(err)}`;
+			}
+		})()
+	};
+}
+
+function jstsPolygonalGeometryToGeoJSON(geometry, label = 'Puffergeometrie') {
 	const polygons = collectPolygonCoordinatesFromJstsGeometry(geometry);
 
 	if (polygons.length === 0) {
-		throw new Error('Puffergeometrie enthält keine Polygone.');
+		throw new Error(`${label} enthält keine Polygone. JSTS: ${safeStringify(describeJstsGeometry(geometry))}`);
+	}
+
+	const coordinateStats = getCoordinateStatsFromCoordinates(polygons);
+
+	if (coordinateStats.validPositions === 0) {
+		throw new Error(`${label}: Polygon-Sammlung enthält keine gültigen Positionen. Stats: ${safeStringify(coordinateStats)} Sample: ${safeStringify(polygons)}`);
 	}
 
 	if (polygons.length === 1) {
@@ -213,16 +279,119 @@ function transformFeatureCollection(featureCollection, transformPosition) {
 	};
 }
 
-function getFeatureCollectionBounds4326(featureCollection) {
+function getCoordinateStatsFromCoordinates(coords, stats = null) {
+	stats ??= {
+		validPositions: 0,
+		invalidPositions: 0,
+		arrays: 0,
+		objects: 0,
+		other: 0,
+		firstValid: null,
+		firstInvalid: null
+	};
+
+	if (isPositionArray(coords)) {
+		stats.arrays++;
+
+		if (Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
+			stats.validPositions++;
+			stats.firstValid ??= [coords[0], coords[1]];
+		} else {
+			stats.invalidPositions++;
+			stats.firstInvalid ??= coords;
+		}
+
+		return stats;
+	}
+
+	if (isCoordinateObject(coords)) {
+		stats.objects++;
+
+		if (Number.isFinite(coords.x) && Number.isFinite(coords.y)) {
+			stats.validPositions++;
+			stats.firstValid ??= [coords.x, coords.y];
+		} else {
+			stats.invalidPositions++;
+			stats.firstInvalid ??= coords;
+		}
+
+		return stats;
+	}
+
+	if (Array.isArray(coords)) {
+		for (const child of coords) {
+			getCoordinateStatsFromCoordinates(child, stats);
+		}
+		return stats;
+	}
+
+	if (coords != null) {
+		stats.other++;
+		stats.firstInvalid ??= coords;
+	}
+
+	return stats;
+}
+
+function describeFeatureCollection(featureCollection, label = 'FeatureCollection') {
+	const features = Array.isArray(featureCollection?.features)
+		? featureCollection.features
+		: [];
+	const geometryTypes = new Map();
+	const coordinateStats = {
+		validPositions: 0,
+		invalidPositions: 0,
+		arrays: 0,
+		objects: 0,
+		other: 0,
+		firstValid: null,
+		firstInvalid: null
+	};
+
+	for (const feature of features) {
+		const type = feature?.geometry?.type ?? '(keine Geometrie)';
+		geometryTypes.set(type, (geometryTypes.get(type) ?? 0) + 1);
+
+		if (feature?.geometry?.type === 'GeometryCollection') {
+			for (const childGeometry of feature.geometry.geometries ?? []) {
+				const childType = `GeometryCollection/${childGeometry?.type ?? '(unbekannt)'}`;
+				geometryTypes.set(childType, (geometryTypes.get(childType) ?? 0) + 1);
+			}
+		}
+
+		getCoordinateStatsFromCoordinates(feature?.geometry?.coordinates, coordinateStats);
+	}
+
+	return {
+		label,
+		type: featureCollection?.type ?? null,
+		featureCount: features.length,
+		geometryTypes: Object.fromEntries(geometryTypes),
+		coordinateStats,
+		firstFeatureSample: features[0] ? {
+			id: features[0].id ?? null,
+			geometryType: features[0].geometry?.type ?? null,
+			propertiesKeys: Object.keys(features[0].properties ?? {}).slice(0, 20),
+			geometrySample: features[0].geometry ? safeStringify(features[0].geometry, 800) : null
+		} : null
+	};
+}
+
+function getFeatureCollectionBounds4326(featureCollection, label = 'GeoJSON') {
 	let minLon = Infinity;
 	let minLat = Infinity;
 	let maxLon = -Infinity;
 	let maxLat = -Infinity;
+	let seenPositions = 0;
+	let seenValidPositions = 0;
 
 	for (const feature of featureCollection.features ?? []) {
 		visitPositionsInGeometry(feature.geometry, ([lon, lat]) => {
+			seenPositions++;
+
 			if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
 
+			seenValidPositions++;
 			minLon = Math.min(minLon, lon);
 			minLat = Math.min(minLat, lat);
 			maxLon = Math.max(maxLon, lon);
@@ -236,7 +405,7 @@ function getFeatureCollectionBounds4326(featureCollection) {
 		!Number.isFinite(maxLon) ||
 		!Number.isFinite(maxLat)
 	) {
-		throw new Error('GeoJSON enthält keine gültigen Koordinaten.');
+		throw new Error(`${label}: GeoJSON enthält keine gültigen Koordinaten. seenPositions=${seenPositions}, seenValidPositions=${seenValidPositions}, summary=${safeStringify(describeFeatureCollection(featureCollection, label), 2400)}`);
 	}
 
 	return {
@@ -283,18 +452,20 @@ function buildBoundaryGeometry(featureCollection, reader, label) {
 	}
 
 	if (!geometry || geometry.isEmpty()) {
-		throw new Error(`${label} enthält keine verwertbare Geometrie.`);
+		throw new Error(`${label} enthält keine verwertbare Geometrie. Input summary: ${safeStringify(describeFeatureCollection(featureCollection, label), 2400)}`);
 	}
 
 	return geometry;
 }
 
-function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label) {
+function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label, { logger = console } = {}) {
 	if (!bufferMeters || bufferMeters <= 0) {
 		return cloneJson(featureCollection);
 	}
 
-	const bounds = getFeatureCollectionBounds4326(featureCollection);
+	logger?.info?.(`${label}: starte Buffer-Vorbereitung`, describeFeatureCollection(featureCollection, `${label} Quelle`));
+
+	const bounds = getFeatureCollectionBounds4326(featureCollection, `${label} Quelle`);
 	const centerLon = (bounds.minLon + bounds.maxLon) / 2;
 	const centerLat = (bounds.minLat + bounds.maxLat) / 2;
 	const localProjection = `+proj=aeqd +lat_0=${centerLat} +lon_0=${centerLon} +datum=WGS84 +units=m +no_defs`;
@@ -310,14 +481,20 @@ function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label)
 	};
 
 	const localFeatureCollection = transformFeatureCollection(featureCollection, toLocal);
+	logger?.info?.(`${label}: nach Projektion`, describeFeatureCollection(localFeatureCollection, `${label} lokal`));
+
 	const reader = new GeoJSONReader();
-	const localBoundaryGeometry = buildBoundaryGeometry(localFeatureCollection, reader, label);
+	const localBoundaryGeometry = buildBoundaryGeometry(localFeatureCollection, reader, `${label} lokal`);
+	logger?.info?.(`${label}: JSTS-Grenze`, describeJstsGeometry(localBoundaryGeometry));
+
 	const bufferedLocalGeometry = BufferOp.bufferOp(localBoundaryGeometry, bufferMeters);
+	logger?.info?.(`${label}: JSTS-Puffer`, describeJstsGeometry(bufferedLocalGeometry));
 
 	if (!bufferedLocalGeometry || bufferedLocalGeometry.isEmpty()) {
-		throw new Error(`${label}: Puffergeometrie ist leer.`);
+		throw new Error(`${label}: Puffergeometrie ist leer. JSTS: ${safeStringify(describeJstsGeometry(bufferedLocalGeometry))}`);
 	}
 
+	const bufferedGeometry = jstsPolygonalGeometryToGeoJSON(bufferedLocalGeometry, `${label} Puffer`);
 	const bufferedLocalFeatureCollection = {
 		type: 'FeatureCollection',
 		features: [
@@ -327,49 +504,69 @@ function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label)
 					generated: true,
 					bufferMeters
 				},
-				geometry: jstsPolygonalGeometryToGeoJSON(bufferedLocalGeometry)
+				geometry: bufferedGeometry
 			}
 		]
 	};
 
-	return transformFeatureCollection(bufferedLocalFeatureCollection, toLonLat);
+	logger?.info?.(`${label}: Puffer als lokales GeoJSON`, describeFeatureCollection(bufferedLocalFeatureCollection, `${label} lokaler Puffer`));
+
+	const buffered4326FeatureCollection = transformFeatureCollection(bufferedLocalFeatureCollection, toLonLat);
+	logger?.info?.(`${label}: Puffer zurück in EPSG:4326`, describeFeatureCollection(buffered4326FeatureCollection, `${label} Puffer EPSG:4326`));
+
+	return buffered4326FeatureCollection;
 }
 
 export async function prepareRegionBoundary(region, { logger = console } = {}) {
 	const boundary = region.boundary;
+	const label = `${region.name} Grenze`;
 
-	if (!boundary?.file) {
-		throw new Error(`Region ${region.id}: boundary.file fehlt.`);
+	try {
+		if (!boundary?.file) {
+			throw new Error(`Region ${region.id}: boundary.file fehlt.`);
+		}
+
+		const bufferMeters = Number(boundary.bufferMeters ?? 0);
+		const overpassMarginMeters = Number(boundary.overpassMarginMeters ?? 0);
+		const sourceFeatureCollection = await loadBoundaryFeatureCollectionFromFile(
+			boundary.file,
+			label
+		);
+
+		logger?.info?.(`${label}: Datei geladen`, {
+			regionId: region.id,
+			boundaryFile: boundary.file,
+			bufferMeters,
+			overpassMarginMeters,
+			summary: describeFeatureCollection(sourceFeatureCollection, `${label} Quelle`)
+		});
+
+		const clipFeatureCollection = bufferBoundaryFeatureCollection(
+			sourceFeatureCollection,
+			bufferMeters,
+			label,
+			{ logger }
+		);
+		const clipBounds4326 = getFeatureCollectionBounds4326(clipFeatureCollection, `${label} Clip-Puffer`);
+		const overpassBounds4326 = expandBoundsByMeters(clipBounds4326, overpassMarginMeters);
+
+		logger?.info?.(`Boundary vorbereitet für ${region.id}`, {
+			boundaryFile: boundary.file,
+			bufferMeters,
+			overpassMarginMeters,
+			clipBounds4326,
+			overpassBounds4326
+		});
+
+		return {
+			sourceFeatureCollection,
+			clipFeatureCollection,
+			clipBounds4326,
+			overpassBounds4326,
+			bufferMeters,
+			overpassMarginMeters
+		};
+	} catch (err) {
+		throw new Error(`prepareRegionBoundary failed for region=${region.id} (${region.name}), file=${boundary?.file ?? '(none)'}: ${err?.message || String(err)}`);
 	}
-
-	const bufferMeters = Number(boundary.bufferMeters ?? 0);
-	const overpassMarginMeters = Number(boundary.overpassMarginMeters ?? 0);
-	const sourceFeatureCollection = await loadBoundaryFeatureCollectionFromFile(
-		boundary.file,
-		`${region.name} Grenze`
-	);
-	const clipFeatureCollection = bufferBoundaryFeatureCollection(
-		sourceFeatureCollection,
-		bufferMeters,
-		`${region.name} Grenze`
-	);
-	const clipBounds4326 = getFeatureCollectionBounds4326(clipFeatureCollection);
-	const overpassBounds4326 = expandBoundsByMeters(clipBounds4326, overpassMarginMeters);
-
-	logger?.info?.(`Boundary vorbereitet für ${region.id}`, {
-		boundaryFile: boundary.file,
-		bufferMeters,
-		overpassMarginMeters,
-		clipBounds4326,
-		overpassBounds4326
-	});
-
-	return {
-		sourceFeatureCollection,
-		clipFeatureCollection,
-		clipBounds4326,
-		overpassBounds4326,
-		bufferMeters,
-		overpassMarginMeters
-	};
 }
