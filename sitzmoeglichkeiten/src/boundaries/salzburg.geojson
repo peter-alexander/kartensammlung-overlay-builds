@@ -5095,50 +5095,6 @@
         ]
       },
       "id": "relation/86538"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/34964314",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "86538",
-            "reltags": {
-              "admin_level": "6",
-              "alt_name:cs": "Solnohrad",
-              "boundary": "administrative",
-              "name": "Salzburg",
-              "name:ar": "زالتسبورغ",
-              "name:cs": "Salcburk",
-              "name:eo": "Salcburgo",
-              "name:fur": "Salisburc",
-              "name:it": "Salisburgo",
-              "name:ko": "잘츠부르크",
-              "name:prefix:at": "Statutarstadt",
-              "name:pt": "Salisburgo",
-              "name:si": "Salzbursko",
-              "name:sk": "Soľnohrad",
-              "name:uk": "Зальцбурґ",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "postal_code": "5020",
-              "ref": "S",
-              "ref:at:gkz": "50101",
-              "type": "boundary",
-              "wikidata": "Q34713",
-              "wikipedia": "de:Salzburg"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          13.0464806,
-          47.7981346
-        ]
-      },
-      "id": "node/34964314"
     }
   ]
 }
