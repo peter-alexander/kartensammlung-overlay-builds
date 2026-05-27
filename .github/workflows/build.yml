@@ -375,6 +375,7 @@ jobs:
           EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
           EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
           EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+          LFTP_PARALLEL: 8
         run: |
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlkarte"
 
