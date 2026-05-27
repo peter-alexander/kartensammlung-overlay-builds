@@ -8406,45 +8406,6 @@
         ]
       },
       "id": "relation/105870"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/29777988",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "105870",
-            "reltags": {
-              "admin_level": "6",
-              "boundary": "administrative",
-              "name": "Klagenfurt am Wörthersee",
-              "name:fur": "Clanfurt",
-              "name:it": "Clanforte",
-              "name:ja": "クラーゲンフルト・アム・ヴェルターゼー",
-              "name:ko": "클라겐푸르트암뵈르테제",
-              "name:prefix:at": "Statutarstadt",
-              "name:sk": "Celovec",
-              "name:sl": "Celovec",
-              "name:zh": "克拉根福",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "ref": "K",
-              "ref:at:gkz": "20101",
-              "type": "boundary",
-              "wikidata": "Q41753",
-              "wikipedia": "de:Klagenfurt am Wörthersee"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          14.3075976,
-          46.623943
-        ]
-      },
-      "id": "node/29777988"
     }
   ]
 }
