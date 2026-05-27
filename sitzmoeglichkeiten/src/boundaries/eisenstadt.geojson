@@ -2344,43 +2344,6 @@
         ]
       },
       "id": "relation/79747"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/26807241",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "79747",
-            "reltags": {
-              "admin_level": "6",
-              "boundary": "administrative",
-              "name": "Eisenstadt",
-              "name:hr": "Željezno",
-              "name:hu": "Kismarton",
-              "name:ko": "아이젠슈타트",
-              "name:prefix:at": "Statutarstadt",
-              "name:ru": "Айзенштадт",
-              "name:sk": "Železno",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "ref": "E",
-              "ref:at:gkz": "10101",
-              "type": "boundary",
-              "wikidata": "Q126321",
-              "wikipedia": "de:Eisenstadt"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          16.5249288,
-          47.8454821
-        ]
-      },
-      "id": "node/26807241"
     }
   ]
 }
