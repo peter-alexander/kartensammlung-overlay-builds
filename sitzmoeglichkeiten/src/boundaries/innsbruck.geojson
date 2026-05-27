@@ -7349,44 +7349,6 @@
         ]
       },
       "id": "relation/4835169"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/34840064",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "4835169",
-            "reltags": {
-              "admin_level": "6",
-              "alt_name": "Statutarstadt Innsbruck",
-              "alt_name:cs": "Inšpruk",
-              "boundary": "administrative",
-              "name": "Innsbruck",
-              "name:cs": "Innsbruck",
-              "name:lld": "Dispruch",
-              "name:prefix:at": "Statutarstadt",
-              "name:ru": "Инсбрук",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "official_name": "Stadt Innsbruck",
-              "ref": "I",
-              "ref:at:gkz": "70101",
-              "type": "boundary",
-              "wikidata": "Q1735",
-              "wikipedia": "de:Innsbruck"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          11.3927685,
-          47.2654296
-        ]
-      },
-      "id": "node/34840064"
     }
   ]
 }
