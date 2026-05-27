@@ -3146,37 +3146,6 @@
         ]
       },
       "id": "relation/75073"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/1898614152",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "75073",
-            "reltags": {
-              "admin_level": "8",
-              "boundary": "administrative",
-              "name": "Bregenz",
-              "name:cs": "Břežnice",
-              "name:prefix:at": "Stadt",
-              "ref:at:gkz": "80207",
-              "type": "boundary",
-              "wikidata": "Q1737",
-              "wikipedia": "de:Bregenz"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          9.7472924,
-          47.5025779
-        ]
-      },
-      "id": "node/1898614152"
     }
   ]
 }
