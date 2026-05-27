@@ -10,7 +10,7 @@ import UnionOp from 'jsts/org/locationtech/jts/operation/union/UnionOp.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const INNER_BOUNDARY_FILE = path.join(__dirname, 'boundaries', 'wien_innen.geojson');
+const INNER_BOUNDARY_FILE = path.join(__dirname, '..', 'boundaries', 'wien_innen.geojson');
 
 let innerBoundaryFeatureCollectionCache = null;
 const exactBoundaryFeatureCollectionCache = new Map();
