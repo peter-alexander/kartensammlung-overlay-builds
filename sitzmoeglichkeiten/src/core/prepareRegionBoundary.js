@@ -468,15 +468,17 @@ function bufferBoundaryFeatureCollection(featureCollection, bufferMeters, label,
 	const bounds = getFeatureCollectionBounds4326(featureCollection, `${label} Quelle`);
 	const centerLon = (bounds.minLon + bounds.maxLon) / 2;
 	const centerLat = (bounds.minLat + bounds.maxLat) / 2;
-	const localProjection = `+proj=aeqd +lat_0=${centerLat} +lon_0=${centerLon} +datum=WGS84 +units=m +no_defs`;
-
+	const localProjection = proj4(
+		`+proj=aeqd +lat_0=${centerLat} +lon_0=${centerLon} +datum=WGS84 +units=m +no_defs`
+	);
+	
 	const toLocal = ([lon, lat]) => {
-		const [x, y] = proj4('EPSG:4326', localProjection, [lon, lat]);
+		const [x, y] = localProjection.forward([lon, lat]);
 		return [x, y];
 	};
-
+	
 	const toLonLat = ([x, y]) => {
-		const [lon, lat] = proj4(localProjection, 'EPSG:4326', [x, y]);
+		const [lon, lat] = localProjection.inverse([x, y]);
 		return [lon, lat];
 	};
 
