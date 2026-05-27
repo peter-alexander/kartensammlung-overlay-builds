@@ -7971,42 +7971,6 @@
         ]
       },
       "id": "relation/34719"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/21015489",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "34719",
-            "reltags": {
-              "admin_level": "6",
-              "boundary": "administrative",
-              "name": "Graz",
-              "name:prefix:at": "Statutarstadt",
-              "name:ru": "Грац",
-              "name:sk": "Hradec",
-              "name:uk": "Ґрац",
-              "name:zh": "格拉茨",
-              "name:zh-Hant": "格拉茲",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "ref:at:gkz": "60101",
-              "type": "boundary",
-              "wikidata": "Q13298",
-              "wikipedia": "de:Graz"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          15.4382786,
-          47.0708678
-        ]
-      },
-      "id": "node/21015489"
     }
   ]
 }
