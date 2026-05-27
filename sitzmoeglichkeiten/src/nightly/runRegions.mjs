@@ -7,6 +7,7 @@ import { fromLonLat } from 'ol/proj.js';
 
 import { runBenchAnalysisNode } from '../adapters/nodeRunner.js';
 import { clipFeatureCollectionToBoundary } from '../core/clipFeatureCollectionToBoundary.js';
+import { prepareRegionBoundary } from '../core/prepareRegionBoundary.js';
 import { getSelectedRegions } from './regions.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -193,8 +194,8 @@ function mergeFeatureCollections(collections) {
 async function runRegion(region) {
 	const startedAt = new Date();
 	const startedMs = Date.now();
-
-	const extent3857 = bounds4326ToExtent3857(region.bounds4326);
+	const preparedBoundary = await prepareRegionBoundary(region, { logger: console });
+	const extent3857 = bounds4326ToExtent3857(preparedBoundary.overpassBounds4326);
 
 	if (extent3857[0] === extent3857[2] || extent3857[1] === extent3857[3]) {
 		throw new Error(`Degenerierter Extent für Region ${region.id}: ${JSON.stringify(extent3857)}`);
@@ -202,7 +203,9 @@ async function runRegion(region) {
 
 	console.log('');
 	console.log(`=== Region: ${region.name} (${region.id}) ===`);
-	console.log('bounds4326:', region.bounds4326);
+	console.log('boundary:', region.boundary);
+	console.log('clipBounds4326:', preparedBoundary.clipBounds4326);
+	console.log('overpassBounds4326:', preparedBoundary.overpassBounds4326);
 	console.log('extent3857:', extent3857);
 
 	const analysisStartedMs = Date.now();
@@ -220,25 +223,17 @@ async function runRegion(region) {
 	console.log(`Analyse ${region.id} fertig in ${((analysisFinishedMs - analysisStartedMs) / 1000).toFixed(1)} s`);
 	console.log(`Features vor Clip ${region.id}: ${geojson?.features?.length ?? 0}`);
 
-	let finalGeojson = geojson;
+	const clipStartedMs = Date.now();
 
-	if (region.boundaryClip?.enabled) {
-		console.log(`Lade Grenze und clippe Output für ${region.id}: ${region.boundaryClip.url ?? region.boundaryClip.file ?? '(keine Grenze)'}`);
+	const finalGeojson = await clipFeatureCollectionToBoundary({
+		featureCollection: geojson,
+		boundaryFeatureCollection: preparedBoundary.clipFeatureCollection,
+		strict: region.boundary?.strict === true,
+		logger: console
+	});
 
-		const clipStartedMs = Date.now();
-
-		finalGeojson = await clipFeatureCollectionToBoundary({
-			featureCollection: geojson,
-			boundaryUrl: region.boundaryClip.url ?? null,
-			boundaryFile: region.boundaryClip.file ?? null,
-			innerBoundaryFile: region.boundaryClip.innerFile ?? null,
-			strict: region.boundaryClip.strict === true,
-			logger: console
-		});
-
-		console.log(`Clip ${region.id} fertig in ${((Date.now() - clipStartedMs) / 1000).toFixed(1)} s`);
-		console.log(`Features nach Clip ${region.id}: ${finalGeojson?.features?.length ?? 0}`);
-	}
+	console.log(`Clip ${region.id} fertig in ${((Date.now() - clipStartedMs) / 1000).toFixed(1)} s`);
+	console.log(`Features nach Clip ${region.id}: ${finalGeojson?.features?.length ?? 0}`);
 
 	addRegionProperties(finalGeojson, region);
 
@@ -249,13 +244,14 @@ async function runRegion(region) {
 		region: {
 			id: region.id,
 			name: region.name,
-			bounds4326: region.bounds4326,
-			extent3857,
-			boundaryClip: {
-				enabled: region.boundaryClip?.enabled === true,
-				strict: region.boundaryClip?.strict === true,
-				wfsUrl: region.boundaryClip?.wfsUrl ?? null
-			}
+			boundary: {
+				file: region.boundary?.file ?? null,
+				bufferMeters: preparedBoundary.bufferMeters,
+				overpassMarginMeters: preparedBoundary.overpassMarginMeters
+			},
+			clipBounds4326: preparedBoundary.clipBounds4326,
+			overpassBounds4326: preparedBoundary.overpassBounds4326,
+			extent3857
 		},
 		featureCollection: finalGeojson,
 		stats: {
