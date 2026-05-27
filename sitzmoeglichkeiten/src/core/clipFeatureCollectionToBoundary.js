@@ -146,7 +146,9 @@ async function loadInnerBoundaryFeatureCollection() {
 
 export async function clipFeatureCollectionToBoundary({
 	featureCollection,
-	boundaryUrl,
+	boundaryUrl = null,
+	boundaryFile = null,
+	innerBoundaryFile = null,
 	strict = false,
 	logger = console
 }) {
