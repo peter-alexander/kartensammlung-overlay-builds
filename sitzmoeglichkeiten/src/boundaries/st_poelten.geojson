@@ -6783,42 +6783,6 @@
         ]
       },
       "id": "relation/134351"
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "@id": "node/240038219",
-        "@relations": [
-          {
-            "role": "admin_centre",
-            "rel": "134351",
-            "reltags": {
-              "admin_level": "6",
-              "alt_name": "Sankt Pölten",
-              "boundary": "administrative",
-              "name": "St. Pölten",
-              "name:ko": "장크트푈텐",
-              "name:prefix:at": "Statutarstadt",
-              "name:ro": "Sankt Pölten (oraș)",
-              "name:ru": "Санкт-Пёльтен",
-              "note": "\"Statutarstadt\" equals both admin_levels 6 and 8",
-              "ref": "P",
-              "ref:at:gkz": "30201",
-              "type": "boundary",
-              "wikidata": "Q82500",
-              "wikipedia": "de:St. Pölten"
-            }
-          }
-        ]
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          15.6229118,
-          48.2043985
-        ]
-      },
-      "id": "node/240038219"
     }
   ]
 }
