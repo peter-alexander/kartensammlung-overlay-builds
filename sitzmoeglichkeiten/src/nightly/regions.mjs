@@ -21,7 +21,7 @@ export const REGIONS = [
 			url: process.env.KS_WIEN_BOUNDARY_WFS_URL || 'https://data.wien.gv.at/daten/geo?service=WFS&request=GetFeature&version=1.1.0&typeName=ogdwien:LANDESGRENZEOGD&srsName=EPSG:4326&outputFormat=json',
 			innerFile: WIEN_INNER_BOUNDARY_FILE
 		}
-	}
+	},
 
 	{
 		id: 'muenchen-10km',
