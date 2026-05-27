@@ -1,5 +1,9 @@
 import { fileURLToPath } from 'node:url';
 
+const WIEN_INNER_BOUNDARY_FILE = fileURLToPath(
+	new URL('../boundaries/wien_innen.geojson', import.meta.url)
+);
+
 const MUENCHEN_10KM_BOUNDARY_FILE = fileURLToPath(
 	new URL('../boundaries/muenchen_10km.geojson', import.meta.url)
 );
