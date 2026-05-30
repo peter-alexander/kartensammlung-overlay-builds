@@ -19,6 +19,17 @@ export const REGIONS = [
 	},
 
 	{
+		id: 'wiener_becken',
+		name: 'Wiener Becken',
+		enabled: true,
+		boundary: {
+			file: boundaryFile('wiener_becken'),
+			bufferMeters: 6000,
+			overpassMarginMeters: 200
+		}
+	},
+
+	{
 		id: 'st_poelten',
 		name: 'Sankt Pölten',
 		enabled: true,
