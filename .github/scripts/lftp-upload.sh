@@ -20,7 +20,11 @@ if [ ! -e "$LOCAL_PATH" ]; then
 fi
 
 SSL_VERIFY="${LFTP_SSL_VERIFY:-no}"
-PARALLEL="${LFTP_PARALLEL:-4}"
+PARALLEL="${LFTP_PARALLEL:-2}"
+FTP_CONNECT_TIMEOUT="${FTP_CONNECT_TIMEOUT:-30}"
+FTP_RETRIES="${FTP_RETRIES:-10}"
+FTP_RETRY_DELAY="${FTP_RETRY_DELAY:-30}"
+FTP_RETRY_MAX_TIME="${FTP_RETRY_MAX_TIME:-900}"
 
 if [ -f "$LOCAL_PATH" ] && command -v curl >/dev/null 2>&1; then
 	CURL_URL="ftp://${EASYNAME_FTP_HOST}/${REMOTE_PATH}"
@@ -29,9 +33,15 @@ if [ -f "$LOCAL_PATH" ] && command -v curl >/dev/null 2>&1; then
 		--silent
 		--show-error
 		--ftp-ssl-reqd
+		--ftp-pasv
+		--ftp-create-dirs
+		--connect-timeout "$FTP_CONNECT_TIMEOUT"
+		--retry "$FTP_RETRIES"
+		--retry-delay "$FTP_RETRY_DELAY"
+		--retry-max-time "$FTP_RETRY_MAX_TIME"
+		--retry-all-errors
 		--user "${EASYNAME_FTP_USER}:${EASYNAME_FTP_PASSWORD}"
 		--upload-file "$LOCAL_PATH"
-		--ftp-create-dirs
 		"$CURL_URL"
 	)
 
@@ -48,6 +58,10 @@ if ! command -v lftp >/dev/null 2>&1; then
 	exit 1
 fi
 
+LFTP_RETRIES="${LFTP_RETRIES:-10}"
+LFTP_RETRY_DELAY="${LFTP_RETRY_DELAY:-30}"
+LFTP_NET_TIMEOUT="${LFTP_NET_TIMEOUT:-30}"
+
 LFTP_CMDS=$(mktemp)
 trap 'rm -f "$LFTP_CMDS"' EXIT
 
@@ -55,6 +69,10 @@ trap 'rm -f "$LFTP_CMDS"' EXIT
 	echo "set ftp:ssl-force true"
 	echo "set ftp:passive-mode true"
 	echo "set ssl:verify-certificate $SSL_VERIFY"
+	echo "set net:max-retries $LFTP_RETRIES"
+	echo "set net:timeout $LFTP_NET_TIMEOUT"
+	echo "set net:reconnect-interval-base $LFTP_RETRY_DELAY"
+	echo "set net:reconnect-interval-multiplier 1"
 	echo "open "$EASYNAME_FTP_HOST""
 	echo "user "$EASYNAME_FTP_USER" "$EASYNAME_FTP_PASSWORD""
 
