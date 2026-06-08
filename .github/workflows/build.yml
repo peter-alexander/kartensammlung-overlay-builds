@@ -300,7 +300,7 @@ jobs:
       EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
       EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
       MAIN_SERVER: ${{ secrets.MAIN_SERVER }}
-      LFTP_PARALLEL: 2
+      LFTP_PARALLEL: 6
     steps:
       - uses: actions/checkout@v6
 
