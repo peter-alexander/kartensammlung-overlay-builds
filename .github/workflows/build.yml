@@ -28,6 +28,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   node-health:
@@ -50,6 +51,8 @@ jobs:
   tippecanoe:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v6
 
@@ -80,6 +83,7 @@ jobs:
           "${GITHUB_WORKSPACE}/.local/bin/tippecanoe" --version || true
 
       - name: Upload tippecanoe artifact
+        id: artifact
         uses: actions/upload-artifact@v7
         with:
           name: tippecanoe-bin
@@ -93,6 +97,8 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
@@ -131,6 +137,7 @@ jobs:
           /usr/bin/time -v node rge-analyse/build.mjs
 
       - name: Upload build artifact
+        id: artifact
         uses: actions/upload-artifact@v7
         with:
           name: rge-analyse-build
@@ -142,6 +149,8 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
@@ -183,6 +192,7 @@ jobs:
           /usr/bin/time -v bash radparken/run.sh
 
       - name: Upload build artifact
+        id: artifact
         uses: actions/upload-artifact@v7
         with:
           name: radparken-build
@@ -194,6 +204,8 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten' }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
@@ -235,6 +247,7 @@ jobs:
           /usr/bin/time -v bash sitzmoeglichkeiten/run.sh
 
       - name: Upload build artifact
+        id: artifact
         uses: actions/upload-artifact@v7
         with:
           name: sitzmoeglichkeiten-build
@@ -246,6 +259,8 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v6
 
@@ -281,6 +296,7 @@ jobs:
           /usr/bin/time -v bash radlkarte/run.sh
 
       - name: Upload build artifact
+        id: artifact
         uses: actions/upload-artifact@v7
         with:
           name: radlkarte-build
@@ -288,7 +304,7 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    needs: [rge-analyse, radparken, sitzmoeglichkeiten, radlkarte]
+    needs: [tippecanoe, rge-analyse, radparken, sitzmoeglichkeiten, radlkarte]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -417,3 +433,25 @@ jobs:
           .github/scripts/lftp-upload.sh deploy/radlkarte/radlkarte.pmtiles "$REMOTE_BASE/radlkarte.pmtiles"
 
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRadlkarte.php?date=$(date +%s)"
+
+      - name: Delete temporary artifacts after successful deploy
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TIPPECANOE_ARTIFACT_ID: ${{ needs.tippecanoe.outputs.artifact_id }}
+          RGE_ANALYSE_ARTIFACT_ID: ${{ needs.rge-analyse.outputs.artifact_id }}
+          RADPARKEN_ARTIFACT_ID: ${{ needs.radparken.outputs.artifact_id }}
+          SITZMOEGLICHKEITEN_ARTIFACT_ID: ${{ needs.sitzmoeglichkeiten.outputs.artifact_id }}
+          RADLKARTE_ARTIFACT_ID: ${{ needs.radlkarte.outputs.artifact_id }}
+        run: |
+          for ARTIFACT_ID in \
+            "$TIPPECANOE_ARTIFACT_ID" \
+            "$RGE_ANALYSE_ARTIFACT_ID" \
+            "$RADPARKEN_ARTIFACT_ID" \
+            "$SITZMOEGLICHKEITEN_ARTIFACT_ID" \
+            "$RADLKARTE_ARTIFACT_ID"
+          do
+            if [ -n "$ARTIFACT_ID" ]; then
+              gh api --method DELETE "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}"
+            fi
+          done
