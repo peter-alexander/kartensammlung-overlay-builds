@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -54,7 +54,7 @@ jobs:
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Restore tippecanoe cache
         id: cache-tippecanoe
@@ -102,7 +102,7 @@ jobs:
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -154,7 +154,7 @@ jobs:
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -209,7 +209,7 @@ jobs:
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -262,7 +262,7 @@ jobs:
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -318,7 +318,7 @@ jobs:
       MAIN_SERVER: ${{ secrets.MAIN_SERVER }}
       LFTP_PARALLEL: 6
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check selected build jobs
         env:
