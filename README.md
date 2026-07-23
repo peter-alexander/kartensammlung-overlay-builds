@@ -1,8 +1,9 @@
 # kartensammlung-overlay-builds
 
-Build- und Deploy-Repository für vier Overlays der Kartensammlung:
+Build- und Deploy-Repository für Kartensammlung-Overlays:
 
 - `RgE-Analyse aktuell`
 - `Radparken aktuell`
 - `Potenzialkarte Sitzmöglichkeiten`
 - `Radlkarte`
+- `Zeitzonen`

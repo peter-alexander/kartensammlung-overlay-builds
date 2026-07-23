@@ -14,6 +14,7 @@ on:
           - radparken
           - sitzmoeglichkeiten
           - radlkarte
+          - timezone-boundaries
       build_legacy:
         description: Build legacy output (GeoJSON / PBF tiles directories)
         required: true
@@ -35,9 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: npm
@@ -54,11 +55,11 @@ jobs:
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Restore tippecanoe cache
         id: cache-tippecanoe
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ${{ github.workspace }}/.local/bin/tippecanoe
@@ -102,9 +103,9 @@ jobs:
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: npm
@@ -154,9 +155,9 @@ jobs:
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: npm
@@ -209,9 +210,9 @@ jobs:
     env:
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: npm
@@ -262,9 +263,9 @@ jobs:
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: npm
@@ -303,8 +304,67 @@ jobs:
           path: radlkarte/build/Radlkarte/
           if-no-files-found: error
 
+  timezone-boundaries:
+    needs: [tippecanoe, node-health, radlkarte]
+    if: ${{ always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'timezone-boundaries') && needs.tippecanoe.result == 'success' && needs.node-health.result == 'success' && (needs.radlkarte.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.target == 'timezone-boundaries')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Restore timezone boundary cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            timezone-boundaries/input/
+            timezone-boundaries/build/TimezoneBoundaries/
+          key: ${{ runner.os }}-timezone-boundaries-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-timezone-boundaries-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev unzip
+
+      - name: Download tippecanoe artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: tippecanoe-bin
+          path: ${{ github.workspace }}/.local/bin
+
+      - name: Make tippecanoe executable
+        run: |
+          chmod +x "${GITHUB_WORKSPACE}/.local/bin/tippecanoe"
+          if [ -f "${GITHUB_WORKSPACE}/.local/bin/tile-join" ]; then
+            chmod +x "${GITHUB_WORKSPACE}/.local/bin/tile-join"
+          fi
+
+      - name: Build Timezone Boundaries
+        env:
+          TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x timezone-boundaries/run.sh
+          /usr/bin/time -v bash timezone-boundaries/run.sh
+
+      - name: Upload build artifact
+        id: artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: timezone-boundaries-build
+          path: timezone-boundaries/build/TimezoneBoundaries/
+          if-no-files-found: error
+
   deploy:
-    needs: [tippecanoe, rge-analyse, radparken, sitzmoeglichkeiten, radlkarte]
+    needs: [tippecanoe, rge-analyse, radparken, sitzmoeglichkeiten, radlkarte, timezone-boundaries]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -318,7 +378,7 @@ jobs:
       MAIN_SERVER: ${{ secrets.MAIN_SERVER }}
       LFTP_PARALLEL: 6
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check selected build jobs
         env:
@@ -331,7 +391,7 @@ jobs:
 
           target = os.environ["TARGET"]
           needs = json.loads(os.environ["NEEDS_JSON"])
-          all_targets = ["rge-analyse", "radparken", "sitzmoeglichkeiten", "radlkarte"]
+          all_targets = ["rge-analyse", "radparken", "sitzmoeglichkeiten", "radlkarte", "timezone-boundaries"]
           required_targets = all_targets if target == "all" else [target]
 
           failed = []
@@ -381,6 +441,13 @@ jobs:
         with:
           name: radlkarte-build
           path: deploy/radlkarte
+
+      - name: Download Timezone Boundaries artifact
+        if: ${{ env.TARGET == 'all' || env.TARGET == 'timezone-boundaries' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: timezone-boundaries-build
+          path: deploy/timezone-boundaries
 
       - name: Deploy RgE-Analyse
         if: ${{ env.TARGET == 'all' || env.TARGET == 'rge-analyse' }}
@@ -434,6 +501,15 @@ jobs:
 
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRadlkarte.php?date=$(date +%s)"
 
+      - name: Deploy Timezone Boundaries
+        if: ${{ env.TARGET == 'all' || env.TARGET == 'timezone-boundaries' }}
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Zeitzonen"
+
+          .github/scripts/lftp-upload.sh deploy/timezone-boundaries/timezone-boundaries.pmtiles "$REMOTE_BASE/timezone-boundaries.pmtiles"
+          .github/scripts/lftp-upload.sh deploy/timezone-boundaries/release.json "$REMOTE_BASE/release.json"
+
       - name: Delete temporary artifacts after successful deploy
         if: ${{ success() }}
         env:
@@ -443,13 +519,15 @@ jobs:
           RADPARKEN_ARTIFACT_ID: ${{ needs.radparken.outputs.artifact_id }}
           SITZMOEGLICHKEITEN_ARTIFACT_ID: ${{ needs.sitzmoeglichkeiten.outputs.artifact_id }}
           RADLKARTE_ARTIFACT_ID: ${{ needs.radlkarte.outputs.artifact_id }}
+          TIMEZONE_BOUNDARIES_ARTIFACT_ID: ${{ needs.timezone-boundaries.outputs.artifact_id }}
         run: |
           for ARTIFACT_ID in \
             "$TIPPECANOE_ARTIFACT_ID" \
             "$RGE_ANALYSE_ARTIFACT_ID" \
             "$RADPARKEN_ARTIFACT_ID" \
             "$SITZMOEGLICHKEITEN_ARTIFACT_ID" \
-            "$RADLKARTE_ARTIFACT_ID"
+            "$RADLKARTE_ARTIFACT_ID" \
+            "$TIMEZONE_BOUNDARIES_ARTIFACT_ID"
           do
             if [ -n "$ARTIFACT_ID" ]; then
               gh api --method DELETE "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}"
