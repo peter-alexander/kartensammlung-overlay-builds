@@ -305,7 +305,7 @@ jobs:
           if-no-files-found: error
 
   timezone-boundaries:
-    needs: [tippecanoe, node-health, radlkarte]
+    needs: [tippecanoe, node-health]
     if: ${{ always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'timezone-boundaries') && needs.tippecanoe.result == 'success' && needs.node-health.result == 'success' && (needs.radlkarte.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.target == 'timezone-boundaries')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
