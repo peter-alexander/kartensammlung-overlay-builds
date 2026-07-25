@@ -306,7 +306,7 @@ jobs:
 
   timezone-boundaries:
     needs: [tippecanoe, node-health]
-    if: ${{ always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'timezone-boundaries') && needs.tippecanoe.result == 'success' && needs.node-health.result == 'success' && (needs.radlkarte.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.target == 'timezone-boundaries')) }}
+    if: ${{ always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'timezone-boundaries') && needs.tippecanoe.result == 'success' && needs.node-health.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     outputs:
@@ -377,36 +377,45 @@ jobs:
       EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
       MAIN_SERVER: ${{ secrets.MAIN_SERVER }}
       LFTP_PARALLEL: 6
+      RGE_ANALYSE_READY: ${{ needs.rge-analyse.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse') }}
+      RADPARKEN_READY: ${{ needs.radparken.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radparken') }}
+      SITZMOEGLICHKEITEN_READY: ${{ needs.sitzmoeglichkeiten.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'sitzmoeglichkeiten') }}
+      RADLKARTE_READY: ${{ needs.radlkarte.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'radlkarte') }}
+      TIMEZONE_BOUNDARIES_READY: ${{ needs.timezone-boundaries.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'timezone-boundaries') }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check selected build jobs
+      - name: Summarize selected build jobs
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
           python3 - <<'PY'
           import json
           import os
-          import sys
 
           target = os.environ["TARGET"]
           needs = json.loads(os.environ["NEEDS_JSON"])
           all_targets = ["rge-analyse", "radparken", "sitzmoeglichkeiten", "radlkarte", "timezone-boundaries"]
           required_targets = all_targets if target == "all" else [target]
 
-          failed = []
+          succeeded = []
+          skipped = []
           for job in required_targets:
             result = needs.get(job, {}).get("result")
-            if result != "success":
-              failed.append(f"{job}: {result}")
+            if result == "success":
+              succeeded.append(job)
+            else:
+              skipped.append(f"{job}: {result}")
 
-          if failed:
-            print("Selected build jobs did not all succeed:")
-            for item in failed:
+          if succeeded:
+            print("Build artifacts available for deploy:", ", ".join(succeeded))
+          else:
+            print("No selected build artifacts are available for deploy.")
+
+          if skipped:
+            print("Skipped deploy for unsuccessful or skipped builds:")
+            for item in skipped:
               print(f"- {item}")
-            sys.exit(1)
-
-          print("Selected build jobs succeeded:", ", ".join(required_targets))
           PY
 
       - name: Install deploy dependencies
@@ -415,42 +424,42 @@ jobs:
           sudo apt-get install -y lftp
 
       - name: Download RgE-Analyse artifact
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'rge-analyse' }}
+        if: ${{ env.RGE_ANALYSE_READY == 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: rge-analyse-build
           path: deploy/rge-analyse
 
       - name: Download Radparken artifact
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'radparken' }}
+        if: ${{ env.RADPARKEN_READY == 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: radparken-build
           path: deploy/radparken
 
       - name: Download Sitzmoeglichkeiten artifact
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'sitzmoeglichkeiten' }}
+        if: ${{ env.SITZMOEGLICHKEITEN_READY == 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: sitzmoeglichkeiten-build
           path: deploy/sitzmoeglichkeiten
 
       - name: Download Radlkarte artifact
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'radlkarte' }}
+        if: ${{ env.RADLKARTE_READY == 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: radlkarte-build
           path: deploy/radlkarte
 
       - name: Download Timezone Boundaries artifact
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'timezone-boundaries' }}
+        if: ${{ env.TIMEZONE_BOUNDARIES_READY == 'true' }}
         uses: actions/download-artifact@v8
         with:
           name: timezone-boundaries-build
           path: deploy/timezone-boundaries
 
       - name: Deploy RgE-Analyse
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'rge-analyse' }}
+        if: ${{ env.RGE_ANALYSE_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}RgE-Analyse"
@@ -464,7 +473,7 @@ jobs:
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRgeAnalyse.php?date=$(date +%s)"
 
       - name: Deploy Radparken
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'radparken' }}
+        if: ${{ env.RADPARKEN_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radparken"
@@ -478,7 +487,7 @@ jobs:
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRadparken.php?date=$(date +%s)"
 
       - name: Deploy Sitzmoeglichkeiten
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'sitzmoeglichkeiten' }}
+        if: ${{ env.SITZMOEGLICHKEITEN_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Sitzmoeglichkeiten"
@@ -492,7 +501,7 @@ jobs:
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
 
       - name: Deploy Radlkarte
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'radlkarte' }}
+        if: ${{ env.RADLKARTE_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlkarte"
@@ -502,7 +511,7 @@ jobs:
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRadlkarte.php?date=$(date +%s)"
 
       - name: Deploy Timezone Boundaries
-        if: ${{ env.TARGET == 'all' || env.TARGET == 'timezone-boundaries' }}
+        if: ${{ env.TIMEZONE_BOUNDARIES_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Zeitzonen"
