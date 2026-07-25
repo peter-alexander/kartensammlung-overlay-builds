@@ -19,6 +19,9 @@
 		"rbush": "^4.0.1",
 		"wellknown": "^0.5.0"
 	},
+	"overrides": {
+		"@xmldom/xmldom": "0.8.13"
+	},
 	"engines": {
 		"node": "24.x"
 	}
