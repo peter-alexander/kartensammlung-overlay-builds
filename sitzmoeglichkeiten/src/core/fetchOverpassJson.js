@@ -66,7 +66,8 @@ export function createOverpassFetcher({
 		'https://overpass.private.coffee/api/interpreter',
 		'https://overpass.osm.jp/api/interpreter',
 		'https://overpass-api.de/api/interpreter',
-		'https://lz4.overpass-api.de/api/interpreter'
+		'https://lz4.overpass-api.de/api/interpreter',
+		'https://serveur2.cartes.app/api/interpreter'
 	],
 	maxRounds = 4,
 	retryDelaysMs = [120_000, 240_000, 600_000],
