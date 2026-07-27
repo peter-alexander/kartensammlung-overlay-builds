@@ -39,10 +39,10 @@ export function buildOverpassQuery({
 		.filter(Boolean);
 
 	const fussgaengerHighways = [
-		`nwr[highway=cycleway][foot=yes]`,
-		`nwr[highway=footway]`,
-		`nwr[highway=path]`,
-		`nwr[highway=track]`,
+		`way[highway=cycleway][foot=yes]`,
+		`way[highway=footway]`,
+		`way[highway=path]`,
+		`way[highway=track]`,
 	];
 
 	const wideHighways = [

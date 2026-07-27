@@ -37,6 +37,31 @@ function hasTagValue(feature, key, value) {
 	return getTagValue(feature, key) === value;
 }
 
+function collectLineCoordinates(geometry) {
+	const type = geometry.getType();
+
+	if (type === 'LineString') {
+		return [geometry.getCoordinates()];
+	}
+
+	if (type === 'MultiLineString') {
+		return geometry.getCoordinates();
+	}
+
+	return [];
+}
+
+function isUsableLineCoordinates(coords) {
+	return Array.isArray(coords)
+		&& coords.length >= 2
+		&& coords.every((coord) =>
+			Array.isArray(coord)
+			&& coord.length >= 2
+			&& Number.isFinite(coord[0])
+			&& Number.isFinite(coord[1])
+		);
+}
+
 export async function runBenchAnalysisCore({
 	extent3857,
 	includeBenches = true,
@@ -128,7 +153,10 @@ export async function runBenchAnalysisCore({
 
 	roads.forEach(({ feature }) => {
 		const geom = feature.getGeometry();
-		const coords = geom.getCoordinates();
+		const lines = collectLineCoordinates(geom)
+			.filter(isUsableLineCoordinates);
+
+		if (lines.length === 0) return;
 
 		const roadType = getTagValue(feature, 'highway') || '';
 
@@ -137,11 +165,7 @@ export async function runBenchAnalysisCore({
 			groupedLines.get(roadType).push(ls);
 		};
 
-		if (Array.isArray(coords[0]?.[0])) {
-			coords.forEach(addLine);
-		} else {
-			addLine(coords);
-		}
+		lines.forEach(addLine);
 	});
 
 	const lineStrings = [];
@@ -154,7 +178,9 @@ export async function runBenchAnalysisCore({
 	groupedLines.forEach((lines, roadType) => {
 		const merger = new deps.LineMerger();
 
-		lines.forEach((ls) => merger.add(toJstsLineString(ls)));
+		lines
+			.filter(isUsableLineCoordinates)
+			.forEach((ls) => merger.add(toJstsLineString(ls)));
 
 		Array.from(merger.getMergedLineStrings()).forEach((ls) => {
 			const coords = ls.getCoordinates().map((c) => [c.x, c.y]);
