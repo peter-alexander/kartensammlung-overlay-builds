@@ -152,8 +152,6 @@ jobs:
     timeout-minutes: 180
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
-    env:
-      BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
       - uses: actions/checkout@v7
 
@@ -187,7 +185,7 @@ jobs:
         env:
           TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
           BUILD_PMTILES: true
-          BUILD_PBF_TILES: ${{ env.BUILD_LEGACY }}
+          BUILD_PBF_TILES: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy }}
         run: |
           chmod +x radparken/run.sh
           /usr/bin/time -v bash radparken/run.sh
@@ -207,8 +205,6 @@ jobs:
     timeout-minutes: 180
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
-    env:
-      BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
     steps:
       - uses: actions/checkout@v7
 
@@ -242,7 +238,7 @@ jobs:
         env:
           TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
           BUILD_PMTILES: true
-          BUILD_PBF_TILES: ${{ env.BUILD_LEGACY }}
+          BUILD_PBF_TILES: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy }}
         run: |
           chmod +x sitzmoeglichkeiten/run.sh
           /usr/bin/time -v bash sitzmoeglichkeiten/run.sh
@@ -371,6 +367,7 @@ jobs:
     env:
       TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'all' }}
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
+      BUILD_PBF_TILES: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy }}
       REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
       EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
       EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
@@ -480,7 +477,7 @@ jobs:
 
           .github/scripts/lftp-upload.sh deploy/radparken/radparken.pmtiles "$REMOTE_BASE/radparken.pmtiles"
 
-          if [ "$BUILD_LEGACY" = "true" ]; then
+          if [ "$BUILD_PBF_TILES" = "true" ]; then
             .github/scripts/lftp-upload.sh deploy/radparken/tiles "$REMOTE_BASE/tiles"
           fi
 
@@ -494,7 +491,7 @@ jobs:
 
           .github/scripts/lftp-upload.sh deploy/sitzmoeglichkeiten/wien-sitzdistanz.pmtiles "$REMOTE_BASE/wien-sitzdistanz.pmtiles"
 
-          if [ "$BUILD_LEGACY" = "true" ]; then
+          if [ "$BUILD_PBF_TILES" = "true" ]; then
             .github/scripts/lftp-upload.sh deploy/sitzmoeglichkeiten/tiles "$REMOTE_BASE/tiles"
           fi
 
