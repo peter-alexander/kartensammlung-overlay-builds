@@ -35,9 +35,7 @@ ALL_SUBTYPES = (
 DEFAULT_BUILD_SUBTYPES = (
 	"country",
 	"dependency",
-	"macroregion",
 	"region",
-	"macrocounty",
 	"county",
 )
 MINZOOM_BY_SUBTYPE = {
@@ -54,6 +52,11 @@ MINZOOM_BY_SUBTYPE = {
 	"neighborhood": 12,
 	"microhood": 13,
 }
+
+
+def log(message: str) -> None:
+	stamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+	print(f"[{stamp}] {message}", flush=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -142,6 +145,7 @@ def open_duckdb() -> duckdb.DuckDBPyConnection:
 	connection.execute("LOAD httpfs;")
 	connection.execute("SET s3_region='us-west-2';")
 	connection.execute("SET s3_url_style='path';")
+	connection.execute("SET preserve_insertion_order=false;")
 	return connection
 
 
@@ -191,6 +195,8 @@ def hierarchy_properties(
 
 
 def write_feature(handle, geometry_json: str, properties: dict, minzoom: int) -> None:
+	if not geometry_json:
+		raise RuntimeError("Encountered an empty Overture geometry.")
 	geometry = json.loads(geometry_json)
 	feature = {
 		"type": "Feature",
@@ -287,8 +293,7 @@ def export_areas(
 		FROM read_parquet('{area_path}', hive_partitioning=1) a
 		INNER JOIN selected_divisions d ON d.id = a.division_id
 		WHERE a.is_land = TRUE
-			AND a.subtype IN ({subtype_sql})
-		ORDER BY a.subtype, a.id;
+			AND a.subtype IN ({subtype_sql});
 	"""
 	cursor = connection.execute(query)
 	counts: Counter = Counter()
@@ -356,8 +361,7 @@ def export_boundaries(
 			ST_AsGeoJSON(geometry) AS geometry_json
 		FROM read_parquet('{boundary_path}', hive_partitioning=1)
 		WHERE is_land = TRUE
-			AND subtype IN ({subtype_sql})
-		ORDER BY subtype, id;
+			AND subtype IN ({subtype_sql});
 	"""
 	cursor = connection.execute(query)
 	counts: Counter = Counter()
@@ -455,9 +459,12 @@ def main() -> None:
 	boundary_geojson = work_dir / "admin-boundary.geojsonseq"
 	pmtiles_path = output_dir / "overture-admin.pmtiles"
 
+	log(f"Using Overture release {release}")
+	log("Auditing all Overture division subtypes")
 	connection = open_duckdb()
 	try:
 		audit = source_audit(connection, division_path, area_path, boundary_path)
+		log("Loading selected division metadata")
 		subtype_sql = sql_string_list(selected_subtypes)
 		connection.execute(
 			f"""
@@ -467,7 +474,9 @@ def main() -> None:
 			WHERE subtype IN ({subtype_sql});
 			"""
 		)
+		log("Streaming land-clipped administrative areas")
 		area_counts = export_areas(connection, area_path, selected_subtypes, area_geojson)
+		log("Streaming land-clipped administrative boundaries")
 		boundary_counts = export_boundaries(
 			connection,
 			boundary_path,
@@ -477,9 +486,10 @@ def main() -> None:
 	finally:
 		connection.close()
 
-	missing_areas = [subtype for subtype in selected_subtypes if area_counts[subtype] == 0]
-	if missing_areas:
-		raise RuntimeError("No land areas emitted for selected subtype(s): " + ", ".join(missing_areas))
+	if sum(area_counts.values()) == 0:
+		raise RuntimeError("No land areas were emitted for the selected Overture subtypes.")
+	if sum(boundary_counts.values()) == 0:
+		raise RuntimeError("No land boundaries were emitted for the selected Overture subtypes.")
 
 	audit.update(
 		{
@@ -502,9 +512,19 @@ def main() -> None:
 		json.dumps(audit, ensure_ascii=False, indent="\t") + "\n",
 		encoding="utf-8",
 	)
+	log(
+		"Emitted admin_area: "
+		+ ", ".join(f"{key}={value}" for key, value in sorted(area_counts.items()))
+	)
+	log(
+		"Emitted admin_boundary: "
+		+ ", ".join(f"{key}={value}" for key, value in sorted(boundary_counts.items()))
+	)
 
 	if not args.skip_tiles:
+		log(f"Building PMTiles through z{args.maxzoom}")
 		build_pmtiles(args.tippecanoe, area_geojson, boundary_geojson, pmtiles_path, args.maxzoom)
+		log("PMTiles build finished")
 
 	release_payload = {
 		"source": "Overture Maps divisions",
@@ -523,8 +543,6 @@ def main() -> None:
 
 	print(f"Overture release: {release}")
 	print("Selected subtypes: " + ", ".join(selected_subtypes))
-	print("admin_area: " + ", ".join(f"{key}={value}" for key, value in sorted(area_counts.items())))
-	print("admin_boundary: " + ", ".join(f"{key}={value}" for key, value in sorted(boundary_counts.items())))
 	if pmtiles_path.exists():
 		print(f"PMTiles: {pmtiles_path} ({pmtiles_path.stat().st_size} bytes)")
 
