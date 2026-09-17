@@ -8,10 +8,15 @@ on:
         required: true
         default: latest
         type: string
-      maxzoom:
-        description: PMTiles maximum zoom
+      boundary_maxzoom:
+        description: Boundary PMTiles maximum zoom
         required: true
         default: '14'
+        type: string
+      area_maxzoom:
+        description: Interactive area PMTiles maximum zoom
+        required: true
+        default: '11'
         type: string
   pull_request:
     paths:
@@ -45,7 +50,8 @@ jobs:
     timeout-minutes: 120
     env:
       OVERTURE_RELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.overture_release || 'latest' }}
-      MAXZOOM: ${{ github.event_name == 'workflow_dispatch' && inputs.maxzoom || '14' }}
+      BOUNDARY_MAXZOOM: ${{ github.event_name == 'workflow_dispatch' && inputs.boundary_maxzoom || '14' }}
+      AREA_MAXZOOM: ${{ github.event_name == 'workflow_dispatch' && inputs.area_maxzoom || '11' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -88,9 +94,10 @@ jobs:
         env:
           TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
         run: |
-          /usr/bin/time -v python overture-admin/build.py \
+          /usr/bin/time -v python overture-admin/build_split.py \
             --release "${OVERTURE_RELEASE}" \
-            --maxzoom "${MAXZOOM}" \
+            --boundary-maxzoom "${BOUNDARY_MAXZOOM}" \
+            --area-maxzoom "${AREA_MAXZOOM}" \
             --tippecanoe "${TIPPECANOE_BIN}"
 
       - name: Show audit and output sizes
@@ -124,8 +131,11 @@ jobs:
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}OvertureAdmin"
 
           .github/scripts/lftp-upload.sh \
-            overture-admin/build/OvertureAdmin/overture-admin.pmtiles \
-            "$REMOTE_BASE/overture-admin.pmtiles"
+            overture-admin/build/OvertureAdmin/overture-admin-boundary.pmtiles \
+            "$REMOTE_BASE/overture-admin-boundary.pmtiles"
+          .github/scripts/lftp-upload.sh \
+            overture-admin/build/OvertureAdmin/overture-admin-area.pmtiles \
+            "$REMOTE_BASE/overture-admin-area.pmtiles"
           .github/scripts/lftp-upload.sh \
             overture-admin/build/OvertureAdmin/release.json \
             "$REMOTE_BASE/release.json"
