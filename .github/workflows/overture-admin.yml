@@ -47,7 +47,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     env:
       OVERTURE_RELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.overture_release || 'latest' }}
       BOUNDARY_MAXZOOM: ${{ github.event_name == 'workflow_dispatch' && inputs.boundary_maxzoom || '14' }}
