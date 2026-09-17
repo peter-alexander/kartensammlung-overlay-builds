@@ -35,14 +35,14 @@ Boundary features are non-interactive and keep only properties useful for stylin
 
 Only `is_land = TRUE` areas and boundaries are used. Maritime/territorial geometries are excluded from this cartographic overlay.
 
-The default build currently includes:
+The initial PMTiles build includes:
 
 - `country`
 - `dependency`
-- `macroregion`
 - `region`
-- `macrocounty`
 - `county`
+
+`macroregion` and `macrocounty` are still audited, but the current Overture release does not provide land-clipped `division_area` geometries for them, so they are not useful as interactive V1 layers.
 
 All Overture division subtypes are audited on every run. Deeper levels can be added via `--subtypes` after their real-world coverage and output size have been reviewed.
 
