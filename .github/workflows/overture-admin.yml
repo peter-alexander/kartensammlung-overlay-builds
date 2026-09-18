@@ -9,7 +9,7 @@ on:
         default: latest
         type: string
       boundary_maxzoom:
-        description: Boundary PMTiles maximum zoom
+        description: Boundary/coastline PMTiles maximum zoom
         required: true
         default: '14'
         type: string
@@ -94,7 +94,7 @@ jobs:
         env:
           TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
         run: |
-          /usr/bin/time -v python overture-admin/build_split.py \
+          /usr/bin/time -v python overture-admin/build.py \
             --release "${OVERTURE_RELEASE}" \
             --boundary-maxzoom "${BOUNDARY_MAXZOOM}" \
             --area-maxzoom "${AREA_MAXZOOM}" \
@@ -128,7 +128,7 @@ jobs:
           EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
-          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}OvertureAdmin"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}AdminBoundary"
 
           .github/scripts/lftp-upload.sh \
             overture-admin/build/OvertureAdmin/overture-admin-boundary.pmtiles \
