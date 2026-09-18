@@ -1,0 +1,38 @@
+name: Audit Overture Vienna admin
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/overture-admin-vienna-audit.py'
+      - '.github/workflows/overture-admin-vienna-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install DuckDB
+        run: python -m pip install duckdb==1.5.5
+
+      - name: Audit Vienna hierarchy
+        run: |
+          python .github/scripts/overture-admin-vienna-audit.py \
+            --release 2026-08-19.0 \
+            --output vienna-admin-audit.json
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: overture-vienna-admin-audit
+          path: vienna-admin-audit.json
+          retention-days: 7
