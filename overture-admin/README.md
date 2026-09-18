@@ -1,64 +1,80 @@
 # Overture administrative boundaries
 
-This build creates a self-hosted PMTiles source for the Kartensammlung administration-boundary overlay from the Overture Maps `divisions` theme.
+This build creates two self-hosted PMTiles files for the Kartensammlung administrative-boundary overlay.
 
 ## Output
 
-`build/OvertureAdmin/overture-admin.pmtiles` contains two source layers:
+### `overture-admin-boundary.pmtiles`
 
-- `admin_boundary`: visible land-clipped administrative boundary lines from `division_boundary`.
-- `admin_area`: land-clipped administrative polygons from `division_area`, intended as transparent interaction geometry for hover/click.
+Visible geometry through the configured boundary maximum zoom (currently z14):
 
-The first production candidate deliberately excludes Overture point labels. Country/area names for interaction are carried by `admin_area` instead.
+- `admin_boundary`: Overture `division_boundary` land boundaries.
+- `admin_country_outline`: original high-detail Overture `country` / `dependency` land polygons, used as line geometry so coastlines are available at the same detail level as country borders.
+- `admin_vienna_district`: the 23 official Vienna district polygons from Stadt Wien OGD, used as line geometry for district borders.
 
-Each area feature contains a compact default hierarchy:
+### `overture-admin-area.pmtiles`
 
-- `name`
-- `subtype`
-- `admin_level`
-- `country`
-- `region`
-- `hierarchy_names` — ordered names separated by U+001F, from country to the current division.
-- `hierarchy_subtypes` — matching ordered Overture subtypes separated by U+001F.
-- `has_perspective`
+Interaction geometry through the configured area maximum zoom (currently z11, overzoomed by MapLibre above that):
 
-Boundary features are non-interactive and keep only properties useful for styling:
+- `admin_area`: Overture land-clipped administrative polygons.
+- `admin_vienna_district`: the same 23 official Vienna district polygons for hover and click interaction.
 
-- `subtype`
-- `admin_level`
-- `country`
-- `region`
-- `is_disputed`
-- `has_perspective`
+The country-outline layer intentionally contains full country/dependency polygon outlines. Where an outline coincides with an explicit Overture land border, the explicit `admin_boundary` layer is rendered above it. Along the coast, the outline supplies the missing line geometry.
 
-## Source policy
+## Overture source policy
 
-Only `is_land = TRUE` areas and boundaries are used. Maritime/territorial geometries are excluded from this cartographic overlay.
+Only `is_land = TRUE` Overture areas and boundaries are used. Maritime/territorial boundary geometries are excluded from the normal administration layer.
 
-The initial PMTiles build includes:
+The default global Overture build includes:
 
 - `country`
 - `dependency`
 - `region`
 - `county`
 
-`macroregion` and `macrocounty` are still audited, but the current Overture release does not provide land-clipped `division_area` geometries for them, so they are not useful as interactive V1 layers.
+All Overture division subtypes are audited on every run. Deeper levels remain excluded until their coverage and output size are deliberately accepted.
 
-All Overture division subtypes are audited on every run. Deeper levels can be added via `--subtypes` after their real-world coverage and output size have been reviewed.
+Each Overture interaction area contains:
 
-Default minimum zooms are encoded per feature and the current test maximum zoom is 14.
+- `name`
+- `subtype`
+- `admin_level`
+- `country`
+- `region`
+- `hierarchy_names` — ordered names separated by U+001F.
+- `hierarchy_subtypes` — matching ordered subtypes separated by U+001F.
+- `has_perspective`
+- `source`
+
+## Vienna districts
+
+The build downloads `ogdwien:BEZIRKSGRENZEOGD` from the Stadt Wien WFS in EPSG:4326 on every run.
+
+The source is validated before tiling:
+
+- exactly 23 polygon/multipolygon features must be present;
+- district numbers must be exactly 1 through 23;
+- every district must have a name.
+
+The emitted hierarchy is:
+
+`Österreich → Wien → <district number>. <district name>`
+
+Vienna districts start at z9.
 
 ## Audit
 
-Every run writes `audit.json` with source counts by subtype for:
+Every run writes `audit.json` with:
 
-- `division`
-- `division_area` (including land/territorial counts)
-- `division_boundary` (including disputed/perspective counts)
-- emitted PMTiles features
+- Overture source counts by subtype;
+- emitted Overture areas and boundaries;
+- emitted high-detail country outlines;
+- Vienna WFS source URL, license, district count and district numbers;
+- configured area/boundary zooms.
 
-This is used to decide which deeper administrative levels should be enabled and whether the maximum zoom should remain 14 or be adjusted.
+`release.json` records the PMTiles filenames, source layers, attribution and build parameters.
 
 ## Attribution
 
-`© OpenStreetMap contributors, Overture Maps Foundation`
+- © OpenStreetMap contributors, Overture Maps Foundation
+- Stadt Wien – data.wien.gv.at, CC BY 4.0
