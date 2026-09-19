@@ -17,12 +17,18 @@ on:
         required: true
         default: false
         type: boolean
+      artifact_run_id:
+        description: Existing workflow run ID to deploy without rebuilding (leave empty to build)
+        required: false
+        default: ""
+        type: string
   pull_request:
     paths:
       - "ghsl/**"
       - ".github/workflows/ghsl-cogs.yml"
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -63,7 +69,7 @@ jobs:
           test -s ghsl/output/age/ghs-age-1000m.tif
 
   build:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_run_id == '' }}
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -102,6 +108,56 @@ jobs:
 
       - name: Deploy GHSL COGs
         if: ${{ inputs.deploy }}
+        env:
+          REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+          EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+          EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+          EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+          LFTP_PARALLEL: 4
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}GHSL"
+
+          if [ -d ghsl/output/smod ]; then
+            .github/scripts/lftp-upload.sh ghsl/output/smod "$REMOTE_BASE/smod"
+          fi
+
+          if [ -d ghsl/output/age ]; then
+            .github/scripts/lftp-upload.sh ghsl/output/age "$REMOTE_BASE/age"
+          fi
+
+          .github/scripts/lftp-upload.sh ghsl/output/release.json "$REMOTE_BASE/release.json"
+
+  deploy-existing:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy && inputs.artifact_run_id != '' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download existing GHSL artifact
+        uses: actions/download-artifact@v8
+        with:
+          path: ghsl/output
+          pattern: ghsl-cogs-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.artifact_run_id }}
+
+      - name: Validate downloaded artifact
+        run: |
+          test -s ghsl/output/release.json
+          test -d ghsl/output/smod -o -d ghsl/output/age
+          find ghsl/output -type f -printf '%p %s bytes\n' | sort
+
+      - name: Install deploy dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Deploy existing GHSL COGs
         env:
           REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
           EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
