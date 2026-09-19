@@ -309,8 +309,7 @@ def export_areas(
 	area_path: str,
 	selected_subtypes: tuple[str, ...],
 	output_path: Path,
-	country_outline_path: Path,
-) -> tuple[Counter, Counter]:
+) -> Counter:
 	subtype_sql = sql_string_list(selected_subtypes)
 	query = f"""
 		SELECT
@@ -331,12 +330,8 @@ def export_areas(
 	"""
 	cursor = connection.execute(query)
 	counts: Counter = Counter()
-	outline_counts: Counter = Counter()
 
-	with (
-		output_path.open("w", encoding="utf-8") as area_handle,
-		country_outline_path.open("w", encoding="utf-8") as outline_handle,
-	):
+	with output_path.open("w", encoding="utf-8") as handle:
 		while True:
 			rows = cursor.fetchmany(5000)
 			if not rows:
@@ -360,46 +355,83 @@ def export_areas(
 					str(division_id),
 					name,
 				)
-				properties = {
-					"id": str(area_id),
-					"division_id": str(division_id),
-					"subtype": subtype,
-					"admin_level": int(admin_level) if admin_level is not None else None,
-					"country": str(country) if country else None,
-					"region": str(region) if region else None,
-					"name": name,
-					"hierarchy_names": hierarchy_names,
-					"hierarchy_subtypes": hierarchy_subtypes,
-					"has_perspective": bool(perspectives is not None),
-					"source": "Overture Maps",
-				}
 				write_feature(
-					area_handle,
+					handle,
 					geometry_json,
-					properties,
+					{
+						"id": str(area_id),
+						"division_id": str(division_id),
+						"subtype": subtype,
+						"admin_level": int(admin_level) if admin_level is not None else None,
+						"country": str(country) if country else None,
+						"region": str(region) if region else None,
+						"name": name,
+						"hierarchy_names": hierarchy_names,
+						"hierarchy_subtypes": hierarchy_subtypes,
+						"has_perspective": bool(perspectives is not None),
+						"source": "Overture Maps",
+					},
 					MINZOOM_BY_SUBTYPE[subtype],
 				)
 				counts[subtype] += 1
 
-				if subtype in {"country", "dependency"}:
-					write_feature(
-						outline_handle,
-						geometry_json,
-						{
-							"id": f"outline:{area_id}",
-							"division_id": str(division_id),
-							"subtype": subtype,
-							"admin_level": int(admin_level) if admin_level is not None else None,
-							"country": str(country) if country else None,
-							"region": str(region) if region else None,
-							"boundary_kind": "land_outline",
-							"source": "Overture Maps division_area",
-						},
-						0,
-					)
-					outline_counts[subtype] += 1
+	return counts
 
-	return counts, outline_counts
+
+def export_country_outlines(
+	connection: duckdb.DuckDBPyConnection,
+	area_path: str,
+	output_path: Path,
+) -> Counter:
+	query = f"""
+		SELECT
+			id,
+			division_id,
+			subtype,
+			admin_level,
+			country,
+			region,
+			ST_AsGeoJSON(ST_Boundary(geometry)) AS geometry_json
+		FROM read_parquet('{area_path}', hive_partitioning=1)
+		WHERE is_land = TRUE
+			AND subtype IN ('country', 'dependency');
+	"""
+	cursor = connection.execute(query)
+	counts: Counter = Counter()
+
+	with output_path.open("w", encoding="utf-8") as handle:
+		while True:
+			rows = cursor.fetchmany(1000)
+			if not rows:
+				break
+			for (
+				area_id,
+				division_id,
+				subtype,
+				admin_level,
+				country,
+				region,
+				geometry_json,
+			) in rows:
+				subtype = str(subtype)
+				write_feature(
+					handle,
+					geometry_json,
+					{
+						"id": f"outline:{area_id}",
+						"division_id": str(division_id),
+						"subtype": subtype,
+						"admin_level": int(admin_level) if admin_level is not None else None,
+						"country": str(country) if country else None,
+						"region": str(region) if region else None,
+						"boundary_kind": "land_outline",
+						"source": "Overture Maps division_area",
+					},
+					0,
+				)
+				counts[subtype] += 1
+
+	return counts
 
 
 def export_boundaries(
@@ -484,7 +516,31 @@ def vienna_wfs_url() -> str:
 	)
 
 
-def export_vienna_districts(output_path: Path) -> dict:
+def polygon_boundary_geometry(geometry: dict) -> dict:
+	geometry_type = geometry.get("type")
+	coordinates = geometry.get("coordinates")
+	lines: list = []
+
+	if geometry_type == "Polygon" and isinstance(coordinates, list):
+		lines.extend(ring for ring in coordinates if isinstance(ring, list) and len(ring) >= 2)
+	elif geometry_type == "MultiPolygon" and isinstance(coordinates, list):
+		for polygon in coordinates:
+			if not isinstance(polygon, list):
+				continue
+			lines.extend(ring for ring in polygon if isinstance(ring, list) and len(ring) >= 2)
+	else:
+		raise RuntimeError(f"Cannot create boundary from Vienna geometry: {geometry_type!r}")
+
+	if not lines:
+		raise RuntimeError("Vienna district polygon has no boundary rings.")
+
+	return {
+		"type": "MultiLineString",
+		"coordinates": lines,
+	}
+
+
+def export_vienna_districts(area_output_path: Path, boundary_output_path: Path) -> dict:
 	url = vienna_wfs_url()
 	payload = fetch_json(url)
 	if not isinstance(payload, dict) or payload.get("type") != "FeatureCollection":
@@ -525,26 +581,41 @@ def export_vienna_districts(output_path: Path) -> dict:
 			f"got {sorted(numbers)!r}"
 		)
 
-	with output_path.open("w", encoding="utf-8") as handle:
+	with (
+		area_output_path.open("w", encoding="utf-8") as area_handle,
+		boundary_output_path.open("w", encoding="utf-8") as boundary_handle,
+	):
 		for number, name, geometry, source_id in sorted(districts):
 			label = f"{number}. {name}"
+			common_properties = {
+				"id": f"wien-district-{number}",
+				"division_id": f"wien-district-{number}",
+				"subtype": "borough",
+				"admin_level": 2,
+				"country": "AT",
+				"region": "AT-9",
+				"name": label,
+				"source": "Stadt Wien OGD",
+				"source_id": source_id,
+				"district_number": number,
+			}
 			write_feature(
-				handle,
+				area_handle,
 				geometry,
 				{
-					"id": f"wien-district-{number}",
-					"division_id": f"wien-district-{number}",
-					"subtype": "borough",
-					"admin_level": 2,
-					"country": "AT",
-					"region": "AT-9",
-					"name": label,
+					**common_properties,
 					"hierarchy_names": f"Österreich\u001fWien\u001f{label}",
 					"hierarchy_subtypes": "country\u001fregion\u001fborough",
 					"has_perspective": False,
-					"source": "Stadt Wien OGD",
-					"source_id": source_id,
-					"district_number": number,
+				},
+				VIENNA_DISTRICT_MINZOOM,
+			)
+			write_feature(
+				boundary_handle,
+				polygon_boundary_geometry(geometry),
+				{
+					**common_properties,
+					"boundary_kind": "district",
 				},
 				VIENNA_DISTRICT_MINZOOM,
 			)
@@ -634,7 +705,8 @@ def main() -> None:
 	area_geojson = work_dir / "admin-area.geojsonseq"
 	boundary_geojson = work_dir / "admin-boundary.geojsonseq"
 	country_outline_geojson = work_dir / "admin-country-outline.geojsonseq"
-	vienna_district_geojson = work_dir / "admin-vienna-district.geojsonseq"
+	vienna_district_area_geojson = work_dir / "admin-vienna-district-area.geojsonseq"
+	vienna_district_boundary_geojson = work_dir / "admin-vienna-district-boundary.geojsonseq"
 	boundary_pmtiles = output_dir / "overture-admin-boundary.pmtiles"
 	area_pmtiles = output_dir / "overture-admin-area.pmtiles"
 
@@ -654,12 +726,18 @@ def main() -> None:
 			"""
 		)
 
-		log("Streaming land-clipped administrative areas and high-detail country outlines")
-		area_counts, outline_counts = export_areas(
+		log("Streaming land-clipped administrative areas")
+		area_counts = export_areas(
 			connection,
 			area_path,
 			selected_subtypes,
 			area_geojson,
+		)
+
+		log("Extracting high-detail country/dependency outlines as line geometry")
+		outline_counts = export_country_outlines(
+			connection,
+			area_path,
 			country_outline_geojson,
 		)
 
@@ -681,14 +759,18 @@ def main() -> None:
 		raise RuntimeError("No Overture country outlines were emitted.")
 
 	log("Downloading and validating official Vienna district polygons")
-	vienna = export_vienna_districts(vienna_district_geojson)
+	vienna = export_vienna_districts(
+		vienna_district_area_geojson,
+		vienna_district_boundary_geojson,
+	)
 
 	log(
 		"GeoJSONSeq sizes: "
 		f"admin_area={area_geojson.stat().st_size} bytes, "
 		f"admin_boundary={boundary_geojson.stat().st_size} bytes, "
 		f"admin_country_outline={country_outline_geojson.stat().st_size} bytes, "
-		f"admin_vienna_district={vienna_district_geojson.stat().st_size} bytes"
+		f"admin_vienna_district_area={vienna_district_area_geojson.stat().st_size} bytes, "
+		f"admin_vienna_district_boundary={vienna_district_boundary_geojson.stat().st_size} bytes"
 	)
 	log(
 		"Emitted admin_area: "
@@ -738,7 +820,7 @@ def main() -> None:
 			(
 				("admin_boundary", boundary_geojson),
 				("admin_country_outline", country_outline_geojson),
-				("admin_vienna_district", vienna_district_geojson),
+				("admin_vienna_district", vienna_district_boundary_geojson),
 			),
 			boundary_pmtiles,
 			args.boundary_maxzoom,
@@ -752,7 +834,7 @@ def main() -> None:
 			args.tippecanoe,
 			(
 				("admin_area", area_geojson),
-				("admin_vienna_district", vienna_district_geojson),
+				("admin_vienna_district", vienna_district_area_geojson),
 			),
 			area_pmtiles,
 			args.area_maxzoom,
