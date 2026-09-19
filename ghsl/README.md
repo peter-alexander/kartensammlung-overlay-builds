@@ -7,7 +7,7 @@ This directory prepares selected official JRC Global Human Settlement Layer rast
 - `GHS-SMOD R2023A`: 1975–2030, 5-year interval, WGS84 30 arcsec (~1 km), version 2.0.
 - `GHS-AGE R2025A`: dominant age of the built stock, 1975–2020 in 5-year classes, World Mollweide 100 m, version 1.0.
 
-The original JRC downloads are ZIP-packaged GeoTIFFs. The build extracts the single raster and rewrites it as a lossless Cloud-Optimized GeoTIFF (COG) with internal overviews. No thematic values are resampled or reclassified.
+The original JRC downloads are ZIP-packaged GeoTIFFs with companion ArcGIS CLR color tables. The build extracts both, embeds the official palette and rewrites the raster as a Cloud-Optimized GeoTIFF (COG) with nearest-neighbour overviews. AGE codes 0–10 remain unchanged. SMOD is safely normalized from Int16 with NoData -200 to Byte with NoData 0; all thematic class codes 10–30 remain unchanged.
 
 ## Build
 
@@ -23,6 +23,7 @@ Requirements:
 - unzip
 - GDAL with the COG driver
 - Python 3
+- Python GDAL bindings (`python3-gdal`)
 
 Outputs:
 
@@ -45,7 +46,7 @@ The workflow uploads the files below `GHSL/` on the existing Easyname tile host:
 - `https://tiles.radlobby.at/GHSL/smod/ghs-smod-YYYY.tif`
 - `https://tiles.radlobby.at/GHSL/release.json`
 
-The tile host must keep HTTP byte-range requests and CORS enabled because the browser reads only the required COG ranges.
+The tile host must keep HTTP byte-range requests and CORS enabled because the browser reads only the required COG ranges. `cog-tiler-wasm` then renders the embedded categorical palette directly and can still query the original class value at a point.
 
 ## Sources
 
