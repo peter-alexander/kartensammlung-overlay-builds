@@ -63,12 +63,11 @@ jobs:
           test -s ghsl/output/age/ghs-age-1000m.tif
 
   build:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      TARGET: ${{ inputs.target }}
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'all' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -87,7 +86,7 @@ jobs:
           find ghsl/output -type f -printf '%p %s bytes\n' | sort
 
       - name: Upload build artifact
-        if: ${{ !inputs.deploy }}
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.deploy }}
         uses: actions/upload-artifact@v7
         with:
           name: ghsl-cogs-${{ inputs.target }}
