@@ -133,9 +133,15 @@ import pathlib
 import sys
 
 data = pathlib.Path(sys.argv[1]).read_bytes()
-if not (data.startswith(b"II*\x00") or data.startswith(b"MM\x00*")):
-	raise SystemExit(f"Kein TIFF-Header: {data[:8]!r}")
-print("TIFF-Magic OK")
+signatures = (
+	b"II*\x00",
+	b"MM\x00*",
+	b"II+\x00",
+	b"MM\x00+",
+)
+if not any(data.startswith(signature) for signature in signatures):
+	raise SystemExit(f"Kein TIFF-/BigTIFF-Header: {data[:8]!r}")
+print("TIFF-/BigTIFF-Magic OK")
 PY
 
 	log "$relative: HTTP 206, Content-Range und CORS OK"
