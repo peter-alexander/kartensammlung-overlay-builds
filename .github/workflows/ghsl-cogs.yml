@@ -26,6 +26,11 @@ on:
     paths:
       - "ghsl/**"
       - ".github/workflows/ghsl-cogs.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/ghsl-cogs.yml"
 
 permissions:
   actions: read
@@ -129,7 +134,7 @@ jobs:
           .github/scripts/lftp-upload.sh ghsl/output/release.json "$REMOTE_BASE/release.json"
 
   deploy-existing:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy && inputs.artifact_run_id != '' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy && inputs.artifact_run_id != '') || (github.event_name == 'push' && github.event.head_commit.message == 'Deploy validated GHSL artifact') }}
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -144,7 +149,7 @@ jobs:
           merge-multiple: true
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.artifact_run_id }}
+          run-id: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_run_id || '35450480802' }}
 
       - name: Validate downloaded artifact
         run: |
