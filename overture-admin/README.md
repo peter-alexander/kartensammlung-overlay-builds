@@ -9,8 +9,8 @@ This build creates two self-hosted PMTiles files for the Kartensammlung administ
 Visible geometry through the configured boundary maximum zoom (currently z14):
 
 - `admin_boundary`: Overture `division_boundary` land boundaries.
-- `admin_country_outline`: original high-detail Overture `country` / `dependency` land polygons, used as line geometry so coastlines are available at the same detail level as country borders.
-- `admin_vienna_district`: the 23 official Vienna district polygons from Stadt Wien OGD, used as line geometry for district borders.
+- `admin_country_outline`: boundaries derived from the original high-detail Overture `country` / `dependency` land polygons with `ST_Boundary`, stored as real line geometry so coastlines are available at the same detail level as country borders without tiling full polygons through z14.
+- `admin_vienna_district`: line boundaries derived from the 23 official Vienna district polygons from Stadt Wien OGD.
 
 ### `overture-admin-area.pmtiles`
 
@@ -19,7 +19,7 @@ Interaction geometry through the configured area maximum zoom (currently z11, ov
 - `admin_area`: Overture land-clipped administrative polygons.
 - `admin_vienna_district`: the same 23 official Vienna district polygons for hover and click interaction.
 
-The country-outline layer intentionally contains full country/dependency polygon outlines. Where an outline coincides with an explicit Overture land border, the explicit `admin_boundary` layer is rendered above it. Along the coast, the outline supplies the missing line geometry.
+The country-outline layer contains only line geometry derived from the country/dependency polygons before Tippecanoe. Where an outline coincides with an explicit Overture land border, the explicit `admin_boundary` layer is rendered above it. Along the coast, the outline supplies the missing line geometry.
 
 ## Overture source policy
 
