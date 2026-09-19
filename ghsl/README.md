@@ -69,3 +69,24 @@ GHS_AGE_1975052020_GLOBE_R2025A_54009_100_V1_0.zip
 ```
 
 Reuse: European Union / JRC GHSL data, source acknowledgment required.
+
+
+## Deploy eines vorhandenen Actions-Artefakts
+
+Ein bereits vollständig gebautes GHSL-Artefakt kann ohne erneuten Rasterbuild deployed werden.
+
+Im Workflow **Build GHSL COGs**:
+
+- `deploy = true`
+- `artifact_run_id = <Workflow-Run-ID>`
+- `target` wird in diesem Fall ignoriert.
+
+Der Workflow lädt dann die `ghsl-cogs-*`-Artefakte dieses Runs mit `actions/download-artifact` und überträgt sie direkt nach `tiles.radlobby.at/GHSL/`.
+
+Für den vollständig validierten Produktions-Test vom 19. September 2026:
+
+```text
+Run ID: 35450480802
+Artifact ID: 10585864839
+Artifact SHA-256: 081d9230ff6b1fdb8f00331bfe9fc9b3f151c3d1fb48874e9d354dae008bed70
+```
