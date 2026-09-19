@@ -7,7 +7,9 @@ OUTPUT_DIR="${GHSL_OUTPUT_DIR:-$SCRIPT_DIR/output}"
 TARGET="${1:-all}"
 
 JRC_BASE="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL"
-SMOD_YEARS=(1975 1980 1985 1990 1995 2000 2005 2010 2015 2020 2025 2030)
+DEFAULT_SMOD_YEARS="1975 1980 1985 1990 1995 2000 2005 2010 2015 2020 2025 2030"
+read -r -a SMOD_YEARS <<< "${GHSL_SMOD_YEARS:-$DEFAULT_SMOD_YEARS}"
+AGE_RESOLUTION="${GHSL_AGE_RESOLUTION:-100}"
 
 log() {
 	printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -40,36 +42,97 @@ download() {
 	mv -f "$output.part" "$output"
 }
 
-extract_single_tif() {
+find_archive_entry() {
 	local archive="$1"
-	local output="$2"
-	local tif_name
+	local suffix="$2"
+	local label="$3"
+	local candidates
 
-	tif_name="$(
+	candidates="$(
 		unzip -Z1 "$archive" \
-			| awk 'BEGIN { IGNORECASE=1 } /\.tif$/ { print }'
+			| awk -v suffix="$suffix" '
+				BEGIN { IGNORECASE=1 }
+				{
+					name=tolower($0)
+					if (length(name) >= length(suffix) && substr(name, length(name) - length(suffix) + 1) == tolower(suffix)) {
+						print
+					}
+				}
+			'
 	)"
 
-	if [ -z "$tif_name" ]; then
-		die "Kein GeoTIFF im Archiv gefunden: $archive"
+	if [ -z "$candidates" ]; then
+		die "$label fehlt im Archiv: $archive"
 	fi
 
-	if [ "$(printf '%s\n' "$tif_name" | wc -l)" -ne 1 ]; then
-		die "Erwartet genau ein GeoTIFF im Archiv: $archive"
+	if [ "$(printf '%s\n' "$candidates" | wc -l)" -ne 1 ]; then
+		die "Erwartet genau eine $label-Datei im Archiv: $archive"
 	fi
 
-	log "Extrahiere: $tif_name"
-	unzip -p "$archive" "$tif_name" > "$output"
+	printf '%s' "$candidates"
+}
+
+extract_archive_files() {
+	local archive="$1"
+	local tif_output="$2"
+	local clr_output="$3"
+	local tif_name
+	local clr_name
+
+	tif_name="$(find_archive_entry "$archive" ".tif" "GeoTIFF")"
+	clr_name="$(find_archive_entry "$archive" ".clr" "CLR-Farbpalette")"
+
+	log "Extrahiere Raster: $tif_name"
+	unzip -p "$archive" "$tif_name" > "$tif_output"
+
+	log "Extrahiere Farbpalette: $clr_name"
+	unzip -p "$archive" "$clr_name" > "$clr_output"
+}
+
+prepare_smod_palette_raster() {
+	local input="$1"
+	local palette="$2"
+	local output="$3"
+
+	log "Bereite SMOD-Klassenraster als Byte vor"
+	gdal_translate \
+		-of GTiff \
+		-ot Byte \
+		-a_nodata 0 \
+		-co TILED=YES \
+		-co COMPRESS=DEFLATE \
+		-co PREDICTOR=1 \
+		"$input" \
+		"$output"
+
+	python3 "$SCRIPT_DIR/embed_palette.py" "$output" "$palette" 0
+}
+
+prepare_age_palette_raster() {
+	local input="$1"
+	local palette="$2"
+	local output="$3"
+
+	log "Bereite AGE-Klassenraster vor"
+	gdal_translate \
+		-of GTiff \
+		-ot Byte \
+		-co TILED=YES \
+		-co COMPRESS=DEFLATE \
+		-co PREDICTOR=1 \
+		"$input" \
+		"$output"
+
+	python3 "$SCRIPT_DIR/embed_palette.py" "$output" "$palette"
 }
 
 make_cog() {
 	local input="$1"
 	local output="$2"
-	local resampling="$3"
 
 	mkdir -p "$(dirname -- "$output")"
 
-	log "Erzeuge COG: $output"
+	log "Erzeuge palettiertes COG: $output"
 	gdal_translate \
 		-of COG \
 		-co COMPRESS=DEFLATE \
@@ -77,13 +140,42 @@ make_cog() {
 		-co BLOCKSIZE=512 \
 		-co BIGTIFF=IF_SAFER \
 		-co NUM_THREADS=ALL_CPUS \
-		-co RESAMPLING="$resampling" \
+		-co RESAMPLING=NEAREST \
 		"$input" \
 		"$output.part"
 
 	mv -f "$output.part" "$output"
-
 	gdalinfo "$output" >/dev/null
+}
+
+validate_palette() {
+	local file="$1"
+	local expected_codes="$2"
+
+	python3 - "$file" "$expected_codes" <<'PY'
+import sys
+
+from osgeo import gdal
+
+path = sys.argv[1]
+expected_codes = [int(value) for value in sys.argv[2].split(",") if value]
+
+dataset = gdal.Open(path, gdal.GA_ReadOnly)
+if dataset is None:
+	raise SystemExit(f"Raster kann nicht geöffnet werden: {path}")
+
+band = dataset.GetRasterBand(1)
+table = band.GetRasterColorTable()
+if table is None:
+	raise SystemExit(f"Farbpalette fehlt: {path}")
+
+for code in expected_codes:
+	entry = table.GetColorEntry(code)
+	if entry is None:
+		raise SystemExit(f"Farbwert für Klasse {code} fehlt: {path}")
+
+print(f"Palette OK: {path} ({len(expected_codes)} geprüfte Klassen)")
+PY
 }
 
 validate_smod() {
@@ -100,6 +192,10 @@ data = json.loads(sys.argv[1])
 bands = data.get("bands") or []
 if len(bands) != 1:
 	raise SystemExit(f"SMOD: expected one band, got {len(bands)}")
+
+band_type = str(bands[0].get("type") or "").lower()
+if band_type not in {"byte", "uint8"}:
+	raise SystemExit(f"SMOD: expected UInt8/Byte, got {band_type!r}")
 
 size = data.get("size") or []
 if len(size) != 2 or min(size) <= 0:
@@ -123,19 +219,23 @@ if not math.isclose(pixel_y, expected, rel_tol=0, abs_tol=1e-8):
 
 print("SMOD metadata OK")
 PY
+
+	validate_palette "$file" "10,11,12,13,21,22,23,30"
 }
 
 validate_age() {
 	local file="$1"
+	local expected_resolution="$2"
 	local json
 
 	json="$(gdalinfo -json "$file")"
-	python3 - "$json" <<'PY'
+	python3 - "$json" "$expected_resolution" <<'PY'
 import json
 import math
 import sys
 
 data = json.loads(sys.argv[1])
+expected_resolution = float(sys.argv[2])
 bands = data.get("bands") or []
 if len(bands) != 1:
 	raise SystemExit(f"AGE: expected one band, got {len(bands)}")
@@ -158,13 +258,15 @@ if len(geo) != 6:
 
 pixel_x = abs(float(geo[1]))
 pixel_y = abs(float(geo[5]))
-if not math.isclose(pixel_x, 100.0, rel_tol=0, abs_tol=0.01):
+if not math.isclose(pixel_x, expected_resolution, rel_tol=0, abs_tol=0.01):
 	raise SystemExit(f"AGE: unexpected x resolution {pixel_x}")
-if not math.isclose(pixel_y, 100.0, rel_tol=0, abs_tol=0.01):
+if not math.isclose(pixel_y, expected_resolution, rel_tol=0, abs_tol=0.01):
 	raise SystemExit(f"AGE: unexpected y resolution {pixel_y}")
 
 print("AGE metadata OK")
 PY
+
+	validate_palette "$file" "0,1,2,3,4,5,6,7,8,9,10"
 }
 
 build_smod_epoch() {
@@ -174,34 +276,47 @@ build_smod_epoch() {
 	local url="${JRC_BASE}/GHS_SMOD_GLOBE_R2023A/${base}/V2-0/${archive_name}"
 	local archive="$WORK_DIR/$archive_name"
 	local tif="$WORK_DIR/${base}_V2_0.tif"
+	local clr="$WORK_DIR/${base}_V2_0.clr"
+	local paletted="$WORK_DIR/${base}_V2_0-paletted.tif"
 	local output="$OUTPUT_DIR/smod/ghs-smod-${year}.tif"
 
 	download "$url" "$archive"
-	extract_single_tif "$archive" "$tif"
-	make_cog "$tif" "$output" "NEAREST"
+	extract_archive_files "$archive" "$tif" "$clr"
+	prepare_smod_palette_raster "$tif" "$clr" "$paletted"
+	make_cog "$paletted" "$output"
 	validate_smod "$output"
-	rm -f "$archive" "$tif"
+	rm -f "$archive" "$tif" "$clr" "$paletted"
 }
 
 build_smod() {
 	for year in "${SMOD_YEARS[@]}"; do
+		if ! [[ "$year" =~ ^(1975|1980|1985|1990|1995|2000|2005|2010|2015|2020|2025|2030)$ ]]; then
+			die "Ungültige SMOD-Epoche: $year"
+		fi
 		build_smod_epoch "$year"
 	done
 }
 
 build_age() {
-	local base="GHS_AGE_1975052020_GLOBE_R2025A_54009_100_V1_0"
+	if [ "$AGE_RESOLUTION" != "100" ] && [ "$AGE_RESOLUTION" != "1000" ]; then
+		die "GHSL_AGE_RESOLUTION muss 100 oder 1000 sein."
+	fi
+
+	local base="GHS_AGE_1975052020_GLOBE_R2025A_54009_${AGE_RESOLUTION}_V1_0"
 	local archive_name="${base}.zip"
 	local url="${JRC_BASE}/GHS_AGE_GLOBE_R2025A/V1-0/${archive_name}"
 	local archive="$WORK_DIR/$archive_name"
 	local tif="$WORK_DIR/${base}.tif"
-	local output="$OUTPUT_DIR/age/ghs-age-100m.tif"
+	local clr="$WORK_DIR/${base}.clr"
+	local paletted="$WORK_DIR/${base}-paletted.tif"
+	local output="$OUTPUT_DIR/age/ghs-age-${AGE_RESOLUTION}m.tif"
 
 	download "$url" "$archive"
-	extract_single_tif "$archive" "$tif"
-	make_cog "$tif" "$output" "NEAREST"
-	validate_age "$output"
-	rm -f "$archive" "$tif"
+	extract_archive_files "$archive" "$tif" "$clr"
+	prepare_age_palette_raster "$tif" "$clr" "$paletted"
+	make_cog "$paletted" "$output"
+	validate_age "$output" "$AGE_RESOLUTION"
+	rm -f "$archive" "$tif" "$clr" "$paletted"
 }
 
 write_release_manifest() {
