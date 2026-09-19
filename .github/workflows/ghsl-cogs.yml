@@ -133,6 +133,17 @@ jobs:
 
           .github/scripts/lftp-upload.sh ghsl/output/release.json "$REMOTE_BASE/release.json"
 
+      - name: Verify public GHSL COGs
+        run: |
+          chmod +x ghsl/verify-public.sh
+          ghsl/verify-public.sh
+
+      - name: Verify public GHSL COGs
+        if: ${{ inputs.deploy }}
+        run: |
+          chmod +x ghsl/verify-public.sh
+          ghsl/verify-public.sh
+
   deploy-existing:
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.deploy && inputs.artifact_run_id != '') || (github.event_name == 'push' && github.event.head_commit.message == 'Deploy validated GHSL artifact') }}
     needs: validate
@@ -182,3 +193,16 @@ jobs:
           fi
 
           .github/scripts/lftp-upload.sh ghsl/output/release.json "$REMOTE_BASE/release.json"
+
+
+  verify-public:
+    if: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Verify deployed GHSL files' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify deployed GHSL files
+        run: |
+          chmod +x ghsl/verify-public.sh
+          ghsl/verify-public.sh
