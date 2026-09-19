@@ -1,0 +1,179 @@
+name: Build GHSL COGs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: GHSL product to build
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - smod
+          - age
+      deploy:
+        description: Deploy built COGs to tiles.radlobby.at
+        required: true
+        default: false
+        type: boolean
+      artifact_run_id:
+        description: Existing workflow run ID to deploy without rebuilding (leave empty to build)
+        required: false
+        default: ""
+        type: string
+  pull_request:
+    paths:
+      - "ghsl/**"
+      - ".github/workflows/ghsl-cogs.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ghsl-cogs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install smoke-test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-gdal unzip
+
+      - name: Validate scripts
+        run: |
+          bash -n ghsl/build.sh
+          python3 -m py_compile ghsl/embed_palette.py
+          grep -q 'GHS_SMOD_E.*R2023A_4326_30ss' ghsl/build.sh
+          grep -q 'GHS_AGE_1975052020_GLOBE_R2025A_54009_' ghsl/build.sh
+
+      - name: Smoke-build one SMOD epoch
+        env:
+          GHSL_SMOD_YEARS: "2020"
+        run: |
+          /usr/bin/time -v bash ghsl/build.sh smod
+          test -s ghsl/output/smod/ghs-smod-2020.tif
+
+      - name: Smoke-build 1 km AGE variant
+        env:
+          GHSL_AGE_RESOLUTION: "1000"
+        run: |
+          /usr/bin/time -v bash ghsl/build.sh age
+          test -s ghsl/output/age/ghs-age-1000m.tif
+
+  build:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_run_id == '' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      TARGET: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install GDAL and archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-gdal unzip
+
+      - name: Build GHSL COGs
+        run: |
+          chmod +x ghsl/build.sh
+          /usr/bin/time -v bash ghsl/build.sh "$TARGET"
+
+      - name: Show output sizes
+        run: |
+          find ghsl/output -type f -printf '%p %s bytes\n' | sort
+
+      - name: Upload build artifact
+        if: ${{ !inputs.deploy }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ghsl-cogs-${{ inputs.target }}
+          path: ghsl/output/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Install deploy dependencies
+        if: ${{ inputs.deploy }}
+        run: |
+          sudo apt-get install -y lftp
+
+      - name: Deploy GHSL COGs
+        if: ${{ inputs.deploy }}
+        env:
+          REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+          EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+          EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+          EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+          LFTP_PARALLEL: 4
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}GHSL"
+
+          if [ -d ghsl/output/smod ]; then
+            .github/scripts/lftp-upload.sh ghsl/output/smod "$REMOTE_BASE/smod"
+          fi
+
+          if [ -d ghsl/output/age ]; then
+            .github/scripts/lftp-upload.sh ghsl/output/age "$REMOTE_BASE/age"
+          fi
+
+          .github/scripts/lftp-upload.sh ghsl/output/release.json "$REMOTE_BASE/release.json"
+
+  deploy-existing:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy && inputs.artifact_run_id != '' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download existing GHSL artifact
+        uses: actions/download-artifact@v8
+        with:
+          path: ghsl/output
+          pattern: ghsl-cogs-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.artifact_run_id }}
+
+      - name: Validate downloaded artifact
+        run: |
+          test -s ghsl/output/release.json
+          test -d ghsl/output/smod -o -d ghsl/output/age
+          find ghsl/output -type f -printf '%p %s bytes\n' | sort
+
+      - name: Install deploy dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Deploy existing GHSL COGs
+        env:
+          REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+          EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+          EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+          EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+          LFTP_PARALLEL: 4
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}GHSL"
+
+          if [ -d ghsl/output/smod ]; then
+            .github/scripts/lftp-upload.sh ghsl/output/smod "$REMOTE_BASE/smod"
+          fi
+
+          if [ -d ghsl/output/age ]; then
+            .github/scripts/lftp-upload.sh ghsl/output/age "$REMOTE_BASE/age"
+          fi
+
+          .github/scripts/lftp-upload.sh ghsl/output/release.json "$REMOTE_BASE/release.json"

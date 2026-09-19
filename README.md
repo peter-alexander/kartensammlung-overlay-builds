@@ -7,3 +7,5 @@ Build- und Deploy-Repository für Kartensammlung-Overlays:
 - `Potenzialkarte Sitzmöglichkeiten`
 - `Radlkarte`
 - `Zeitzonen`
+
+- `GHSL` (SMOD + AGE als browserfähige COGs)

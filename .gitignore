@@ -1,3 +1,5 @@
 node_modules/
 timezone-boundaries/input/
 timezone-boundaries/build/
+ghsl/work/
+ghsl/output/
