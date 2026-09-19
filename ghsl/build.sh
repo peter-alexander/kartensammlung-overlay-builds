@@ -169,12 +169,15 @@ table = band.GetRasterColorTable()
 if table is None:
 	raise SystemExit(f"Farbpalette fehlt: {path}")
 
+entries = {}
 for code in expected_codes:
 	entry = table.GetColorEntry(code)
 	if entry is None:
 		raise SystemExit(f"Farbwert für Klasse {code} fehlt: {path}")
+	entries[code] = tuple(entry)
 
 print(f"Palette OK: {path} ({len(expected_codes)} geprüfte Klassen)")
+print("Palette entries:", entries)
 PY
 }
 
