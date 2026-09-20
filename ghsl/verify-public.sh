@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE_URL="${GHSL_PUBLIC_BASE_URL:-https://tiles.radlobby.at/GHSL}"
+MAP_ORIGIN="${GHSL_MAP_ORIGIN:-https://fahrrad.lima-city.de}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -20,6 +21,8 @@ require_command() {
 
 fetch_release() {
 	local output="$WORK_DIR/release.json"
+	local cache_bust
+	cache_bust="$(date +%s)"
 
 	log "Prüfe release.json"
 	curl \
@@ -29,8 +32,9 @@ fetch_release() {
 		--location \
 		--connect-timeout 20 \
 		--max-time 60 \
+		--header 'Cache-Control: no-cache' \
 		--output "$output" \
-		"$BASE_URL/release.json"
+		"$BASE_URL/release.json?verify=$cache_bust"
 
 	python3 - "$output" <<'PY'
 import json
@@ -120,7 +124,7 @@ check_range_cog() {
 			--connect-timeout 20 \
 			--max-time 60 \
 			--max-filesize 64 \
-			--header 'Origin: https://www.radlobby.at' \
+			--header "Origin: $MAP_ORIGIN" \
 			--header 'Range: bytes=0-15' \
 			--dump-header "$headers" \
 			--output "$body" \
@@ -144,6 +148,9 @@ check_range_cog() {
 			| tail -n 1
 	)"
 	[ -n "$cors" ] || die "$relative: Access-Control-Allow-Origin fehlt"
+	printf '%s\n' "$cors" \
+		| grep -Eiq "^Access-Control-Allow-Origin:[[:space:]]*(\\*|${MAP_ORIGIN})$" \
+		|| die "$relative: unerwartetes Access-Control-Allow-Origin: $cors"
 
 	python3 - "$body" <<'PY'
 import pathlib
