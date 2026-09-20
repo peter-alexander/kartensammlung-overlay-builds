@@ -10,6 +10,7 @@ JRC_BASE="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL"
 DEFAULT_SMOD_YEARS="1975 1980 1985 1990 1995 2000 2005 2010 2015 2020 2025 2030"
 read -r -a SMOD_YEARS <<< "${GHSL_SMOD_YEARS:-$DEFAULT_SMOD_YEARS}"
 AGE_RESOLUTION="${GHSL_AGE_RESOLUTION:-100}"
+HEIGHT_RESOLUTION="${GHSL_HEIGHT_RESOLUTION:-100}"
 
 log() {
 	printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -89,6 +90,16 @@ extract_archive_files() {
 	unzip -p "$archive" "$clr_name" > "$clr_output"
 }
 
+extract_archive_raster() {
+	local archive="$1"
+	local tif_output="$2"
+	local tif_name
+
+	tif_name="$(find_archive_entry "$archive" ".tif" "GeoTIFF")"
+	log "Extrahiere Raster: $tif_name"
+	unzip -p "$archive" "$tif_name" > "$tif_output"
+}
+
 prepare_smod_palette_raster() {
 	local input="$1"
 	local palette="$2"
@@ -141,6 +152,30 @@ make_cog() {
 		-co BIGTIFF=IF_SAFER \
 		-co NUM_THREADS=ALL_CPUS \
 		-co RESAMPLING=NEAREST \
+		"$input" \
+		"$output.part"
+
+	mv -f "$output.part" "$output"
+	gdalinfo "$output" >/dev/null
+}
+
+make_height_cog() {
+	local input="$1"
+	local output="$2"
+
+	mkdir -p "$(dirname -- "$output")"
+
+	log "Erzeuge verlustfreies ANBH-COG ohne Reprojektion: $output"
+	gdal_translate \
+		-of COG \
+		-co COMPRESS=DEFLATE \
+		-co LEVEL=9 \
+		-co PREDICTOR=FLOATING_POINT \
+		-co BLOCKSIZE=512 \
+		-co BIGTIFF=IF_SAFER \
+		-co NUM_THREADS=ALL_CPUS \
+		-co OVERVIEWS=AUTO \
+		-co RESAMPLING=AVERAGE \
 		"$input" \
 		"$output.part"
 
@@ -272,6 +307,189 @@ PY
 	validate_palette "$file" "0,1,2,3,4,5,6,7,8,9,10"
 }
 
+validate_height() {
+	local source="$1"
+	local cog="$2"
+	local archive="$3"
+	local source_url="$4"
+	local report="$5"
+
+	mkdir -p "$(dirname -- "$report")"
+	python3 - "$source" "$cog" "$archive" "$source_url" "$report" <<'PY'
+import hashlib
+import json
+import math
+import pathlib
+import sys
+
+import numpy as np
+from osgeo import gdal, osr
+
+gdal.UseExceptions()
+
+source_path = pathlib.Path(sys.argv[1])
+cog_path = pathlib.Path(sys.argv[2])
+archive_path = pathlib.Path(sys.argv[3])
+source_url = sys.argv[4]
+report_path = pathlib.Path(sys.argv[5])
+
+source = gdal.Open(str(source_path), gdal.GA_ReadOnly)
+cog = gdal.Open(str(cog_path), gdal.GA_ReadOnly)
+if source is None or cog is None:
+	raise SystemExit("HEIGHT: source or COG cannot be opened")
+
+if source.RasterCount != 1 or cog.RasterCount != 1:
+	raise SystemExit("HEIGHT: expected exactly one raster band")
+if (source.RasterXSize, source.RasterYSize) != (cog.RasterXSize, cog.RasterYSize):
+	raise SystemExit("HEIGHT: raster dimensions changed")
+
+source_band = source.GetRasterBand(1)
+cog_band = cog.GetRasterBand(1)
+source_type = gdal.GetDataTypeName(source_band.DataType)
+cog_type = gdal.GetDataTypeName(cog_band.DataType)
+if source_type != cog_type:
+	raise SystemExit(f"HEIGHT: data type changed from {source_type} to {cog_type}")
+
+source_nodata = source_band.GetNoDataValue()
+cog_nodata = cog_band.GetNoDataValue()
+if source_nodata is None or cog_nodata is None:
+	if source_nodata is not cog_nodata:
+		raise SystemExit(f"HEIGHT: NoData changed from {source_nodata} to {cog_nodata}")
+elif not math.isclose(float(source_nodata), float(cog_nodata), rel_tol=0, abs_tol=0):
+	raise SystemExit(f"HEIGHT: NoData changed from {source_nodata} to {cog_nodata}")
+
+source_transform = source.GetGeoTransform()
+cog_transform = cog.GetGeoTransform()
+if source_transform != cog_transform:
+	raise SystemExit("HEIGHT: geotransform changed")
+if not math.isclose(abs(source_transform[1]), 100.0, rel_tol=0, abs_tol=0.01):
+	raise SystemExit(f"HEIGHT: unexpected x resolution {source_transform[1]}")
+if not math.isclose(abs(source_transform[5]), 100.0, rel_tol=0, abs_tol=0.01):
+	raise SystemExit(f"HEIGHT: unexpected y resolution {source_transform[5]}")
+
+source_srs = osr.SpatialReference(wkt=source.GetProjectionRef())
+cog_srs = osr.SpatialReference(wkt=cog.GetProjectionRef())
+if not source_srs.IsSame(cog_srs):
+	raise SystemExit("HEIGHT: projection changed")
+if "MOLLWEIDE" not in source_srs.ExportToWkt().upper():
+	raise SystemExit("HEIGHT: expected World Mollweide source projection")
+
+image_structure = cog.GetMetadata("IMAGE_STRUCTURE")
+if image_structure.get("LAYOUT") != "COG":
+	raise SystemExit(f"HEIGHT: COG layout marker missing: {image_structure}")
+if image_structure.get("COMPRESSION") != "DEFLATE":
+	raise SystemExit(f"HEIGHT: expected DEFLATE compression: {image_structure}")
+
+overview_sizes = [
+	[cog_band.GetOverview(index).XSize, cog_band.GetOverview(index).YSize]
+	for index in range(cog_band.GetOverviewCount())
+]
+if len(overview_sizes) < 4:
+	raise SystemExit(f"HEIGHT: too few internal overviews: {overview_sizes}")
+
+wgs84 = osr.SpatialReference()
+wgs84.ImportFromEPSG(4326)
+wgs84.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+source_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+to_source = osr.CoordinateTransformation(wgs84, source_srs)
+inverse = gdal.InvGeoTransform(source_transform)
+if isinstance(inverse, tuple) and len(inverse) == 2 and isinstance(inverse[0], (bool, int)):
+	inverse = inverse[1]
+
+locations = [
+	("Wien", "Europa", 16.3738, 48.2082),
+	("New York", "Nordamerika", -74.0060, 40.7128),
+	("São Paulo", "Südamerika", -46.6333, -23.5505),
+	("Lagos", "Afrika", 3.3792, 6.5244),
+	("Delhi", "Asien", 77.1025, 28.7041),
+	("Sydney", "Australien/Ozeanien", 151.2093, -33.8688),
+]
+
+samples = []
+for name, continent, lon, lat in locations:
+	x, y, _ = to_source.TransformPoint(lon, lat)
+	pixel_x, pixel_y = gdal.ApplyGeoTransform(inverse, x, y)
+	center_x = int(math.floor(pixel_x))
+	center_y = int(math.floor(pixel_y))
+	radius = 8
+	xoff = max(0, min(source.RasterXSize - (radius * 2 + 1), center_x - radius))
+	yoff = max(0, min(source.RasterYSize - (radius * 2 + 1), center_y - radius))
+	width = min(radius * 2 + 1, source.RasterXSize - xoff)
+	height = min(radius * 2 + 1, source.RasterYSize - yoff)
+
+	source_values = source_band.ReadAsArray(xoff, yoff, width, height)
+	cog_values = cog_band.ReadAsArray(xoff, yoff, width, height)
+	if source_values is None or cog_values is None:
+		raise SystemExit(f"HEIGHT: sample could not be read for {name}")
+	if not np.array_equal(source_values, cog_values, equal_nan=True):
+		raise SystemExit(f"HEIGHT: numeric values changed around {name}")
+
+	valid = np.isfinite(source_values)
+	if source_nodata is not None:
+		valid &= source_values != source_nodata
+	valid &= source_values > 0
+	positive = source_values[valid]
+	if positive.size == 0:
+		raise SystemExit(f"HEIGHT: no positive ANBH sample near {name}")
+
+	samples.append({
+		"name": name,
+		"continent": continent,
+		"lon": lon,
+		"lat": lat,
+		"pixel": [center_x, center_y],
+		"window": [xoff, yoff, width, height],
+		"positive_pixels": int(positive.size),
+		"min_m": float(positive.min()),
+		"max_m": float(positive.max()),
+		"mean_m": float(positive.mean()),
+		"source_equals_cog": True,
+	})
+
+archive_hash = hashlib.sha256()
+with archive_path.open("rb") as stream:
+	for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+		archive_hash.update(chunk)
+
+projection_wkt = source_srs.ExportToWkt()
+report = {
+	"product": "GHS-BUILT-H R2023A / ANBH 2018",
+	"source": {
+		"url": source_url,
+		"archive_bytes": archive_path.stat().st_size,
+		"archive_sha256": archive_hash.hexdigest(),
+		"raster_bytes": source_path.stat().st_size,
+	},
+	"cog": {
+		"path": cog_path.name,
+		"bytes": cog_path.stat().st_size,
+		"driver": cog.GetDriver().ShortName,
+		"size": [cog.RasterXSize, cog.RasterYSize],
+		"band_type": cog_type,
+		"nodata": cog_nodata,
+		"geotransform": list(cog_transform),
+		"projection_name": cog_srs.GetAttrValue("PROJCS"),
+		"projection_wkt_sha256": hashlib.sha256(projection_wkt.encode("utf-8")).hexdigest(),
+		"image_structure": image_structure,
+		"block_size": list(cog_band.GetBlockSize()),
+		"overviews": overview_sizes,
+	},
+	"checks": {
+		"original_resolution_preserved": True,
+		"original_projection_preserved": True,
+		"original_nodata_preserved": True,
+		"original_data_type_preserved": True,
+		"lossless_sample_values": True,
+		"layout_is_cog": True,
+	},
+	"samples": samples,
+}
+
+report_path.write_text(json.dumps(report, ensure_ascii=False, indent="\t") + "\n", encoding="utf-8")
+print(json.dumps(report, ensure_ascii=False, indent=2))
+PY
+}
+
 build_smod_epoch() {
 	local year="$1"
 	local base="GHS_SMOD_E${year}_GLOBE_R2023A_4326_30ss"
@@ -320,6 +538,26 @@ build_age() {
 	make_cog "$paletted" "$output"
 	validate_age "$output" "$AGE_RESOLUTION"
 	rm -f "$archive" "$tif" "$clr" "$paletted"
+}
+
+build_height() {
+	if [ "$HEIGHT_RESOLUTION" != "100" ]; then
+		die "GHSL_HEIGHT_RESOLUTION muss 100 sein."
+	fi
+
+	local base="GHS_BUILT_H_ANBH_E2018_GLOBE_R2023A_54009_${HEIGHT_RESOLUTION}"
+	local archive_name="${base}_V1_0.zip"
+	local url="${JRC_BASE}/GHS_BUILT_H_GLOBE_R2023A/${base}/V1-0/${archive_name}"
+	local archive="$WORK_DIR/$archive_name"
+	local tif="$WORK_DIR/${base}_V1_0.tif"
+	local output="$OUTPUT_DIR/height/ghs-built-h-anbh-2018-${HEIGHT_RESOLUTION}m.tif"
+	local report="$OUTPUT_DIR/validation/ghs-built-h-anbh-2018-${HEIGHT_RESOLUTION}m.json"
+
+	download "$url" "$archive"
+	extract_archive_raster "$archive" "$tif"
+	make_height_cog "$tif" "$output"
+	validate_height "$tif" "$output" "$archive" "$url" "$report"
+	rm -f "$archive" "$tif"
 }
 
 write_release_manifest() {
@@ -374,12 +612,16 @@ main() {
 		age)
 			build_age
 			;;
+		height)
+			build_height
+			;;
 		all)
 			build_smod
 			build_age
+			build_height
 			;;
 		*)
-			die "Unbekanntes Ziel '$TARGET'. Erlaubt: all, smod, age"
+			die "Unbekanntes Ziel '$TARGET'. Erlaubt: all, smod, age, height"
 			;;
 	esac
 

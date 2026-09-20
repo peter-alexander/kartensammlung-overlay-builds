@@ -59,15 +59,18 @@ expected = {
 	"smod/ghs-smod-2030.tif": 15323519,
 }
 
+height_path = "height/ghs-built-h-anbh-2018-100m.tif"
+
 actual = {
 	item.get("path"): item.get("bytes")
 	for item in files
 	if isinstance(item, dict)
 }
 
-if actual != expected:
-	missing = sorted(set(expected) - set(actual))
-	extra = sorted(set(actual) - set(expected))
+expected_paths = set(expected) | {height_path}
+if set(actual) != expected_paths:
+	missing = sorted(expected_paths - set(actual))
+	extra = sorted(set(actual) - expected_paths)
 	wrong = {
 		key: (expected[key], actual.get(key))
 		for key in sorted(set(expected) & set(actual))
@@ -77,6 +80,20 @@ if actual != expected:
 		f"release.json stimmt nicht mit dem validierten Produktionsbuild überein: "
 		f"missing={missing}, extra={extra}, wrong={wrong}"
 	)
+
+if any(actual.get(key) != value for key, value in expected.items()):
+	wrong = {
+		key: (value, actual.get(key))
+		for key, value in expected.items()
+		if actual.get(key) != value
+	}
+	raise SystemExit(f"Known production file sizes changed: {wrong}")
+
+height_size = actual.get(height_path)
+if not isinstance(height_size, int) or height_size < 100_000_000:
+	raise SystemExit(f"Invalid height COG size: {height_size!r}")
+
+pathlib.Path(sys.argv[1]).with_name("height-size.txt").write_text(str(height_size), encoding="ascii")
 
 print(f"release.json OK: {len(actual)} Dateien")
 PY
@@ -156,6 +173,7 @@ main() {
 	check_range_cog "smod/ghs-smod-2020.tif" "15027956"
 	check_range_cog "smod/ghs-smod-2030.tif" "15323519"
 	check_range_cog "age/ghs-age-100m.tif" "694067422"
+	check_range_cog "height/ghs-built-h-anbh-2018-100m.tif" "$(cat "$WORK_DIR/height-size.txt")"
 
 	log "Öffentliche GHSL-Dateien vollständig geprüft."
 }
