@@ -1,0 +1,79 @@
+name: Build Baumkataster vector tiles
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 2 * * *'
+
+concurrency:
+  group: baumkataster-vector-tiles
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+      LFTP_PARALLEL: 6
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Restore tippecanoe cache
+        id: cache-tippecanoe
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ github.workspace }}/.local/bin/tippecanoe
+            ${{ github.workspace }}/.local/bin/tile-join
+          key: ${{ runner.os }}-tippecanoe-${{ hashFiles('.github/scripts/build-tippecanoe.sh', '.github/tippecanoe-version.txt') }}
+
+      - name: Install build dependencies
+        if: steps.cache-tippecanoe.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+
+      - name: Build tippecanoe
+        if: steps.cache-tippecanoe.outputs.cache-hit != 'true'
+        run: |
+          chmod +x .github/scripts/build-tippecanoe.sh
+          .github/scripts/build-tippecanoe.sh >/dev/null
+
+      - name: Install deploy dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Build Baumkataster vector tiles
+        env:
+          TIPPECANOE_BIN: ${{ github.workspace }}/.local/bin/tippecanoe
+        run: |
+          chmod +x baumkataster/run.sh
+          /usr/bin/time -v bash baumkataster/run.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: baumkataster-vector-tiles
+          path: baumkataster/build/Baumkataster/
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Deploy Baumkataster vector tiles
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Baumkataster"
+          .github/scripts/lftp-upload.sh baumkataster/build/Baumkataster "$REMOTE_BASE"
