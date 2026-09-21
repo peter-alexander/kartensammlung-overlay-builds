@@ -3,7 +3,6 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 
 const WFS_BASE = "https://data.wien.gv.at/daten/geo";
 const TYPE_NAME = "ogdwien:BAUMKATOGD";
