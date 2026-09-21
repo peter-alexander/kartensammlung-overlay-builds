@@ -28,10 +28,10 @@ node "$SCRIPT_DIR/build.mjs" \
 test -s "$GEOJSONSEQ_FILE"
 test -s "$RELEASE_FILE"
 
-log "Erzeuge ungekomprimierte Z15-PBF-Vektorkacheln"
+log "Erzeuge ungekomprimierte Z12-Z15-PBF-Vektorkacheln"
 mkdir -p "$PBF_DIR"
 "$TIPPECANOE_BIN" \
-	--minimum-zoom=15 \
+	--minimum-zoom=12 \
 	--maximum-zoom=15 \
 	--layer=baumkataster \
 	--force \
@@ -41,10 +41,19 @@ mkdir -p "$PBF_DIR"
 	--output-to-directory="$PBF_DIR" \
 	"$GEOJSONSEQ_FILE"
 
-tile_count="$(find "$PBF_DIR/15" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
-if [ "$tile_count" -lt 50 ]; then
-	log "Zu wenige Z15-PBF-Kacheln erzeugt: $tile_count"
+z15_tile_count="$(find "$PBF_DIR/15" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
+if [ "$z15_tile_count" -lt 50 ]; then
+	log "Zu wenige Z15-PBF-Kacheln erzeugt: $z15_tile_count"
 	exit 1
 fi
 
-log "Baumkataster-Build fertig: $tile_count Z15-Kacheln"
+for zoom in 12 13 14 15; do
+	tile_count="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
+	if [ "$tile_count" -lt 1 ]; then
+		log "Keine PBF-Kacheln für Z$zoom erzeugt"
+		exit 1
+	fi
+	log "Z$zoom: $tile_count PBF-Kacheln"
+done
+
+log "Baumdatensatz-Build fertig: $z15_tile_count vollständige Z15-Kacheln plus Z12-Z14"
