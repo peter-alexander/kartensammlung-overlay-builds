@@ -2,6 +2,14 @@ name: Build Baumkataster vector tiles
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'baumkataster/**'
+      - '.github/workflows/baumkataster.yml'
+      - '.github/scripts/build-tippecanoe.sh'
+      - '.github/tippecanoe-version.txt'
   schedule:
     - cron: '37 2 * * *'
 
