@@ -53,11 +53,14 @@ jobs:
           if (release.status !== "production") {
           	throw new Error("Expected production release, got " + release.status);
           }
-          if (release.counts.targets !== 1212) {
-          	throw new Error("Expected 1212 targets, got " + release.counts.targets);
+          if (release.counts.targets !== 1213) {
+          	throw new Error(Expected 1213 targets, got " + release.counts.targets);
           }
           if (release.counts.directStrong !== 1209) {
           	throw new Error("Expected 1209 direct targets, got " + release.counts.directStrong);
+          }
+          if (release.counts.manualPilotStrong !== 1) {
+          	throw new Error("Expected 1 manual strong pilot exception, got " + release.counts.manualPilotStrong);
           }
           if (release.counts.manualPilotHybrid !== 3) {
           	throw new Error("Expected 3 pilot hybrid exceptions, got " + release.counts.manualPilotHybrid);
@@ -65,7 +68,7 @@ jobs:
           if (!Array.isArray(release.tiles?.presentTilesZ15) || !release.tiles.presentTilesZ15.length) {
           	throw new Error("Production release has no Z15 tiles.");
           }
-          if (targets.targets?.length !== 1212) {
+          if (targets.targets?.length !== 1213) {
           	throw new Error("Target manifest size mismatch.");
           }
           for (const target of targets.targets) {
