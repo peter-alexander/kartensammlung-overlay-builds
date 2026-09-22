@@ -696,6 +696,18 @@ function groundGeometryFromSurfaces(surfaces, reader) {
 	return unionJstsGeometries(geometries);
 }
 
+function jstsGeometryParts(geometry) {
+	if (!geometry || geometry.isEmpty()) return [];
+	const count = Number(geometry.getNumGeometries?.() || 1);
+	const result = [];
+	for (let index = 0; index < count; index += 1) {
+		const part = count === 1 ? geometry : geometry.getGeometryN(index);
+		if (!part || part.isEmpty()) continue;
+		result.push(part);
+	}
+	return result;
+}
+
 function polygonGeoJsonParts(geometry, writer) {
 	if (!geometry || geometry.isEmpty()) return [];
 	const geojson = writer.write(geometry);
