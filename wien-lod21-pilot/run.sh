@@ -10,11 +10,11 @@ rm -rf "$INPUT_DIR" "$SCRIPT_DIR/build"
 mkdir -p "$INPUT_DIR" "$OUTPUT_DIR"
 
 for sheet in 104078 105080; do
-	zip="$INPUT_DIR/$sheet_lod2_gml.zip"
+	zip="$INPUT_DIR/"$sheet"_lod2_gml.zip"
 	echo "Download LOD2.1 sheet $sheet"
 	curl -fsSL --retry 4 --retry-delay 3 \
 		-A "kartensammlung-overlay-builds/wien-lod21" \
-		"$DOWNLOAD_BASE/$sheet_lod2_gml.zip" \
+		"$DOWNLOAD_BASE/"$sheet"_lod2_gml.zip" \
 		-o "$zip"
 	unzip -q "$zip" -d "$INPUT_DIR"
 done
