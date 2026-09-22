@@ -342,12 +342,36 @@ function decodeOgdFeatures(buffer) {
 }
 
 async function fetchBuffer(url, allow404 = false) {
-	const response = await fetch(url, {
-		headers: { "User-Agent": "kartensammlung-overlay-builds/wien-gap-analysis" }
-	});
-	if (allow404 && response.status === 404) return null;
-	if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-	return new Uint8Array(await response.arrayBuffer());
+	let lastError = null;
+	for (let attempt = 1; attempt <= 5; attempt += 1) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 45_000);
+		try {
+			const response = await fetch(url, {
+				headers: { "User-Agent": "kartensammlung-overlay-builds/wien-gap-analysis" },
+				signal: controller.signal
+			});
+			if (allow404 && response.status === 404) return null;
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status} for ${url}`);
+			}
+			return new Uint8Array(await response.arrayBuffer());
+		} catch (error) {
+			lastError = error;
+			if (attempt >= 5) break;
+			const waitMs = Math.min(15_000, attempt * 2_000);
+			console.warn(
+				`Fetch retry ${attempt}/5 in ${waitMs / 1000}s: ${url}: `
+				+ `${error?.message || error}`
+			);
+			await new Promise((resolve) => setTimeout(resolve, waitMs));
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	throw new Error(
+		`Fetch failed after 5 attempts: ${url}: ${lastError?.message || lastError}`
+	);
 }
 
 async function processTile(tile) {
