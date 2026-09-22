@@ -8,6 +8,7 @@ WORK_DIR="$BUILD_DIR/tmp"
 GEOJSONSEQ_FILE="$WORK_DIR/baumkataster.geojsonseq"
 PBF_DIR="$PUBLISH_DIR/tiles"
 RELEASE_FILE="$PUBLISH_DIR/release.json"
+TILEJSON_FILE="$PUBLISH_DIR/tilejson.json"
 TIPPECANOE_BIN="${TIPPECANOE_BIN:-tippecanoe}"
 
 log() {
@@ -27,6 +28,7 @@ node "$SCRIPT_DIR/build.mjs" \
 
 test -s "$GEOJSONSEQ_FILE"
 test -s "$RELEASE_FILE"
+test -s "$TILEJSON_FILE"
 
 log "Erzeuge ungekomprimierte Z12-Z15-PBF-Vektorkacheln"
 mkdir -p "$PBF_DIR"
@@ -44,6 +46,15 @@ mkdir -p "$PBF_DIR"
 z15_tile_count="$(find "$PBF_DIR/15" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
 if [ "$z15_tile_count" -lt 50 ]; then
 	log "Zu wenige Z15-PBF-Kacheln erzeugt: $z15_tile_count"
+	exit 1
+fi
+
+expected_z15_tile_count="$(node -e '
+	const release = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+	process.stdout.write(String(release.vectorTiles.presentTilesZ15.length));
+' "$RELEASE_FILE")"
+if [ "$z15_tile_count" -ne "$expected_z15_tile_count" ]; then
+	log "Z15-Kachelindex stimmt nicht: Dateien=$z15_tile_count, Index=$expected_z15_tile_count"
 	exit 1
 fi
 
