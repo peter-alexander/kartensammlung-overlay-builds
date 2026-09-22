@@ -14,6 +14,7 @@ const ZOOM = 15;
 const GRID_SIZE = 64;
 const CONCURRENCY = 12;
 const EARTH_CIRCUMFERENCE_METERS = 40_075_016.68557849;
+let ogdReleaseVersion = "";
 const VIENNA_CRS = "EPSG:31256";
 const VIENNA_CRS_DEF = "+proj=tmerc +lat_0=0 +lon_0=16.3333333333333 +k=1 +x_0=0 +y_0=-5000000 +ellps=bessel +towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs +type=crs";
 
@@ -35,11 +36,14 @@ function tileKey(tile) {
 	return `${tile.z}/${tile.x}/${tile.y}`;
 }
 
-function tileUrl(template, tile) {
-	return template
+function tileUrl(template, tile, version = "") {
+	const base = template
 		.replace("{z}", String(tile.z))
 		.replace("{x}", String(tile.x))
 		.replace("{y}", String(tile.y));
+	return version
+		? `${base}?v=${encodeURIComponent(version)}`
+		: base;
 }
 
 function lngToWorldX(lng, zoom) {
@@ -397,7 +401,7 @@ async function fetchBuffer(url, allow404 = false) {
 
 async function processTile(tile) {
 	const [ogdBuffer, mtkBuffer] = await Promise.all([
-		fetchBuffer(tileUrl(OGD_TILE_URL, tile)),
+		fetchBuffer(tileUrl(OGD_TILE_URL, tile, ogdReleaseVersion)),
 		fetchBuffer(tileUrl(MTK_TILE_URL, tile), true)
 	]);
 	const ogdFeatures = decodeOgdFeatures(ogdBuffer);
@@ -506,6 +510,11 @@ function lod21SheetForPoint(point) {
 
 async function main() {
 	const release = await (await fetch(RELEASE_URL, { cache: "no-store" })).json();
+	ogdReleaseVersion = String(release?.generatedAt || "");
+	if (!ogdReleaseVersion) throw new Error("WienBuildings release has no generatedAt.");
+	if (!Array.isArray(release?.properties) || !release.properties.includes("BEZUG")) {
+		throw new Error("WienBuildings release does not expose BEZUG yet.");
+	}
 	const keys = release?.vectorTiles?.presentTilesZ15 || [];
 	const tiles = keys.map((key) => {
 		const [z, x, y] = key.split("/").map(Number);
