@@ -609,7 +609,7 @@ async function main() {
 					.map((record) => String(record.properties.BEZUG ?? "").trim())
 					.filter(Boolean)
 			)].sort();
-			const numericHistoricalCodes = historicalCodes.filter((code) => /^\\d{6}$/.test(code));
+			const numericHistoricalCodes = historicalCodes.filter((code) => /^\d{6}$/.test(code));
 			fullyMissingGroups.push({
 				BW_GEB_ID: group.BW_GEB_ID,
 				partCount: group.total,
@@ -638,7 +638,7 @@ async function main() {
 	for (const record of records) {
 		if (Number(record.properties.F_KLASSE) !== 11) continue;
 		const code = String(record.properties.BEZUG ?? "").trim();
-		if (!/^\\d{6}$/.test(code)) continue;
+		if (!/^\d{6}$/.test(code)) continue;
 		let group = historicalCodeGroups.get(code);
 		if (!group) {
 			group = {
