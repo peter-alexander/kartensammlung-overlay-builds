@@ -1084,9 +1084,14 @@ async function main() {
 		legacySubsetWithPitchedRoof: results.filter(
 			(item) => item.band === "legacy-subset" && item.lod21?.hasPitchedRoof
 		).length,
-		productionEligible: results.filter((item) => (
+		directProductionEligible: results.filter((item) => (
 			item.method === "historical-code"
-			&& ["strong", "legacy-subset"].includes(item.band)
+			&& item.band === "strong"
+			&& item.lod21?.hasPitchedRoof
+		)).length,
+		hybridCandidates: results.filter((item) => (
+			item.method === "historical-code"
+			&& item.band === "legacy-subset"
 			&& item.lod21?.hasPitchedRoof
 		)).length,
 		unavailableSheets: sheetReports.filter((sheet) => sheet.available === false).length,
@@ -1120,7 +1125,10 @@ async function main() {
 				legacySubset: "oldCoverage>=0.95, currentCoverage>=0.60, centroid<=8m, height difference within max(8m,40%)",
 				plausible: "IoU>=0.45, currentCoverage>=0.60, centroid<=15m"
 			},
-			productionEligibility: "historical-code match, band strong or legacy-subset, and at least one pitched LOD2.1 roof surface",
+			productionEligibility: {
+				direct: "historical-code match, band strong, and at least one pitched LOD2.1 roof surface",
+				hybrid: "historical-code match, band legacy-subset, and at least one pitched LOD2.1 roof surface; requires preserving the current footprint remainder as LOD1"
+			},
 			spatial: {
 				strong: "IoU>=0.88, currentCoverage>=0.92, oldCoverage>=0.90, centroid<=3m, height within max(5m,35%)",
 				plausible: "IoU>=0.70, both coverages>=0.80, centroid<=6m"
