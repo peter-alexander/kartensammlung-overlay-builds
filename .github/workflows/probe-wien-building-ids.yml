@@ -36,7 +36,8 @@ jobs:
           done
           node --input-type=module <<'NODE'
           import fs from "node:fs";
-          import Pbf from "pbf";
+          import * as PbfModule from "pbf";
+          const Pbf = PbfModule.default || PbfModule.Pbf;
           import { VectorTile } from "@mapbox/vector-tile";
 
           for (const tile of ["17873_11364", "17874_11363"]) {
