@@ -27,8 +27,18 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
 
+      - name: Normalize package lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Upload normalized package lock
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-package-lock
+          path: package-lock.json
+          retention-days: 2
 
       - name: Build Vienna LOD2.1 pilot
         run: |
