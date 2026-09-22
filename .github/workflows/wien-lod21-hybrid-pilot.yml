@@ -1,0 +1,49 @@
+name: Analyze Vienna LOD2.1 hybrid pilot
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-remainder
+    paths:
+      - 'wien-lod21/analyze-hybrid-remainders.mjs'
+      - '.github/workflows/wien-lod21-hybrid-pilot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Check hybrid analyzer syntax
+        run: node --check wien-lod21/analyze-hybrid-remainders.mjs
+
+      - name: Analyze Straußengasse hybrid remainders
+        run: |
+          node wien-lod21/analyze-hybrid-remainders.mjs \
+            wien-lod21/targets.production.json \
+            /tmp/wien-lod21-hybrid-pilot.json
+
+      - name: Upload hybrid pilot analysis
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-pilot-analysis
+          path: /tmp/wien-lod21-hybrid-pilot.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
