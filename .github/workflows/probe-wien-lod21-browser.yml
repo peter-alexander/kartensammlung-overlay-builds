@@ -26,7 +26,7 @@ jobs:
 
       - name: Trace viewer
         run: |
-          cat > /tmp/trace-viewer.mjs <<'NODE'
+          cat > ./trace-viewer.mjs <<'NODE'
           import { chromium } from "playwright";
 
           const browser = await chromium.launch({
@@ -201,7 +201,7 @@ jobs:
           await page.screenshot({ path: "/tmp/wien-lod21-viewer.png", fullPage: true });
           await browser.close();
           NODE
-          node /tmp/trace-viewer.mjs
+          node ./trace-viewer.mjs
 
       - name: Upload screenshot
         uses: actions/upload-artifact@v7
