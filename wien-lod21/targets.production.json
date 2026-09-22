@@ -11,10 +11,11 @@
 		"hybridCandidatesDeferred": 1063
 	},
 	"counts": {
-		"total": 1212,
+		"total": 1213,
 		"directStrong": 1209,
+		"manualPilotStrong": 1,
 		"manualPilotHybrid": 3,
-		"sourceSheets": 537
+		"sourceSheets": 538
 	},
 	"buildings": [
 		{
@@ -734,6 +735,45 @@
 			"lng": 16.3840216,
 			"lat": 48.1996336,
 			"rolloutMode": "direct-strong"
+		},
+		{
+			"name": "TU Wien, Karlsplatz 13",
+			"historicalCode": "006973",
+			"bwGebId": 5318244,
+			"ksIds": [
+				"wien-fmzk:4002350615",
+				"wien-fmzk:4002350623",
+				"wien-fmzk:4003631454",
+				"wien-fmzk:4003631482",
+				"wien-fmzk:4003631491",
+				"wien-fmzk:4003631520",
+				"wien-fmzk:4003631569",
+				"wien-fmzk:4003631576",
+				"wien-fmzk:4003631592",
+				"wien-fmzk:4003631598",
+				"wien-fmzk:4003631618",
+				"wien-fmzk:4003631627",
+				"wien-fmzk:4005007763",
+				"wien-fmzk:4005007770",
+				"wien-fmzk:4005007955",
+				"wien-fmzk:4006223452",
+				"wien-fmzk:4006223453",
+				"wien-fmzk:4006223472",
+				"wien-fmzk:4006223486",
+				"wien-fmzk:4006223507",
+				"wien-fmzk:4006223530",
+				"wien-fmzk:4006223531",
+				"wien-fmzk:4006276913",
+				"wien-fmzk:4006276922",
+				"wien-fmzk:4006277276",
+				"wien-fmzk:4007156617",
+				"wien-fmzk:4007156620",
+				"wien-fmzk:4007156654"
+			],
+			"sheet": "105080",
+			"lng": 16.369181,
+			"lat": 48.1991196,
+			"rolloutMode": "manual-pilot-strong"
 		},
 		{
 			"name": "Wien LOD2.1 007062",
