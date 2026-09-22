@@ -2,6 +2,11 @@ name: Analyze Vienna LOD2.1 citywide
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/wien-lod21-matcher
+    paths:
+      - '.github/workflows/wien-lod21-match-all.yml'
 
 permissions:
   contents: read
