@@ -44,6 +44,31 @@ jobs:
           grep -n -C 5 'generalisiertesDachmodell' /tmp/ma41/index.html | head -n 160 || true
 
           control="/tmp/ma41/ControlScript.ctrl"
+          echo "=== INDEX DOWNLOAD CONSTRUCTORS ==="
+          grep -Eo 'new GisWebControl[A-Za-z0-9_]+' /tmp/ma41/index.html \
+            | sort -u \
+            | grep -Ei 'download|data|geo|select' || true
+
+          echo "=== INDEX DOWNLOAD URL/CONTROL CONTEXT ==="
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("/tmp/ma41/index.html").read_text(errors="ignore")
+          for pat in [
+          	"generalisiertesDachmodell",
+          	"DownloadUrl",
+          	"downloadUrl",
+          	"Download",
+          	"Geodaten",
+          	"DataDownload",
+          	"GeoData"
+          ]:
+          	print("\n###",pat)
+          	for i,m in enumerate(re.finditer(pat,s,re.I)):
+          		print(s[max(0,m.start()-1600):min(len(s),m.end()+2600)].replace("\n"," "))
+          		if i>=4: break
+          PY
+
           echo "=== CONTROL SCRIPT DOWNLOAD ENDPOINTS ==="
           grep -Eo '[A-Za-z0-9_./-]+\.ctrl[^"'"'"' ]*' "$control" \
             | sort -u \
