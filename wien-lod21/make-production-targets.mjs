@@ -3,7 +3,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const MANUAL_HYBRID_CODES = new Set(["009238", "113842", "212535"]);
+const MANUAL_PILOT_BANDS = new Map([
+	["006973", "strong"],
+	["009238", "legacy-subset"],
+	["113842", "legacy-subset"],
+	["212535", "legacy-subset"]
+]);
 
 function parseArgs(argv) {
 	const result = {
@@ -107,23 +112,25 @@ async function main() {
 			.filter((item) => item.candidateType === "historical-code")
 			.map((item) => [String(item.historicalCode), item])
 	);
-	for (const code of MANUAL_HYBRID_CODES) {
+	for (const [code, expectedBand] of MANUAL_PILOT_BANDS) {
 		if (targets.some((target) => target.historicalCode === code)) continue;
 		const candidate = resultsByCode.get(code);
 		const pilotTarget = pilotByCode.get(code);
 		if (!candidate || !pilotTarget) {
-			throw new Error("Missing manual hybrid pilot " + code);
+			throw new Error("Missing manual pilot " + code);
 		}
 		if (
 			candidate.method !== "historical-code"
-			|| candidate.band !== "legacy-subset"
+			|| candidate.band !== expectedBand
 			|| !candidate.lod21?.hasPitchedRoof
 		) {
-			throw new Error("Manual hybrid pilot is no longer valid: " + code);
+			throw new Error("Manual pilot is no longer valid: " + code);
 		}
 		targets.push(targetFromCandidate(candidate, {
 			name: pilotTarget.name,
-			rolloutMode: "manual-pilot-hybrid"
+			rolloutMode: expectedBand === "strong"
+				? "manual-pilot-strong"
+				: "manual-pilot-hybrid"
 		}));
 	}
 
@@ -139,6 +146,9 @@ async function main() {
 
 	const directCount = targets.filter(
 		(target) => target.rolloutMode === "direct-strong"
+	).length;
+	const manualStrongCount = targets.filter(
+		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
 	const manualHybridCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-hybrid"
@@ -159,6 +169,7 @@ async function main() {
 		counts: {
 			total: targets.length,
 			directStrong: directCount,
+			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
 		},
@@ -168,11 +179,14 @@ async function main() {
 	if (directCount !== 1209) {
 		throw new Error("Expected 1209 direct production targets, got " + directCount);
 	}
+	if (manualStrongCount !== 1) {
+		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
+	}
 	if (manualHybridCount !== 3) {
 		throw new Error("Expected 3 manual hybrid pilot targets, got " + manualHybridCount);
 	}
-	if (targets.length !== 1212) {
-		throw new Error("Expected 1212 production targets, got " + targets.length);
+	if (targets.length !== 1213) {
+		throw new Error("Expected 1213 production targets, got " + targets.length);
 	}
 
 	await fs.mkdir(path.dirname(args.output), { recursive: true });
