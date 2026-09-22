@@ -829,6 +829,9 @@ async function main() {
 			directStrong: targets.filter(
 				(target) => target.rolloutMode === "direct-strong"
 			).length,
+			manualPilotStrong: targets.filter(
+				(target) => target.rolloutMode === "manual-pilot-strong"
+			).length,
 			manualPilotHybrid: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-hybrid"
 			).length
@@ -882,6 +885,7 @@ async function main() {
 			parsedBuildings,
 			targets: targets.length,
 			directStrong: targetManifest.counts.directStrong,
+			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			cityGmlBuildingObjects: totalBuildingObjects,
 			vertices: totalVertices,
