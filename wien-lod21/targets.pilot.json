@@ -1,0 +1,39 @@
+{
+	"schemaVersion": 1,
+	"zoom": 15,
+	"extent": 8192,
+	"buildings": [
+		{
+			"name": "Straußengasse 2–10",
+			"historicalCode": "212535",
+			"bwGebId": 5488074,
+			"sheet": "104078",
+			"lng": 16.362449,
+			"lat": 48.191404
+		},
+		{
+			"name": "Straußengasse 12",
+			"historicalCode": "009238",
+			"bwGebId": 5513194,
+			"sheet": "104078",
+			"lng": 16.362021,
+			"lat": 48.191684
+		},
+		{
+			"name": "Straußengasse 14",
+			"historicalCode": "113842",
+			"bwGebId": 5386352,
+			"sheet": "104078",
+			"lng": 16.361881,
+			"lat": 48.191824
+		},
+		{
+			"name": "TU Wien, Karlsplatz 13",
+			"historicalCode": "006973",
+			"bwGebId": 5318244,
+			"sheet": "105080",
+			"lng": 16.369902,
+			"lat": 48.198897
+		}
+	]
+}
