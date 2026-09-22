@@ -122,6 +122,7 @@ async function main() {
 					render_min_height: "Number",
 					F_KLASSE: "Number",
 					BW_GEB_ID: "String",
+					BEZUG: "String",
 					FMZK_ID: "String"
 				}
 			}
