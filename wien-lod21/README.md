@@ -95,10 +95,9 @@ LOD2.1-Build zusätzlich ein synthetisches LOD1-Restmesh:
 
 1. historische LOD2.1-`GroundSurface`-Polygone je historischem Code
    vereinigen,
-2. den historischen Grundriss um **0,25 m** puffern,
-3. diesen Puffer von jedem heute zugehörigen FMZK-Polygon **einzeln**
-   abziehen,
-4. Differenzteile unter **2 m²** als Sliver verwerfen,
+2. diesen historischen Grundriss **ohne Render-Puffer (0 m)** von jedem heute
+   zugehörigen FMZK-Polygon **einzeln** abziehen,
+3. Differenzteile unter **2 m²** als numerische Sliver verwerfen,
 5. jede verbleibende Restfläche mit den aktuellen
    `O_KOTE/T_KOTE/HOEHE_DGM/U_KOTE`-Werten genau dieses FMZK-Teils als
    flaches LOD1 extrudieren,
@@ -115,5 +114,8 @@ keine Vermessungssäume sind:
 - `113842`: 216,85 m² (30,14 %),
 - `212535`: 529,54 m² (20,10 %).
 
-Bei 0,25 m Puffer entstehen in keinem der drei Fälle Restkomponenten unter
-2 m².
+Die Nahtprobe mit -0,05 / 0 / +0,05 / +0,25 m zeigt: bei **0 m** entstehen
+nur numerische Mikro-Komponenten von zusammen 0,005 / 0,033 / 0,077 m².
+Der 2-m²-Filter entfernt sie vollständig, ohne einen künstlichen Spalt zwischen
+historischem LOD2.1 und aktueller Restfläche zu erzeugen. +0,25 m bleibt daher
+nur eine Diagnosevariante, nicht die Render-Geometrie.
