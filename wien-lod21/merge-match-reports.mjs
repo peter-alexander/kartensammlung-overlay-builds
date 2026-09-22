@@ -63,9 +63,20 @@ function resultScore(item) {
 		+ Number(item.metrics?.iou || 0);
 }
 
+function hasUnambiguousHistoricalIdentity(item) {
+	return (
+		Array.isArray(item.ownerBwGebIds)
+		&& item.ownerBwGebIds.length === 1
+		&& Number(item.sameCodeMatchedParts || 0) === 0
+		&& Array.isArray(item.sameCodeOwnerBwGebIds)
+		&& item.sameCodeOwnerBwGebIds.length === 1
+	);
+}
+
 function isDirectProductionCandidate(item) {
 	return (
-		item.method === "historical-code"
+		hasUnambiguousHistoricalIdentity(item)
+		&& item.method === "historical-code"
 		&& item.band === "strong"
 		&& item.lod21?.hasPitchedRoof
 	);
@@ -73,7 +84,8 @@ function isDirectProductionCandidate(item) {
 
 function isHybridCandidate(item) {
 	return (
-		item.method === "historical-code"
+		hasUnambiguousHistoricalIdentity(item)
+		&& item.method === "historical-code"
 		&& item.band === "legacy-subset"
 		&& item.lod21?.hasPitchedRoof
 	);
