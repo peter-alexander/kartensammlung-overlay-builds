@@ -1,0 +1,40 @@
+name: Fetch Vienna LOD2.1 sample
+
+on:
+  push:
+    branches:
+      - probe/wien-lod21-missing-buildings
+    paths:
+      - '.github/workflows/probe-wien-lod21-sample.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch official sample
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lod21
+          curl -fsSL -A "kartensammlung-overlay-builds/wien-lod21-pilot" \
+            "https://www.wien.gv.at/downloads/ma41/dach-lod2-gml.zip" \
+            -o /tmp/lod21/dach-lod2-gml.zip
+          unzip -l /tmp/lod21/dach-lod2-gml.zip
+          unzip -q /tmp/lod21/dach-lod2-gml.zip -d /tmp/lod21/unpacked
+          echo "=== GML FILES ==="
+          find /tmp/lod21/unpacked -type f -maxdepth 3 -print
+          echo "=== HEADER ==="
+          first="$(find /tmp/lod21/unpacked -type f \( -iname '*.gml' -o -iname '*.xml' \) | head -n 1)"
+          head -n 80 "$first"
+
+      - name: Upload sample
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-official-sample
+          path: /tmp/lod21/dach-lod2-gml.zip
+          retention-days: 2
