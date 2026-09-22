@@ -28,7 +28,6 @@ node "$SCRIPT_DIR/build.mjs" \
 
 test -s "$GEOJSONSEQ_FILE"
 test -s "$RELEASE_FILE"
-test -s "$TILEJSON_FILE"
 
 log "Erzeuge ungekomprimierte Z12-Z15-PBF-Vektorkacheln"
 mkdir -p "$PBF_DIR"
@@ -42,6 +41,11 @@ mkdir -p "$PBF_DIR"
 	--no-tile-compression \
 	--output-to-directory="$PBF_DIR" \
 	"$GEOJSONSEQ_FILE"
+
+log "Finalisiere TileJSON und Z15-Kachelindex aus den erzeugten PBF-Dateien"
+node "$SCRIPT_DIR/finalize.mjs" --publish-dir "$PUBLISH_DIR"
+
+test -s "$TILEJSON_FILE"
 
 z15_tile_count="$(find "$PBF_DIR/15" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
 if [ "$z15_tile_count" -lt 50 ]; then
