@@ -55,7 +55,7 @@ for sheet in "${SHEETS[@]}"; do
 	unzip -q "$BUILD_DIR/${sheet}_lod2_gml.zip" -d "$SOURCE_DIR"
 done
 
-node "$SCRIPT_DIR/build.mjs" 	--input "$SOURCE_DIR" 	--output "$OUTPUT_DIR" 	--targets "$TARGETS_FILE"
+node --expose-gc "$SCRIPT_DIR/build.mjs" 	--input "$SOURCE_DIR" 	--output "$OUTPUT_DIR" 	--targets "$TARGETS_FILE"
 
 echo "Vienna LOD2.1 build complete:"
 find "$OUTPUT_DIR" -type f -printf '%P %s bytes\n' | sort
