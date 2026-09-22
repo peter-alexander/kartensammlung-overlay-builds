@@ -18,12 +18,18 @@ dedupliziert.
 
 `build/Baumkataster/`
 
-- `release.json`: Quellen, Erstellungszeitpunkt, Merge-Parameter, Feature-Zahlen und Tileschema.
+- `release.json`: Quellen, Erstellungszeitpunkt, Merge-Parameter, Feature-Zahlen, Tileschema und Index der tatsächlich vorhandenen Z15-Kacheln.
+- `tilejson.json`: TileJSON für das sichtbare MapLibre-Overlay; enthält Bounds und eine mit `generatedAt` versionierte Tile-URL.
 - `tiles/12/{x}/{y}.pbf` bis `tiles/15/{x}/{y}.pbf`: ungekomprimierte Vektorkacheln.
 - Source-Layer: `baumkataster`.
 
 Z12–Z14 dienen dem sichtbaren Kartenoverlay. Z15 bleibt die vollständige,
 hochaufgelöste Eingabe für die 3D-/Schattenberechnung.
+
+Leere Tippecanoe-Kacheln werden weiterhin nicht als Dateien erzeugt. Der Z15-Index in
+`release.json` erlaubt dem Solar-Loader, solche Bereiche ohne HTTP-404 direkt als
+leere Baumkacheln zu behandeln. Das sichtbare Overlay verwendet `tilejson.json`;
+dessen Bounds verhindern unnötige Requests außerhalb des Wiener Datenbestands.
 
 Es wird bewusst **kein paralleles PMTiles-Archiv** erzeugt. Sichtbares Overlay und
 Solar-Loader verwenden denselben PBF-Datensatz.
