@@ -377,7 +377,11 @@ function safeIntersection(a, b) {
 		const repairedA = repairGeometry(a);
 		const repairedB = repairGeometry(b);
 		if (!repairedA || !repairedB) return null;
-		return OverlayOp.overlayOp(repairedA, repairedB, OverlayOp.INTERSECTION);
+		try {
+			return OverlayOp.overlayOp(repairedA, repairedB, OverlayOp.INTERSECTION);
+		} catch {
+			return null;
+		}
 	}
 }
 
