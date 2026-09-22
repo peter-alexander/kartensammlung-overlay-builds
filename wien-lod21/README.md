@@ -63,8 +63,9 @@ wurde aus der vollständigen Stadtanalyse vom 22. September 2026 erzeugt und
 enthält:
 
 - 1.209 automatisch freigegebene `direct-strong`-Gebäude,
+- 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 3 manuell bestätigte `manual-pilot-hybrid`-Ausnahmen in der Straußengasse,
-- 537 benötigte LOD2.1-Quellblätter.
+- 538 benötigte LOD2.1-Quellblätter.
 
 Die übrigen 1.063 sicheren `legacy-subset`-Kandidaten werden **noch nicht**
 automatisch gebaut. Für sie muss zuerst die heutige zusätzliche Grundrissfläche
@@ -77,3 +78,9 @@ Version, Tile-Verfügbarkeit und kompakte Zähler.
 Der Snapshot kann mit `make-production-targets.mjs` aus einem erneut
 validierten Stadtbericht regeneriert werden. Ein Rebuild benötigt dadurch
 keine erneute stadtweite Matching-Analyse.
+
+
+Für jedes Produktionsziel werden außerdem die exakten aktuellen OGD-`KS_ID`s
+mitgeführt. LOD2.1 darf damit nur jene heutigen FMZK-Baukörper unterdrücken,
+die der Matcher diesem historischen Dach tatsächlich zugeordnet hat; eine
+pauschale Ausblendung der gesamten `BW_GEB_ID` ist für LOD2.1 nicht zulässig.
