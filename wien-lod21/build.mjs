@@ -623,6 +623,180 @@ function encodeTile(tile, tileData, extent) {
 	return output;
 }
 
+
+function closeSourceRing(ring) {
+	const coordinates = (ring || []).map((point) => [Number(point.x), Number(point.y)]);
+	if (
+		coordinates.length
+		&& (
+			coordinates[0][0] !== coordinates[coordinates.length - 1][0]
+			|| coordinates[0][1] !== coordinates[coordinates.length - 1][1]
+		)
+	) {
+		coordinates.push([...coordinates[0]]);
+	}
+	return coordinates;
+}
+
+function repairJstsGeometry(geometry) {
+	if (!geometry || geometry.isEmpty()) return null;
+	try {
+		return BufferOp.bufferOp(geometry, 0);
+	} catch {
+		return geometry;
+	}
+}
+
+function unionJstsGeometries(geometries) {
+	let result = null;
+	for (const geometry of geometries || []) {
+		const repaired = repairJstsGeometry(geometry);
+		if (!repaired || repaired.isEmpty()) continue;
+		try {
+			result = result ? UnionOp.union(result, repaired) : repaired;
+		} catch {
+			const repairedResult = repairJstsGeometry(result);
+			result = repairedResult ? UnionOp.union(repairedResult, repaired) : repaired;
+		}
+	}
+	return result;
+}
+
+function differenceJstsGeometry(current, historical) {
+	try {
+		return OverlayOp.overlayOp(current, historical, OverlayOp.DIFFERENCE);
+	} catch {
+		const repairedCurrent = repairJstsGeometry(current);
+		const repairedHistorical = repairJstsGeometry(historical);
+		if (!repairedCurrent || !repairedHistorical) return null;
+		return OverlayOp.overlayOp(
+			repairedCurrent,
+			repairedHistorical,
+			OverlayOp.DIFFERENCE
+		);
+	}
+}
+
+function groundGeometryFromSurfaces(surfaces, reader) {
+	const geometries = [];
+	for (const surface of surfaces || []) {
+		if (surface.semantic !== "ground" || !surface.rings?.length) continue;
+		const coordinates = surface.rings
+			.map(closeSourceRing)
+			.filter((ring) => ring.length >= 4);
+		if (!coordinates.length) continue;
+		try {
+			geometries.push(reader.read({
+				type: "Polygon",
+				coordinates
+			}));
+		} catch {}
+	}
+	return unionJstsGeometries(geometries);
+}
+
+function polygonGeoJsonParts(geometry, writer) {
+	if (!geometry || geometry.isEmpty()) return [];
+	const geojson = writer.write(geometry);
+	if (!geojson) return [];
+	if (geojson.type === "Polygon") return [geojson.coordinates];
+	if (geojson.type === "MultiPolygon") return geojson.coordinates;
+	if (geojson.type === "GeometryCollection") {
+		return (geojson.geometries || []).flatMap((item) => {
+			if (item.type === "Polygon") return [item.coordinates];
+			if (item.type === "MultiPolygon") return item.coordinates;
+			return [];
+		});
+	}
+	return [];
+}
+
+function signedArea2D(ring) {
+	let area = 0;
+	for (let index = 0; index + 1 < ring.length; index += 1) {
+		area += ring[index][0] * ring[index + 1][1]
+			- ring[index + 1][0] * ring[index][1];
+	}
+	return area / 2;
+}
+
+function normalizeOpen2DRing(ring, ccw) {
+	const points = [];
+	for (const coordinate of ring || []) {
+		const point = [Number(coordinate[0]), Number(coordinate[1])];
+		if (
+			!points.length
+			|| points[points.length - 1][0] !== point[0]
+			|| points[points.length - 1][1] !== point[1]
+		) {
+			points.push(point);
+		}
+	}
+	if (
+		points.length > 1
+		&& points[0][0] === points[points.length - 1][0]
+		&& points[0][1] === points[points.length - 1][1]
+	) {
+		points.pop();
+	}
+	if (points.length < 3) return [];
+	const closed = [...points, points[0]];
+	const isCcw = signedArea2D(closed) > 0;
+	if (isCcw !== ccw) points.reverse();
+	return points;
+}
+
+function currentFeatureLevels(properties = {}) {
+	const roofZ = finiteNumber(properties.O_KOTE);
+	const terrainZ = finiteNumber(properties.T_KOTE)
+		?? finiteNumber(properties.HOEHE_DGM);
+	const undersideZ = finiteNumber(properties.U_KOTE);
+	if (roofZ === null || terrainZ === null || !(roofZ > terrainZ + 0.1)) {
+		return null;
+	}
+	const bottomZ = (
+		undersideZ !== null
+		&& undersideZ > terrainZ
+		&& undersideZ < roofZ
+	)
+		? undersideZ
+		: terrainZ;
+	return { roofZ, terrainZ, bottomZ };
+}
+
+function extrusionSurfacesFromPolygon(coordinates, levels) {
+	const rings2D = (coordinates || [])
+		.map((ring, index) => normalizeOpen2DRing(ring, index === 0))
+		.filter((ring) => ring.length >= 3);
+	if (!rings2D.length) return [];
+
+	const toRing = (ring, z) => ring.map(([x, y]) => ({ x, y, z }));
+	const surfaces = [{
+		semantic: "ground",
+		rings: rings2D.map((ring) => toRing(ring, levels.terrainZ))
+	}, {
+		semantic: "roof",
+		rings: rings2D.map((ring) => toRing(ring, levels.roofZ))
+	}];
+
+	for (const ring of rings2D) {
+		for (let index = 0; index < ring.length; index += 1) {
+			const a = ring[index];
+			const b = ring[(index + 1) % ring.length];
+			surfaces.push({
+				semantic: "wall",
+				rings: [[
+					{ x: a[0], y: a[1], z: levels.bottomZ },
+					{ x: b[0], y: b[1], z: levels.bottomZ },
+					{ x: b[0], y: b[1], z: levels.roofZ },
+					{ x: a[0], y: a[1], z: levels.roofZ }
+				]]
+			});
+		}
+	}
+	return surfaces;
+}
+
 function addBuildingToTile(tileData, {
 	building,
 	surfaces,
