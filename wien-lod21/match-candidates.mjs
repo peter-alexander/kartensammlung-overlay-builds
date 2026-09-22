@@ -291,8 +291,30 @@ async function downloadSheet(sheet, root) {
 	};
 }
 
-async function fetchCurrentSheetFeatures(sheet) {
-	const bounds = sheetBounds(sheet);
+async function fetchCurrentCandidateFeatures(codeCandidates, spatialCandidates) {
+	const codes = [...new Set(
+		(codeCandidates || [])
+			.map((candidate) => String(candidate.historicalCode || "").trim())
+			.filter((code) => /^\d{6}$/.test(code))
+	)].sort();
+	const buildingIds = [...new Set(
+		(spatialCandidates || [])
+			.map((candidate) => String(candidate.BW_GEB_ID || "").trim())
+			.filter((id) => /^\d+$/.test(id))
+	)].sort();
+
+	if (!codes.length && !buildingIds.length) return [];
+
+	const selectors = [];
+	if (codes.length) {
+		selectors.push(
+			"BEZUG IN (" + codes.map((code) => "'" + code + "'").join(",") + ")"
+		);
+	}
+	if (buildingIds.length) {
+		selectors.push("BW_GEB_ID IN (" + buildingIds.join(",") + ")");
+	}
+
 	const url = new URL(WFS_URL);
 	url.searchParams.set("service", "WFS");
 	url.searchParams.set("request", "GetFeature");
@@ -302,10 +324,7 @@ async function fetchCurrentSheetFeatures(sheet) {
 	url.searchParams.set("srsName", "EPSG:31256");
 	url.searchParams.set(
 		"CQL_FILTER",
-		"F_KLASSE=11 AND BBOX("
-			+ "SHAPE,"
-			+ [bounds.minX, bounds.minY, bounds.maxX, bounds.maxY].join(",")
-			+ ",'EPSG:31256')"
+		"F_KLASSE=11 AND (" + selectors.join(" OR ") + ")"
 	);
 	const response = await fetchWithRetry(url.toString(), {
 		headers: { accept: "application/json" }
@@ -316,12 +335,12 @@ async function fetchCurrentSheetFeatures(sheet) {
 		json = JSON.parse(text);
 	} catch {
 		throw new Error(
-			"Unexpected WFS response for sheet " + sheet + ": "
+			"Unexpected WFS response for candidate keys: "
 			+ text.slice(0, 240).replace(/\s+/g, " ")
 		);
 	}
 	if (!Array.isArray(json?.features)) {
-		throw new Error("Unexpected WFS FeatureCollection for sheet " + sheet);
+		throw new Error("Unexpected WFS FeatureCollection for candidate keys.");
 	}
 	return json.features;
 }
@@ -531,11 +550,51 @@ function parseOldBuildingRecords(xml, reader) {
 	return byCode;
 }
 
+function currentFeatureHeight(feature) {
+	const properties = feature?.properties || {};
+	const top = Number(properties.O_KOTE);
+	const base = Number(properties.T_KOTE ?? properties.HOEHE_DGM);
+	return Number.isFinite(top) && Number.isFinite(base)
+		? Math.max(0, top - base)
+		: null;
+}
+
+function addCurrentFeatureToGroup(map, key, feature, geometry) {
+	if (!key) return;
+	let group = map.get(key);
+	if (!group) {
+		group = { geometries: [], features: [], heights: [] };
+		map.set(key, group);
+	}
+	group.geometries.push(geometry);
+	group.features.push(feature);
+	const height = currentFeatureHeight(feature);
+	if (Number.isFinite(height)) group.heights.push(height);
+}
+
+function finalizeCurrentGroups(map) {
+	for (const group of map.values()) {
+		group.geometry = unionGeometries(group.geometries);
+		group.height = group.heights.length ? Math.max(...group.heights) : null;
+		group.ksIds = [...new Set(
+			group.features
+				.map((feature) => String(feature?.properties?.FMZK_ID ?? "").trim())
+				.filter(Boolean)
+				.map((id) => "wien-fmzk:" + id)
+		)].sort();
+		group.ownerBwGebIds = [...new Set(
+			group.features
+				.map((feature) => String(feature?.properties?.BW_GEB_ID ?? "").trim())
+				.filter(Boolean)
+		)].sort();
+	}
+}
+
 function groupCurrentFeatures(features, reader) {
+	const byHistoricalCode = new Map();
 	const byBuildingId = new Map();
 	for (const feature of features) {
-		const buildingId = String(feature?.properties?.BW_GEB_ID ?? "").trim();
-		if (!buildingId || !feature?.geometry) continue;
+		if (!feature?.geometry) continue;
 		let geometry;
 		try {
 			geometry = repairGeometry(reader.read(feature.geometry));
@@ -543,18 +602,19 @@ function groupCurrentFeatures(features, reader) {
 			continue;
 		}
 		if (!geometry || geometry.isEmpty()) continue;
-		let group = byBuildingId.get(buildingId);
-		if (!group) {
-			group = { geometries: [], features: [] };
-			byBuildingId.set(buildingId, group);
+
+		const historicalCode = String(feature?.properties?.BEZUG ?? "").trim();
+		if (/^\d{6}$/.test(historicalCode)) {
+			addCurrentFeatureToGroup(byHistoricalCode, historicalCode, feature, geometry);
 		}
-		group.geometries.push(geometry);
-		group.features.push(feature);
+		const buildingId = String(feature?.properties?.BW_GEB_ID ?? "").trim();
+		if (buildingId) {
+			addCurrentFeatureToGroup(byBuildingId, buildingId, feature, geometry);
+		}
 	}
-	for (const group of byBuildingId.values()) {
-		group.geometry = unionGeometries(group.geometries);
-	}
-	return byBuildingId;
+	finalizeCurrentGroups(byHistoricalCode);
+	finalizeCurrentGroups(byBuildingId);
+	return { byHistoricalCode, byBuildingId };
 }
 
 function combineOldGroups(groups) {
@@ -615,90 +675,168 @@ function quantiles(values) {
 	};
 }
 
-async function processSheet(sheet, candidates, tmpRoot, reader) {
+function matchResultPayload({
+	candidate,
+	sheet,
+	method,
+	old,
+	current,
+	metrics
+}) {
+	const band = provisionalBand(metrics, method);
+	return {
+		...candidate,
+		sheet,
+		method,
+		matchedHistoricalCodes: old?.code ? old.code.split("+") : [],
+		band,
+		reason: band === "reject" ? "plausibility-threshold" : "",
+		current: {
+			ksIds: current?.ksIds || [],
+			ownerBwGebIds: current?.ownerBwGebIds || []
+		},
+		metrics,
+		lod21: {
+			objectCount: old?.objectCount || 0,
+			roofTypes: old?.roofTypes || [],
+			roofSurfaces: old?.roofSurfaces || 0,
+			pitchedRoofSurfaces: old?.pitchedRoofSurfaces || 0,
+			hasPitchedRoof: (old?.pitchedRoofSurfaces || 0) > 0
+		}
+	};
+}
+
+async function processSheet(
+	sheet,
+	codeCandidates,
+	spatialCandidates,
+	tmpRoot,
+	reader
+) {
 	const downloaded = await downloadSheet(sheet, tmpRoot);
 	const [xml, currentFeatures] = await Promise.all([
 		fs.readFile(downloaded.path, "utf8"),
-		fetchCurrentSheetFeatures(sheet)
+		fetchCurrentCandidateFeatures(codeCandidates, spatialCandidates)
 	]);
 	const oldByCode = parseOldBuildingRecords(xml, reader);
-	const currentByBuilding = groupCurrentFeatures(currentFeatures, reader);
+	const currentGroups = groupCurrentFeatures(currentFeatures, reader);
 	const results = [];
 
-	for (const candidate of candidates) {
-		const current = currentByBuilding.get(String(candidate.BW_GEB_ID));
+	for (const candidate of codeCandidates) {
+		const code = String(candidate.historicalCode || "");
+		const current = currentGroups.byHistoricalCode.get(code);
 		if (!current?.geometry) {
 			results.push({
 				...candidate,
 				sheet,
+				candidateType: "historical-code",
+				band: "reject",
+				reason: "current-wfs-code-not-found"
+			});
+			continue;
+		}
+
+		const exact = oldByCode.get(code);
+		if (exact?.geometry) {
+			const metrics = geometryMetrics(
+				current.geometry,
+				exact.geometry,
+				current.height,
+				exact.height
+			);
+			if (metrics) {
+				results.push(matchResultPayload({
+					candidate: {
+						...candidate,
+						candidateType: "historical-code"
+					},
+					sheet,
+					method: "historical-code",
+					old: exact,
+					current,
+					metrics
+				}));
+				continue;
+			}
+		}
+
+		// Ein historischer Code kann in der alten Kachel fehlen (z.B. Blatt-
+		// Zuordnung an einer 500-m-Grenze). Dann darf nur ein geometrisch sehr
+		// guter Treffer als raeumlicher Fallback weiter betrachtet werden.
+		const spatial = findBestSpatialMatch(
+			current.geometry,
+			oldByCode,
+			current.height
+		);
+		if (spatial) {
+			results.push(matchResultPayload({
+				candidate: {
+					...candidate,
+					candidateType: "historical-code"
+				},
+				sheet,
+				method: "spatial",
+				old: spatial.old,
+				current,
+				metrics: spatial.metrics
+			}));
+			continue;
+		}
+
+		results.push({
+			...candidate,
+			sheet,
+			candidateType: "historical-code",
+			band: "reject",
+			reason: exact ? "geometry-metrics-unavailable" : "no-lod21-match"
+		});
+	}
+
+	for (const candidate of spatialCandidates) {
+		const current = currentGroups.byBuildingId.get(String(candidate.BW_GEB_ID));
+		if (!current?.geometry) {
+			results.push({
+				...candidate,
+				sheet,
+				candidateType: "spatial",
 				band: "reject",
 				reason: "current-wfs-building-not-found"
 			});
 			continue;
 		}
-
-		const exactGroups = (candidate.uniqueNumericHistoricalCodes || [])
-			.map((code) => oldByCode.get(String(code)))
-			.filter(Boolean);
-		let method = "";
-		let old = null;
-		let metrics = null;
-
-		if (exactGroups.length) {
-			method = "historical-code";
-			old = combineOldGroups(exactGroups);
-			metrics = geometryMetrics(
-				current.geometry,
-				old?.geometry,
-				Number(candidate.maxHeight),
-				old?.height
-			);
-		} else {
-			const spatial = findBestSpatialMatch(
-				current.geometry,
-				oldByCode,
-				Number(candidate.maxHeight)
-			);
-			if (spatial) {
-				method = "spatial";
-				old = spatial.old;
-				metrics = spatial.metrics;
-			}
-		}
-
-		if (!old || !metrics) {
+		const spatial = findBestSpatialMatch(
+			current.geometry,
+			oldByCode,
+			current.height
+		);
+		if (!spatial) {
 			results.push({
 				...candidate,
 				sheet,
+				candidateType: "spatial",
 				band: "reject",
-				reason: exactGroups.length ? "geometry-metrics-unavailable" : "no-lod21-match"
+				reason: "no-lod21-match"
 			});
 			continue;
 		}
-
-		const band = provisionalBand(metrics, method);
-		results.push({
-			...candidate,
+		results.push(matchResultPayload({
+			candidate: {
+				...candidate,
+				candidateType: "spatial"
+			},
 			sheet,
-			method,
-			matchedHistoricalCodes: old.code.split("+"),
-			band,
-			reason: band === "reject" ? "plausibility-threshold" : "",
-			metrics,
-			lod21: {
-				objectCount: old.objectCount,
-				roofTypes: old.roofTypes,
-				roofSurfaces: old.roofSurfaces,
-				pitchedRoofSurfaces: old.pitchedRoofSurfaces,
-				hasPitchedRoof: old.pitchedRoofSurfaces > 0
-			}
-		});
+			method: "spatial",
+			old: spatial.old,
+			current,
+			metrics: spatial.metrics
+		}));
 	}
 
 	return {
 		sheet,
 		zipBytes: downloaded.zipBytes,
-		candidateCount: candidates.length,
+		codeCandidateCount: codeCandidates.length,
+		spatialCandidateCount: spatialCandidates.length,
 		oldCodeGroups: oldByCode.size,
 		currentClass11Features: currentFeatures.length,
 		results
@@ -708,21 +846,44 @@ async function processSheet(sheet, candidates, tmpRoot, reader) {
 async function main() {
 	const args = parseArgs(process.argv);
 	const report = JSON.parse(await fs.readFile(args.input, "utf8"));
-	const candidates = Array.isArray(report?.lod21Candidates) ? report.lod21Candidates : [];
-	if (!candidates.length) throw new Error("Gap report contains no lod21Candidates.");
+	const codeCandidates = Array.isArray(report?.lod21CodeCandidates)
+		? report.lod21CodeCandidates
+		: [];
+	const spatialCandidates = Array.isArray(report?.lod21SpatialCandidates)
+		? report.lod21SpatialCandidates
+		: [];
+	if (!codeCandidates.length && !spatialCandidates.length) {
+		throw new Error("Gap report contains no LOD2.1 candidates.");
+	}
 
 	const selectedSheets = selectSheets(
-		report.candidateSheets || candidates.map((candidate) => candidate.lod21Sheet),
+		report.candidateSheets || [
+			...codeCandidates.flatMap((candidate) => candidate.lod21Sheets || [candidate.lod21Sheet]),
+			...spatialCandidates.map((candidate) => candidate.lod21Sheet)
+		],
 		args.maxSheets,
 		args.all
 	);
 	const selectedSet = new Set(selectedSheets);
-	const candidatesBySheet = new Map();
-	for (const candidate of candidates) {
+	const codeCandidatesBySheet = new Map();
+	const spatialCandidatesBySheet = new Map();
+
+	for (const candidate of codeCandidates) {
+		const sheets = Array.isArray(candidate.lod21Sheets) && candidate.lod21Sheets.length
+			? candidate.lod21Sheets
+			: [candidate.lod21Sheet];
+		for (const rawSheet of sheets) {
+			const sheet = String(rawSheet || "");
+			if (!selectedSet.has(sheet)) continue;
+			if (!codeCandidatesBySheet.has(sheet)) codeCandidatesBySheet.set(sheet, []);
+			codeCandidatesBySheet.get(sheet).push(candidate);
+		}
+	}
+	for (const candidate of spatialCandidates) {
 		const sheet = String(candidate.lod21Sheet || "");
 		if (!selectedSet.has(sheet)) continue;
-		if (!candidatesBySheet.has(sheet)) candidatesBySheet.set(sheet, []);
-		candidatesBySheet.get(sheet).push(candidate);
+		if (!spatialCandidatesBySheet.has(sheet)) spatialCandidatesBySheet.set(sheet, []);
+		spatialCandidatesBySheet.get(sheet).push(candidate);
 	}
 
 	const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wien-lod21-match-"));
@@ -731,13 +892,18 @@ async function main() {
 	try {
 		for (let index = 0; index < selectedSheets.length; index += 1) {
 			const sheet = selectedSheets[index];
+			const codeForSheet = codeCandidatesBySheet.get(sheet) || [];
+			const spatialForSheet = spatialCandidatesBySheet.get(sheet) || [];
 			console.log(
 				"[" + (index + 1) + "/" + selectedSheets.length + "] "
-				+ sheet + " – " + (candidatesBySheet.get(sheet)?.length || 0) + " candidates"
+				+ sheet + " – "
+				+ codeForSheet.length + " code + "
+				+ spatialForSheet.length + " spatial candidates"
 			);
 			sheetReports.push(await processSheet(
 				sheet,
-				candidatesBySheet.get(sheet) || [],
+				codeForSheet,
+				spatialForSheet,
 				tmpRoot,
 				reader
 			));
@@ -746,10 +912,37 @@ async function main() {
 		await fs.rm(tmpRoot, { recursive: true, force: true });
 	}
 
-	const results = sheetReports.flatMap((sheet) => sheet.results);
+	const rawResults = sheetReports.flatMap((sheet) => sheet.results);
+
+	// Derselbe historische Code kann an einer Blattgrenze in mehreren
+	// ausgewaehlten Blaettern geprueft werden. Behalte pro Kandidat den besten
+	// Treffer, statt ihn mehrfach in die Statistik zu zaehlen.
+	const bandRank = { strong: 3, plausible: 2, reject: 1 };
+	const methodRank = { "historical-code": 2, spatial: 1 };
+	const resultKey = (item) => item.candidateType === "historical-code"
+		? "code:" + item.historicalCode
+		: "spatial:" + item.BW_GEB_ID;
+	const bestByCandidate = new Map();
+	for (const item of rawResults) {
+		const key = resultKey(item);
+		const previous = bestByCandidate.get(key);
+		const itemScore = (bandRank[item.band] || 0) * 100
+			+ (methodRank[item.method] || 0) * 10
+			+ Number(item.metrics?.iou || 0);
+		const previousScore = previous
+			? (bandRank[previous.band] || 0) * 100
+				+ (methodRank[previous.method] || 0) * 10
+				+ Number(previous.metrics?.iou || 0)
+			: -Infinity;
+		if (!previous || itemScore > previousScore) bestByCandidate.set(key, item);
+	}
+	const results = [...bestByCandidate.values()];
+
 	const counts = {
 		sheets: selectedSheets.length,
 		candidates: results.length,
+		codeCandidates: results.filter((item) => item.candidateType === "historical-code").length,
+		spatialCandidates: results.filter((item) => item.candidateType === "spatial").length,
 		historicalCodeMatches: results.filter((item) => item.method === "historical-code").length,
 		spatialMatches: results.filter((item) => item.method === "spatial").length,
 		strong: results.filter((item) => item.band === "strong").length,
@@ -761,17 +954,20 @@ async function main() {
 		downloadBytes: sheetReports.reduce((sum, sheet) => sum + sheet.zipBytes, 0)
 	};
 
-	const historicalMatches = results.filter((item) => item.method === "historical-code" && item.metrics);
+	const exactMatches = results.filter(
+		(item) => item.method === "historical-code" && item.metrics
+	);
 	const metricDistribution = {
-		iou: quantiles(historicalMatches.map((item) => item.metrics.iou)),
-		currentCoverage: quantiles(historicalMatches.map((item) => item.metrics.currentCoverage)),
-		oldCoverage: quantiles(historicalMatches.map((item) => item.metrics.oldCoverage)),
-		centroidDistanceM: quantiles(historicalMatches.map((item) => item.metrics.centroidDistanceM)),
-		heightDifferenceM: quantiles(historicalMatches.map((item) => item.metrics.heightDifferenceM))
+		iou: quantiles(exactMatches.map((item) => item.metrics.iou)),
+		currentCoverage: quantiles(exactMatches.map((item) => item.metrics.currentCoverage)),
+		oldCoverage: quantiles(exactMatches.map((item) => item.metrics.oldCoverage)),
+		centroidDistanceM: quantiles(exactMatches.map((item) => item.metrics.centroidDistanceM)),
+		heightDifferenceM: quantiles(exactMatches.map((item) => item.metrics.heightDifferenceM))
 	};
 
 	const pilot = results.filter((item) => (
-		(item.uniqueNumericHistoricalCodes || []).some((code) => PILOT_CODES.has(String(code)))
+		item.candidateType === "historical-code"
+		&& PILOT_CODES.has(String(item.historicalCode || ""))
 	));
 	const output = {
 		generatedAt: new Date().toISOString(),
@@ -795,7 +991,8 @@ async function main() {
 		sheets: sheetReports.map((sheet) => ({
 			sheet: sheet.sheet,
 			zipBytes: sheet.zipBytes,
-			candidateCount: sheet.candidateCount,
+			codeCandidateCount: sheet.codeCandidateCount,
+			spatialCandidateCount: sheet.spatialCandidateCount,
 			oldCodeGroups: sheet.oldCodeGroups,
 			currentClass11Features: sheet.currentClass11Features
 		})),
@@ -815,8 +1012,8 @@ async function main() {
 	console.log("PILOT");
 	for (const item of pilot) {
 		console.log(JSON.stringify({
-			BW_GEB_ID: item.BW_GEB_ID,
-			codes: item.uniqueNumericHistoricalCodes,
+			historicalCode: item.historicalCode,
+			ownerBwGebIds: item.ownerBwGebIds,
 			method: item.method,
 			band: item.band,
 			metrics: item.metrics,
