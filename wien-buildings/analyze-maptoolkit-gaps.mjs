@@ -3,6 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import earcut from "earcut";
+import proj4 from "proj4";
 import { VectorTile } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
 
@@ -13,6 +14,10 @@ const ZOOM = 15;
 const GRID_SIZE = 64;
 const CONCURRENCY = 12;
 const EARTH_CIRCUMFERENCE_METERS = 40_075_016.68557849;
+const VIENNA_CRS = "EPSG:31256";
+const VIENNA_CRS_DEF = "+proj=tmerc +lat_0=0 +lon_0=16.3333333333333 +k=1 +x_0=0 +y_0=-5000000 +ellps=bessel +towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs +type=crs";
+
+proj4.defs(VIENNA_CRS, VIENNA_CRS_DEF);
 
 const KNOWN_TARGETS = [
 	{ name: "Straussengasse 2-10", lng: 16.362449, lat: 48.191404 },
@@ -490,6 +495,15 @@ function representativePoint(tile, feature) {
 	return tilePointLngLat(tile, (b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2);
 }
 
+function lod21SheetForPoint(point) {
+	const [x, y] = proj4("EPSG:4326", VIENNA_CRS, [point.lng, point.lat]);
+	if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+	const column = Math.floor(x / 500) + 100;
+	const row = Math.floor((y - 300_000) / 500);
+	if (column < 0 || row < 0) return null;
+	return `${String(column).padStart(3, "0")}${String(row).padStart(3, "0")}`;
+}
+
 async function main() {
 	const release = await (await fetch(RELEASE_URL, { cache: "no-store" })).json();
 	const keys = release?.vectorTiles?.presentTilesZ15 || [];
@@ -578,13 +592,20 @@ async function main() {
 				.filter(Number.isFinite);
 			const class11 = group.records.filter((record) => Number(record.properties.F_KLASSE) === 11);
 			const representative = class11[0] || group.records[0];
+			const historicalCodes = [...new Set(
+				group.records
+					.map((record) => String(record.properties.BEZUG ?? "").trim())
+					.filter(Boolean)
+			)].sort();
 			fullyMissingGroups.push({
 				BW_GEB_ID: group.BW_GEB_ID,
 				partCount: group.total,
 				classes,
+				historicalCodes,
 				maxHeight: heights.length ? Number(Math.max(...heights).toFixed(3)) : null,
 				lng: Number(representative.point.lng.toFixed(7)),
 				lat: Number(representative.point.lat.toFixed(7)),
+				lod21Sheet: lod21SheetForPoint(representative.point),
 				ksIds: group.records.map((record) => record.id)
 			});
 		} else if (group.missing > 0) {
@@ -592,6 +613,14 @@ async function main() {
 		}
 	}
 	const fullyMissingBuildings = fullyMissingGroups.length;
+	const lod21Candidates = fullyMissingGroups.filter((group) => (
+		group.classes.includes(11)
+		&& group.historicalCodes.length > 0
+		&& group.lod21Sheet
+	));
+	const candidateSheets = [...new Set(
+		lod21Candidates.map((group) => group.lod21Sheet)
+	)].sort();
 
 	const knownTargets = KNOWN_TARGETS.map((target) => {
 		const ids = [...knownIds.get(target.name)];
@@ -622,15 +651,23 @@ async function main() {
 			lod2SurfaceInteriorPoints: lod2PointTotal,
 			uniqueBwGebId: buildingGroups.size,
 			fullyMissingBuildings,
+			fullyMissingClass11Buildings: fullyMissingGroups.filter(
+				(group) => group.classes.includes(11)
+			).length,
+			lod21Candidates: lod21Candidates.length,
+			lod21CandidateSheets: candidateSheets.length,
 			partiallyMissingBuildings,
 			missingByClass: byClass
 		},
 		knownTargets,
+		candidateSheets,
+		lod21Candidates,
 		fullyMissingBuildingGroups: fullyMissingGroups,
 		missing: missing.map((record) => ({
 			KS_ID: record.id,
 			FMZK_ID: record.properties.FMZK_ID ?? null,
 			BW_GEB_ID: record.properties.BW_GEB_ID ?? null,
+			BEZUG: record.properties.BEZUG ?? null,
 			F_KLASSE: record.properties.F_KLASSE ?? null,
 			KLASSE_SUB: record.properties.KLASSE_SUB ?? null,
 			render_height: record.properties.render_height ?? null,
