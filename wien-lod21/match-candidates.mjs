@@ -645,6 +645,43 @@ function groupCurrentFeatures(features, reader) {
 	return { byHistoricalCode, byBuildingId };
 }
 
+function selectCurrentGroupByKsIds(group, ksIds) {
+	if (!group) return null;
+	const allowed = new Set(
+		(ksIds || []).map((id) => String(id || "").replace(/^wien-fmzk:/, ""))
+	);
+	if (!allowed.size) return group;
+
+	const features = group.features.filter((feature) => (
+		allowed.has(String(feature?.properties?.FMZK_ID ?? "").trim())
+	));
+	if (!features.length) return null;
+
+	const geometries = [];
+	const heights = [];
+	for (const feature of features) {
+		const sourceIndex = group.features.indexOf(feature);
+		const geometry = group.geometries[sourceIndex];
+		if (geometry) geometries.push(geometry);
+		const height = currentFeatureHeight(feature);
+		if (Number.isFinite(height)) heights.push(height);
+	}
+	const geometry = unionGeometries(geometries);
+	if (!geometry || geometry.isEmpty()) return null;
+	return {
+		geometry,
+		features,
+		heights,
+		height: heights.length ? Math.max(...heights) : null,
+		ksIds: [...allowed].map((id) => "wien-fmzk:" + id).sort(),
+		ownerBwGebIds: [...new Set(
+			features
+				.map((feature) => String(feature?.properties?.BW_GEB_ID ?? "").trim())
+				.filter(Boolean)
+		)].sort()
+	};
+}
+
 function combineOldGroups(groups) {
 	const present = groups.filter((group) => group?.geometry && !group.geometry.isEmpty());
 	if (!present.length) return null;
@@ -726,7 +763,9 @@ function matchResultPayload({
 		metrics,
 		lod21: {
 			objectCount: old?.objectCount || 0,
-			roofTypes: old?.roofTypes || [],
+			roofTypes: old?.roofTypes instanceof Set
+				? [...old.roofTypes].sort()
+				: (old?.roofTypes || []),
 			roofSurfaces: old?.roofSurfaces || 0,
 			pitchedRoofSurfaces: old?.pitchedRoofSurfaces || 0,
 			hasPitchedRoof: (old?.pitchedRoofSurfaces || 0) > 0
@@ -752,7 +791,10 @@ async function processSheet(
 
 	for (const candidate of codeCandidates) {
 		const code = String(candidate.historicalCode || "");
-		const current = currentGroups.byHistoricalCode.get(code);
+		const current = selectCurrentGroupByKsIds(
+			currentGroups.byHistoricalCode.get(code),
+			candidate.ksIds
+		);
 		if (!current?.geometry) {
 			results.push({
 				...candidate,
@@ -821,7 +863,10 @@ async function processSheet(
 	}
 
 	for (const candidate of spatialCandidates) {
-		const current = currentGroups.byBuildingId.get(String(candidate.BW_GEB_ID));
+		const current = selectCurrentGroupByKsIds(
+			currentGroups.byBuildingId.get(String(candidate.BW_GEB_ID)),
+			candidate.ksIds
+		);
 		if (!current?.geometry) {
 			results.push({
 				...candidate,
