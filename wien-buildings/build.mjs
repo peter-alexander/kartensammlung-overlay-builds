@@ -14,6 +14,7 @@ const DEFAULT_RELEASE = path.resolve("wien-buildings/build/WienBuildings/release
 const OUTPUT_PROPERTIES = Object.freeze([
 	"FMZK_ID",
 	"BW_GEB_ID",
+	"BEZUG",
 	"BW_BRK_ID",
 	"BW_SON_ID",
 	"F_KLASSE",
@@ -270,6 +271,7 @@ async function main() {
 	let outputCount = 0;
 	let skippedGeometry = 0;
 	let skippedHeight = 0;
+	let withHistoricalAddressCode = 0;
 	let repeatedSignature = "";
 	let reportedTotal = null;
 
@@ -315,6 +317,7 @@ async function main() {
 				}
 
 				classCounts[properties.F_KLASSE] = (classCounts[properties.F_KLASSE] || 0) + 1;
+				if (String(properties.BEZUG || "").trim()) withHistoricalAddressCode += 1;
 				updateBounds(bounds, geometry);
 				await writeFeature(stream, {
 					type: "Feature",
@@ -344,7 +347,7 @@ async function main() {
 		throw new Error(`Unexpectedly small Wiener building export: only ${outputCount} polygons.`);
 	}
 
-	for (const required of ["F_KLASSE", "O_KOTE", "T_KOTE", "FMZK_ID"]) {
+	for (const required of ["F_KLASSE", "O_KOTE", "T_KOTE", "FMZK_ID", "BEZUG"]) {
 		if (!observedProperties.has(required)) {
 			throw new Error(`WFS schema no longer contains required attribute: ${required}`);
 		}
@@ -385,6 +388,7 @@ async function main() {
 			output: outputCount,
 			skippedGeometry,
 			skippedHeight,
+			withHistoricalAddressCode,
 			pages: pageCount,
 			sourceReportedTotal: reportedTotal,
 			byClass: classCounts
