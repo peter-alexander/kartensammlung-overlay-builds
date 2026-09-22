@@ -588,6 +588,23 @@ async function main() {
 		if (!record.matched) group.missing += 1;
 		group.records.push(record);
 	}
+	const historicalCodeOwners = new Map();
+	for (const group of buildingGroups.values()) {
+		const codes = new Set(
+			group.records
+				.map((record) => String(record.properties.BEZUG ?? "").trim())
+				.filter(Boolean)
+		);
+		for (const code of codes) {
+			let owners = historicalCodeOwners.get(code);
+			if (!owners) {
+				owners = new Set();
+				historicalCodeOwners.set(code, owners);
+			}
+			owners.add(group.BW_GEB_ID);
+		}
+	}
+
 	const fullyMissingGroups = [];
 	let partiallyMissingBuildings = 0;
 	for (const group of buildingGroups.values()) {
@@ -606,11 +623,17 @@ async function main() {
 					.map((record) => String(record.properties.BEZUG ?? "").trim())
 					.filter(Boolean)
 			)].sort();
+			const numericHistoricalCodes = historicalCodes.filter((code) => /^\d{6}$/.test(code));
+			const uniqueNumericHistoricalCodes = numericHistoricalCodes.filter((code) => (
+				historicalCodeOwners.get(code)?.size === 1
+			));
 			fullyMissingGroups.push({
 				BW_GEB_ID: group.BW_GEB_ID,
 				partCount: group.total,
 				classes,
 				historicalCodes,
+				numericHistoricalCodes,
+				uniqueNumericHistoricalCodes,
 				maxHeight: heights.length ? Number(Math.max(...heights).toFixed(3)) : null,
 				lng: Number(representative.point.lng.toFixed(7)),
 				lat: Number(representative.point.lat.toFixed(7)),
@@ -624,7 +647,7 @@ async function main() {
 	const fullyMissingBuildings = fullyMissingGroups.length;
 	const lod21Candidates = fullyMissingGroups.filter((group) => (
 		group.classes.includes(11)
-		&& group.historicalCodes.length > 0
+		&& group.uniqueNumericHistoricalCodes.length > 0
 		&& group.lod21Sheet
 	));
 	const candidateSheets = [...new Set(
@@ -663,7 +686,14 @@ async function main() {
 			fullyMissingClass11Buildings: fullyMissingGroups.filter(
 				(group) => group.classes.includes(11)
 			).length,
+			fullyMissingClass11WithNumericHistoricalCode: fullyMissingGroups.filter(
+				(group) => group.classes.includes(11) && group.numericHistoricalCodes.length > 0
+			).length,
 			lod21Candidates: lod21Candidates.length,
+			lod21CandidateCodes: lod21Candidates.reduce(
+				(sum, group) => sum + group.uniqueNumericHistoricalCodes.length,
+				0
+			),
 			lod21CandidateSheets: candidateSheets.length,
 			partiallyMissingBuildings,
 			missingByClass: byClass
