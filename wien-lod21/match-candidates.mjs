@@ -1124,13 +1124,22 @@ async function main() {
 	}
 	const results = [...bestByCandidate.values()];
 
+	const hasUnambiguousHistoricalIdentity = (item) => (
+		Array.isArray(item.ownerBwGebIds)
+		&& item.ownerBwGebIds.length === 1
+		&& Number(item.sameCodeMatchedParts || 0) === 0
+		&& Array.isArray(item.sameCodeOwnerBwGebIds)
+		&& item.sameCodeOwnerBwGebIds.length === 1
+	);
 	const isDirectProductionCandidate = (item) => (
-		item.method === "historical-code"
+		hasUnambiguousHistoricalIdentity(item)
+		&& item.method === "historical-code"
 		&& item.band === "strong"
 		&& item.lod21?.hasPitchedRoof
 	);
 	const isHybridCandidate = (item) => (
-		item.method === "historical-code"
+		hasUnambiguousHistoricalIdentity(item)
+		&& item.method === "historical-code"
 		&& item.band === "legacy-subset"
 		&& item.lod21?.hasPitchedRoof
 	);
