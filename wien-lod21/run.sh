@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
 SOURCE_DIR="$BUILD_DIR/source"
 OUTPUT_DIR="$BUILD_DIR/WienBuildingsLOD21"
-TARGETS_FILE="$SCRIPT_DIR/targets.pilot.json"
+TARGETS_FILE="${WIEN_LOD21_TARGETS:-$SCRIPT_DIR/targets.pilot.json}"
 DOWNLOAD_BASE="https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml"
 
 rm -rf "$BUILD_DIR"
@@ -36,5 +36,5 @@ done
 
 node "$SCRIPT_DIR/build.mjs" 	--input "$SOURCE_DIR" 	--output "$OUTPUT_DIR" 	--targets "$TARGETS_FILE"
 
-echo "Vienna LOD2.1 pilot build complete:"
+echo "Vienna LOD2.1 build complete:"
 find "$OUTPUT_DIR" -type f -printf '%P %s bytes\n' | sort
