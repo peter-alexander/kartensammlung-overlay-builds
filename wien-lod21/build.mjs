@@ -442,6 +442,63 @@ function buildingCreationDate(building) {
 	return textContent(elements?.[0]);
 }
 
+function extractEnvelopeSrsName(xml) {
+	const match = String(xml).match(
+		/<(?:[A-Za-z_][\w.-]*:)?Envelope\b[^>]*\bsrsName=(["'])(.*?)\1/i
+	);
+	return String(match?.[2] || "");
+}
+
+function extractFirstLocalTagText(xml, name) {
+	const escaped = String(name).replace(/[.*+?^$()|[\]\\{}]/g, "\\function buildingCreationDate(building) {
+	const elements = building.getElementsByTagNameNS(
+		"http://www.opengis.net/citygml/1.0",
+		"creationDate"
+	);
+	return textContent(elements?.[0]);
+}
+");
+	const expression = new RegExp(
+		"<(?:[A-Za-z_][\\w.-]*:)?" + escaped
+		+ "\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?"
+		+ escaped + ">",
+		"i"
+	);
+	const match = String(xml).match(expression);
+	return match ? String(match[1]).replace(/<[^>]+>/g, "").trim() : "";
+}
+
+function buildingXmlMatches(xml) {
+	return String(xml).match(
+		/<(?:[A-Za-z_][\w.-]*:)?Building\b[\s\S]*?<\/(?:[A-Za-z_][\w.-]*:)?Building>/g
+	) || [];
+}
+
+function parseBuildingFragment(buildingXml, filePath) {
+	const wrapped = [
+		'<ks:root xmlns:ks="urn:kartensammlung:wien-lod21"',
+		' xmlns:gml="http://www.opengis.net/gml"',
+		' xmlns:bldg="http://www.opengis.net/citygml/building/1.0"',
+		' xmlns:core="http://www.opengis.net/citygml/1.0"',
+		' xmlns:xlink="http://www.w3.org/1999/xlink"',
+		' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
+		buildingXml,
+		"</ks:root>"
+	].join("");
+	const document = new DOMParser({
+		errorHandler: {
+			warning: () => {},
+			error: (message) => {
+				throw new Error(`CityGML building parse error in ${filePath}: ${message}`);
+			},
+			fatalError: (message) => {
+				throw new Error(`CityGML building fatal parse error in ${filePath}: ${message}`);
+			}
+		}
+	}).parseFromString(wrapped, "application/xml");
+	return document.getElementsByTagNameNS(BLDG_NS, "Building")[0] || null;
+}
+
 async function listFilesRecursive(root) {
 	const result = [];
 	async function visit(directory) {
@@ -671,36 +728,28 @@ async function main() {
 	const seenCityObjects = new Set();
 	let parsedBuildings = 0;
 
-	for (const filePath of files) {
+	for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+		const filePath = files[fileIndex];
 		const sourceSheet = sourceSheetFromPath(filePath);
-		const xml = await fs.readFile(filePath, "utf8");
-		const document = new DOMParser({
-			errorHandler: {
-				warning: () => {},
-				error: (message) => {
-					throw new Error(`CityGML parse error in ${filePath}: ${message}`);
-				},
-				fatalError: (message) => {
-					throw new Error(`CityGML fatal parse error in ${filePath}: ${message}`);
-				}
-			}
-		}).parseFromString(xml, "application/xml");
-
-		const envelope = document.getElementsByTagNameNS(GML_NS, "Envelope")[0];
-		const srsName = String(envelope?.getAttribute?.("srsName") || "");
+		let xml = await fs.readFile(filePath, "utf8");
+		const srsName = extractEnvelopeSrsName(xml);
 		if (!/31256/.test(srsName)) {
 			throw new Error(`Unexpected CityGML CRS in ${filePath}: ${srsName || "(missing)"}`);
 		}
 
-		const buildings = document.getElementsByTagNameNS(BLDG_NS, "Building");
-		for (let index = 0; index < buildings.length; index += 1) {
-			const building = buildings[index];
+		const buildingBlocks = buildingXmlMatches(xml);
+		for (let index = 0; index < buildingBlocks.length; index += 1) {
+			const buildingXml = buildingBlocks[index];
 			parsedBuildings += 1;
-			const code = buildingName(building);
+			const code = extractFirstLocalTagText(buildingXml, "name");
 			const target = targetByCode.get(code);
 			if (!target) continue;
 			if (target.sheet && sourceSheet && String(target.sheet) !== sourceSheet) continue;
 
+			const building = parseBuildingFragment(buildingXml, filePath);
+			if (!building) {
+				throw new Error(`Target ${code} could not be parsed from ${filePath}.`);
+			}
 			const cityGmlId = nodeAttribute(building, GML_NS, "id") || `${sourceSheet}:${index}`;
 			if (seenCityObjects.has(cityGmlId)) continue;
 			seenCityObjects.add(cityGmlId);
@@ -718,6 +767,21 @@ async function main() {
 				zoom
 			});
 			if (added) found.get(code).push(added);
+		}
+		buildingBlocks.length = 0;
+		xml = null;
+		if (typeof global.gc === "function" && (fileIndex + 1) % 10 === 0) {
+			global.gc();
+		}
+		if ((fileIndex + 1) % 25 === 0 || fileIndex + 1 === files.length) {
+			const memory = process.memoryUsage();
+			console.log(JSON.stringify({
+				progress: `${fileIndex + 1}/${files.length}`,
+				parsedBuildings,
+				matchedTargets: [...found.values()].filter((matches) => matches.length).length,
+				heapUsedMiB: Number((memory.heapUsed / 1048576).toFixed(1)),
+				rssMiB: Number((memory.rss / 1048576).toFixed(1))
+			}));
 		}
 	}
 
