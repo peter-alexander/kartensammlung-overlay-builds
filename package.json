@@ -8,9 +8,12 @@
 		"build:radparken": "bash ./radparken/run.sh",
 		"build:sitzmoeglichkeiten": "bash ./sitzmoeglichkeiten/run.sh",
 		"build:radlkarte": "bash ./radlkarte/run.sh",
-		"build:timezone-boundaries": "bash ./timezone-boundaries/run.sh"
+		"build:timezone-boundaries": "bash ./timezone-boundaries/run.sh",
+		"build:wien-lod21": "bash ./wien-lod21/run.sh"
 	},
 	"dependencies": {
+		"@xmldom/xmldom": "^0.8.13",
+		"earcut": "^3.0.2",
 		"geos-wasm": "^3.1.1",
 		"jsts": "^2.12.1",
 		"ol": "^10.10.0",
