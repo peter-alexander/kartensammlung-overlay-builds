@@ -1,0 +1,97 @@
+name: Probe Vienna LOD2.1 building completeness
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-production
+    paths:
+      - '.github/workflows/probe-wien-lod21-building-completeness.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Check whole-BW_GEB_ID rollout completeness
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const report = JSON.parse(
+          	fs.readFileSync("/tmp/lod21-analysis/wien-lod21-citywide-final.json", "utf8")
+          );
+          const snapshot = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+
+          const productionCodes = new Set(
+          	snapshot.buildings.map((item) => String(item.historicalCode))
+          );
+          const productionBw = new Set(
+          	snapshot.buildings.map((item) => String(item.bwGebId))
+          );
+
+          const codesByBw = new Map();
+          for (const item of report.results || []) {
+          	if (item.candidateType !== "historical-code") continue;
+          	for (const owner of item.ownerBwGebIds || []) {
+          		const bw = String(owner);
+          		if (!codesByBw.has(bw)) codesByBw.set(bw, new Map());
+          		codesByBw.get(bw).set(String(item.historicalCode), {
+          			code: String(item.historicalCode),
+          			band: item.band,
+          			method: item.method,
+          			hasPitchedRoof: Boolean(item.lod21?.hasPitchedRoof),
+          			sameCodeMatchedParts: Number(item.sameCodeMatchedParts || 0),
+          			ownerBwGebIds: item.ownerBwGebIds || []
+          		});
+          	}
+          }
+
+          const incomplete = [];
+          for (const bw of productionBw) {
+          	const all = [...(codesByBw.get(bw)?.values() || [])];
+          	const selected = all.filter((item) => productionCodes.has(item.code));
+          	const omitted = all.filter((item) => !productionCodes.has(item.code));
+          	if (omitted.length) {
+          		incomplete.push({
+          			bwGebId: bw,
+          			selected,
+          			omitted
+          		});
+          	}
+          }
+
+          console.log(JSON.stringify({
+          	productionBwGebIds: productionBw.size,
+          	completeByHistoricalCandidateSet: productionBw.size - incomplete.length,
+          	incompleteBwGebIds: incomplete.length,
+          	examples: incomplete.slice(0, 40)
+          }, null, 2));
+
+          fs.writeFileSync(
+          	"/tmp/wien-lod21-building-completeness.json",
+          	JSON.stringify({ incomplete }, null, 2)
+          );
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-building-completeness
+          path: /tmp/wien-lod21-building-completeness.json
+          retention-days: 1
