@@ -7,13 +7,6 @@ on:
         description: 'Number of representative LOD2.1 sheets to inspect'
         required: false
         default: '24'
-  push:
-    branches:
-      - feature/wien-lod21-matcher
-    paths:
-      - 'wien-buildings/analyze-maptoolkit-gaps.mjs'
-      - 'wien-lod21/match-candidates.mjs'
-      - '.github/workflows/wien-lod21-match.yml'
 
 permissions:
   contents: read
