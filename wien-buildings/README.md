@@ -59,3 +59,11 @@ TIPPECANOE_BIN=tippecanoe bash wien-buildings/run.sh
 ```
 
 Datenquelle: Stadt Wien – data.wien.gv.at, CC BY 4.0
+
+## Historischer Gebäudeschlüssel
+
+Zusätzlich bleibt `BEZUG` aus dem FMZK erhalten. Das Feld ist der historische
+Adresscode und dient zur kontrollierten Verknüpfung mit dem älteren Wiener
+LOD2.1-Dachmodell, dessen `gml:name` denselben historischen Code verwendet.
+`BW_GEB_ID` bleibt der aktuelle Gebäudeschlüssel; `BEZUG` wird nicht als heutige
+Identität interpretiert.
