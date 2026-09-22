@@ -553,11 +553,6 @@ function addBuildingToTile(tileData, {
 	const tile = tileCoordinateForPoint(anchorSource, zoom);
 	const anchorLngLat = sourcePointToLngLat(anchorSource);
 	const distance = haversineMeters(anchorLngLat, target);
-	if (distance > 175) {
-		throw new Error(
-			`Historical code ${target.historicalCode} is ${distance.toFixed(1)} m from expected location.`
-		);
-	}
 
 	const key = tileKey(tile);
 	let data = tileData.get(key);
