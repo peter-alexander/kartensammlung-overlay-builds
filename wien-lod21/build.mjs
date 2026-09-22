@@ -442,6 +442,58 @@ function buildingCreationDate(building) {
 	return textContent(elements?.[0]);
 }
 
+function extractEnvelopeSrsName(xml) {
+	const match = String(xml).match(
+		/<(?:[A-Za-z_][\w.-]*:)?Envelope\b[^>]*\bsrsName=(["'])(.*?)\1/i
+	);
+	return String(match?.[2] || "");
+}
+
+function extractFirstLocalTagText(xml, name) {
+	const escaped = String(name).replace(/[.*+?^$()|[\]\\{}]/g, "\\$&");
+	const expression = new RegExp(
+		"<(?:[A-Za-z_][\\w.-]*:)?" + escaped
+		+ "\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?"
+		+ escaped + ">",
+		"i"
+	);
+	const match = String(xml).match(expression);
+	return match ? String(match[1]).replace(/<[^>]+>/g, "").trim() : "";
+}
+
+function *buildingXmlMatches(xml) {
+	const expression = /<(?:[A-Za-z_][\w.-]*:)?Building\b[\s\S]*?<\/(?:[A-Za-z_][\w.-]*:)?Building>/g;
+	let match;
+	while ((match = expression.exec(String(xml)))) {
+		yield match[0];
+	}
+}
+
+function parseBuildingFragment(buildingXml, filePath) {
+	const wrapped = [
+		'<ks:root xmlns:ks="urn:kartensammlung:wien-lod21"',
+		' xmlns:gml="http://www.opengis.net/gml"',
+		' xmlns:bldg="http://www.opengis.net/citygml/building/1.0"',
+		' xmlns:core="http://www.opengis.net/citygml/1.0"',
+		' xmlns:xlink="http://www.w3.org/1999/xlink"',
+		' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
+		buildingXml,
+		"</ks:root>"
+	].join("");
+	const document = new DOMParser({
+		errorHandler: {
+			warning: () => {},
+			error: (message) => {
+				throw new Error(`CityGML building parse error in ${filePath}: ${message}`);
+			},
+			fatalError: (message) => {
+				throw new Error(`CityGML building fatal parse error in ${filePath}: ${message}`);
+			}
+		}
+	}).parseFromString(wrapped, "application/xml");
+	return document.getElementsByTagNameNS(BLDG_NS, "Building")[0] || null;
+}
+
 async function listFilesRecursive(root) {
 	const result = [];
 	async function visit(directory) {
@@ -481,6 +533,22 @@ function ensureQuantizedVertex(vertex, extent) {
 	return { x, y, zCm };
 }
 
+function vertexCount(tileData) {
+	return tileData.vertices.length / 7;
+}
+
+function pushVertex(tileData, vertex) {
+	tileData.vertices.push(
+		vertex.x,
+		vertex.y,
+		vertex.z,
+		vertex.nx,
+		vertex.ny,
+		vertex.nz,
+		vertex.kind
+	);
+}
+
 function encodeTile(tile, tileData, extent) {
 	const metadata = {
 		schemaVersion: 1,
@@ -498,7 +566,8 @@ function encodeTile(tile, tileData, extent) {
 	const metadataBytes = Buffer.from(JSON.stringify(metadata), "utf8");
 	const metadataPadding = (4 - (metadataBytes.length % 4)) % 4;
 	const headerBytes = 32;
-	const vertexBytes = tileData.vertices.length * VERTEX_STRIDE;
+	const totalVertices = vertexCount(tileData);
+	const vertexBytes = totalVertices * VERTEX_STRIDE;
 	const indexBytes = tileData.indices.length * 4;
 	const output = Buffer.alloc(
 		headerBytes + metadataBytes.length + metadataPadding + vertexBytes + indexBytes
@@ -507,14 +576,23 @@ function encodeTile(tile, tileData, extent) {
 	output.write(MAGIC, 0, 8, "ascii");
 	output.writeUInt32LE(FORMAT_VERSION, 8);
 	output.writeUInt32LE(extent, 12);
-	output.writeUInt32LE(tileData.vertices.length, 16);
+	output.writeUInt32LE(totalVertices, 16);
 	output.writeUInt32LE(tileData.indices.length, 20);
 	output.writeUInt32LE(tileData.buildings.length, 24);
 	output.writeUInt32LE(metadataBytes.length, 28);
 	metadataBytes.copy(output, headerBytes);
 
 	let offset = headerBytes + metadataBytes.length + metadataPadding;
-	for (const vertex of tileData.vertices) {
+	for (let index = 0; index < tileData.vertices.length; index += 7) {
+		const vertex = {
+			x: tileData.vertices[index],
+			y: tileData.vertices[index + 1],
+			z: tileData.vertices[index + 2],
+			nx: tileData.vertices[index + 3],
+			ny: tileData.vertices[index + 4],
+			nz: tileData.vertices[index + 5],
+			kind: tileData.vertices[index + 6]
+		};
 		const quantized = ensureQuantizedVertex(vertex, extent);
 		output.writeInt16LE(quantized.x, offset);
 		output.writeInt16LE(quantized.y, offset + 2);
@@ -553,11 +631,6 @@ function addBuildingToTile(tileData, {
 	const tile = tileCoordinateForPoint(anchorSource, zoom);
 	const anchorLngLat = sourcePointToLngLat(anchorSource);
 	const distance = haversineMeters(anchorLngLat, target);
-	if (distance > 175) {
-		throw new Error(
-			`Historical code ${target.historicalCode} is ${distance.toFixed(1)} m from expected location.`
-		);
-	}
 
 	const key = tileKey(tile);
 	let data = tileData.get(key);
@@ -566,7 +639,7 @@ function addBuildingToTile(tileData, {
 		tileData.set(key, data);
 	}
 
-	const vertexStart = data.vertices.length;
+	const vertexStart = vertexCount(data);
 	const indexStart = data.indices.length;
 	let roofSurfaces = 0;
 	let wallSurfaces = 0;
@@ -582,9 +655,9 @@ function addBuildingToTile(tileData, {
 		if (surface.semantic === "roof") roofSurfaces += 1;
 		else if (surface.semantic === "wall") wallSurfaces += 1;
 
-		const surfaceVertexStart = data.vertices.length;
+		const surfaceVertexStart = vertexCount(data);
 		for (const point of triangulated.vertices) {
-			data.vertices.push({
+			pushVertex(data, {
 				x: point.x,
 				y: point.y,
 				z: point.z,
@@ -599,22 +672,28 @@ function addBuildingToTile(tileData, {
 		}
 	}
 
-	const vertexCount = data.vertices.length - vertexStart;
+	const buildingVertexCount = vertexCount(data) - vertexStart;
 	const indexCount = data.indices.length - indexStart;
-	if (!vertexCount || !indexCount) return null;
+	if (!buildingVertexCount || !indexCount) return null;
 
 	const anchorWorldX = worldX(anchorLngLat.lng, zoom);
 	const anchorWorldY = worldY(anchorLngLat.lat, zoom);
 	const record = {
 		bwGebId: Number(target.bwGebId),
 		historicalCode: String(target.historicalCode),
+		ogdKsIds: [...new Set(
+			(target.ksIds || [])
+				.map((value) => String(value || "").trim())
+				.filter(Boolean)
+		)].sort(),
 		name: String(target.name),
+		rolloutMode: String(target.rolloutMode || "unspecified"),
 		cityGmlId: nodeAttribute(building, GML_NS, "id"),
 		roofType: buildingRoofType(building),
 		creationDate: buildingCreationDate(building),
 		sourceSheet,
 		vertexStart,
-		vertexCount,
+		vertexCount: buildingVertexCount,
 		indexStart,
 		indexCount,
 		anchorX: Number(((anchorWorldX - tile.x) * extent).toFixed(3)),
@@ -649,36 +728,29 @@ async function main() {
 	const seenCityObjects = new Set();
 	let parsedBuildings = 0;
 
-	for (const filePath of files) {
+	for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+		const filePath = files[fileIndex];
 		const sourceSheet = sourceSheetFromPath(filePath);
-		const xml = await fs.readFile(filePath, "utf8");
-		const document = new DOMParser({
-			errorHandler: {
-				warning: () => {},
-				error: (message) => {
-					throw new Error(`CityGML parse error in ${filePath}: ${message}`);
-				},
-				fatalError: (message) => {
-					throw new Error(`CityGML fatal parse error in ${filePath}: ${message}`);
-				}
-			}
-		}).parseFromString(xml, "application/xml");
-
-		const envelope = document.getElementsByTagNameNS(GML_NS, "Envelope")[0];
-		const srsName = String(envelope?.getAttribute?.("srsName") || "");
+		let xml = await fs.readFile(filePath, "utf8");
+		const srsName = extractEnvelopeSrsName(xml);
 		if (!/31256/.test(srsName)) {
 			throw new Error(`Unexpected CityGML CRS in ${filePath}: ${srsName || "(missing)"}`);
 		}
 
-		const buildings = document.getElementsByTagNameNS(BLDG_NS, "Building");
-		for (let index = 0; index < buildings.length; index += 1) {
-			const building = buildings[index];
+		let buildingIndex = 0;
+		for (const buildingXml of buildingXmlMatches(xml)) {
+			const index = buildingIndex;
+			buildingIndex += 1;
 			parsedBuildings += 1;
-			const code = buildingName(building);
+			const code = extractFirstLocalTagText(buildingXml, "name");
 			const target = targetByCode.get(code);
 			if (!target) continue;
 			if (target.sheet && sourceSheet && String(target.sheet) !== sourceSheet) continue;
 
+			const building = parseBuildingFragment(buildingXml, filePath);
+			if (!building) {
+				throw new Error(`Target ${code} could not be parsed from ${filePath}.`);
+			}
 			const cityGmlId = nodeAttribute(building, GML_NS, "id") || `${sourceSheet}:${index}`;
 			if (seenCityObjects.has(cityGmlId)) continue;
 			seenCityObjects.add(cityGmlId);
@@ -696,6 +768,20 @@ async function main() {
 				zoom
 			});
 			if (added) found.get(code).push(added);
+		}
+		xml = null;
+		if (typeof global.gc === "function" && (fileIndex + 1) % 10 === 0) {
+			global.gc();
+		}
+		if ((fileIndex + 1) % 25 === 0 || fileIndex + 1 === files.length) {
+			const memory = process.memoryUsage();
+			console.log(JSON.stringify({
+				progress: `${fileIndex + 1}/${files.length}`,
+				parsedBuildings,
+				matchedTargets: [...found.values()].filter((matches) => matches.length).length,
+				heapUsedMiB: Number((memory.heapUsed / 1048576).toFixed(1)),
+				rssMiB: Number((memory.rss / 1048576).toFixed(1))
+			}));
 		}
 	}
 
@@ -727,15 +813,47 @@ async function main() {
 		const encoded = encodeTile(data.tile, data, extent);
 		await fs.writeFile(outputPath, encoded);
 		presentTilesZ15.push(key);
-		totalVertices += data.vertices.length;
+		totalVertices += vertexCount(data);
 		totalTriangles += data.indices.length / 3;
 		totalBuildingObjects += data.buildings.length;
 	}
 
+	const generatedAt = new Date().toISOString();
+	const status = String(targetsConfig.status || "pilot");
+	const targetManifest = {
+		schemaVersion: 1,
+		generatedAt,
+		status,
+		counts: {
+			targets: targets.length,
+			directStrong: targets.filter(
+				(target) => target.rolloutMode === "direct-strong"
+			).length,
+			manualPilotStrong: targets.filter(
+				(target) => target.rolloutMode === "manual-pilot-strong"
+			).length,
+			manualPilotHybrid: targets.filter(
+				(target) => target.rolloutMode === "manual-pilot-hybrid"
+			).length
+		},
+		targets: targets.map((target) => ({
+			...target,
+			matches: found.get(String(target.historicalCode)).map((match) => ({
+				tile: tileKey(match.tile),
+				cityGmlId: match.record.cityGmlId,
+				roofType: match.record.roofType,
+				creationDate: match.record.creationDate,
+				distanceToExpectedM: Number(match.distance.toFixed(2)),
+				roofSurfaces: match.record.roofSurfaces,
+				wallSurfaces: match.record.wallSurfaces,
+				groundSurfaces: match.record.groundSurfaces
+			}))
+		}))
+	};
 	const release = {
 		schemaVersion: 1,
-		generatedAt: new Date().toISOString(),
-		status: "pilot",
+		generatedAt,
+		status,
 		source: {
 			product: "Stadt Wien – Generalisiertes Dachmodell (LOD2.1)",
 			crs: SOURCE_CRS,
@@ -766,24 +884,15 @@ async function main() {
 			sourceGmlFiles: files.length,
 			parsedBuildings,
 			targets: targets.length,
+			directStrong: targetManifest.counts.directStrong,
+			manualPilotStrong: targetManifest.counts.manualPilotStrong,
+			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			cityGmlBuildingObjects: totalBuildingObjects,
 			vertices: totalVertices,
 			triangles: totalTriangles,
 			tiles: presentTilesZ15.length
 		},
-		targets: targets.map((target) => ({
-			...target,
-			matches: found.get(String(target.historicalCode)).map((match) => ({
-				tile: tileKey(match.tile),
-				cityGmlId: match.record.cityGmlId,
-				roofType: match.record.roofType,
-				creationDate: match.record.creationDate,
-				distanceToExpectedM: Number(match.distance.toFixed(2)),
-				roofSurfaces: match.record.roofSurfaces,
-				wallSurfaces: match.record.wallSurfaces,
-				groundSurfaces: match.record.groundSurfaces
-			}))
-		}))
+		targetsUrl: "targets.json"
 	};
 
 	await fs.writeFile(
@@ -791,9 +900,14 @@ async function main() {
 		JSON.stringify(release, null, "\t") + "\n",
 		"utf8"
 	);
+	await fs.writeFile(
+		path.join(args.output, "targets.json"),
+		JSON.stringify(targetManifest, null, "\t") + "\n",
+		"utf8"
+	);
 
 	console.log(JSON.stringify(release.counts));
-	for (const target of release.targets) {
+	for (const target of targetManifest.targets) {
 		console.log(
 			`${target.historicalCode} ${target.name}: `
 			+ target.matches.map((match) => (

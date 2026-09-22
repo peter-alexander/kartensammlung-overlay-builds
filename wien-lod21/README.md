@@ -54,3 +54,33 @@ historischen CityGML.
 
 `wien-lod21/merge-match-reports.mjs` führt parallele Batch-Berichte
 stadtweit zusammen und dedupliziert Kandidaten an Blattgrenzen.
+
+
+## Produktions-Snapshot
+
+`targets.production.json` ist der derzeit freigegebene Produktionssatz. Er
+wurde aus der vollständigen Stadtanalyse vom 22. September 2026 erzeugt und
+enthält:
+
+- 1.209 automatisch freigegebene `direct-strong`-Gebäude,
+- 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
+- 3 manuell bestätigte `manual-pilot-hybrid`-Ausnahmen in der Straußengasse,
+- 538 benötigte LOD2.1-Quellblätter.
+
+Die übrigen 1.063 sicheren `legacy-subset`-Kandidaten werden **noch nicht**
+automatisch gebaut. Für sie muss zuerst die heutige zusätzliche Grundrissfläche
+als LOD1 erhalten bleiben.
+
+Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
+`targets.json`. `release.json` enthält nur die für den Client benötigte
+Version, Tile-Verfügbarkeit und kompakte Zähler.
+
+Der Snapshot kann mit `make-production-targets.mjs` aus einem erneut
+validierten Stadtbericht regeneriert werden. Ein Rebuild benötigt dadurch
+keine erneute stadtweite Matching-Analyse.
+
+
+Für jedes Produktionsziel werden außerdem die exakten aktuellen OGD-`KS_ID`s
+mitgeführt. LOD2.1 darf damit nur jene heutigen FMZK-Baukörper unterdrücken,
+die der Matcher diesem historischen Dach tatsächlich zugeordnet hat; eine
+pauschale Ausblendung der gesamten `BW_GEB_ID` ist für LOD2.1 nicht zulässig.
