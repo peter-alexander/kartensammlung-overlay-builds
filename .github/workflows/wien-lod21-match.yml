@@ -58,16 +58,15 @@ jobs:
           const report = JSON.parse(fs.readFileSync("/tmp/wien-lod21-matches.json", "utf8"));
           const expected = new Set(["212535", "009238", "113842", "006973"]);
           for (const item of report.pilot || []) {
-          	for (const code of item.uniqueNumericHistoricalCodes || []) {
-          		if (!expected.has(String(code))) continue;
-          		if (item.method !== "historical-code") {
-          			throw new Error(`Pilot ${code} did not use the historical-code match.`);
-          		}
-          		if (item.band === "reject") {
-          			throw new Error(`Pilot ${code} failed the provisional plausibility check.`);
-          		}
-          		expected.delete(String(code));
+          	const code = String(item.historicalCode || "");
+          	if (!expected.has(code)) continue;
+          	if (item.method !== "historical-code") {
+          		throw new Error(`Pilot ${code} did not use the historical-code match.`);
           	}
+          	if (item.band === "reject") {
+          		throw new Error(`Pilot ${code} failed the provisional plausibility check.`);
+          	}
+          	expected.delete(code);
           }
           if (expected.size) {
           	throw new Error(`Missing pilot codes: ${[...expected].join(", ")}`);
@@ -76,6 +75,7 @@ jobs:
           NODE
 
       - name: Upload analysis
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: wien-lod21-candidate-analysis
