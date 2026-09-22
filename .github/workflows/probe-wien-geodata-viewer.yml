@@ -69,6 +69,23 @@ jobs:
           		if i>=4: break
           PY
 
+          echo "=== INDEX CTRL URLS AND MAP CONFIG ==="
+          python - <<'PY'
+          from pathlib import Path
+          import re, html
+          s=html.unescape(Path("/tmp/ma41/index.html").read_text(errors="ignore"))
+          urls=sorted(set(re.findall(r"""(?:https?://[^"' <>]+|\.\.?/[^"' <>]+|[A-Za-z0-9_./-]+)\.ctrl(?:\?[^"' <>]*)?""",s)))
+          for u in urls:
+          	print(u)
+          print("\nMAP/IDENTIFY PROPERTIES")
+          for key in sorted(set(re.findall(r"([A-Za-z][A-Za-z0-9_]*(?:Url|URL))\s*:",s))):
+          	print(key)
+          for pat in ["IdentifyLayerInfosUrl","FeatureUpdateUrl","MapUrl","MapUpdate","IdentifyUrl","AjaxUrl"]:
+          	i=s.find(pat)
+          	if i>=0:
+          		print("\n",pat,":",s[max(0,i-500):i+1400].replace("\n"," "))
+          PY
+
           echo "=== CONTROL SCRIPT DOWNLOAD ENDPOINTS ==="
           grep -Eo '[A-Za-z0-9_./-]+\.ctrl[^"'"'"' ]*' "$control" \
             | sort -u \
