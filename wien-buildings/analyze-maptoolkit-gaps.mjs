@@ -588,27 +588,13 @@ async function main() {
 		if (!record.matched) group.missing += 1;
 		group.records.push(record);
 	}
-	const historicalCodeOwners = new Map();
-	for (const group of buildingGroups.values()) {
-		const codes = new Set(
-			group.records
-				.map((record) => String(record.properties.BEZUG ?? "").trim())
-				.filter(Boolean)
-		);
-		for (const code of codes) {
-			let owners = historicalCodeOwners.get(code);
-			if (!owners) {
-				owners = new Set();
-				historicalCodeOwners.set(code, owners);
-			}
-			owners.add(group.BW_GEB_ID);
-		}
-	}
 
 	const fullyMissingGroups = [];
+	const fullyMissingBuildingIds = new Set();
 	let partiallyMissingBuildings = 0;
 	for (const group of buildingGroups.values()) {
 		if (group.missing === group.total && group.missing > 0) {
+			fullyMissingBuildingIds.add(group.BW_GEB_ID);
 			const classes = [...new Set(
 				group.records.map((record) => Number(record.properties.F_KLASSE))
 					.filter(Number.isFinite)
@@ -623,17 +609,13 @@ async function main() {
 					.map((record) => String(record.properties.BEZUG ?? "").trim())
 					.filter(Boolean)
 			)].sort();
-			const numericHistoricalCodes = historicalCodes.filter((code) => /^\d{6}$/.test(code));
-			const uniqueNumericHistoricalCodes = numericHistoricalCodes.filter((code) => (
-				historicalCodeOwners.get(code)?.size === 1
-			));
+			const numericHistoricalCodes = historicalCodes.filter((code) => /^\\d{6}$/.test(code));
 			fullyMissingGroups.push({
 				BW_GEB_ID: group.BW_GEB_ID,
 				partCount: group.total,
 				classes,
 				historicalCodes,
 				numericHistoricalCodes,
-				uniqueNumericHistoricalCodes,
 				maxHeight: heights.length ? Number(Math.max(...heights).toFixed(3)) : null,
 				lng: Number(representative.point.lng.toFixed(7)),
 				lat: Number(representative.point.lat.toFixed(7)),
@@ -645,14 +627,80 @@ async function main() {
 		}
 	}
 	const fullyMissingBuildings = fullyMissingGroups.length;
-	const lod21Candidates = fullyMissingGroups.filter((group) => (
+
+	// LOD2.1 stammt aus einer aelteren Gebaeudegeneration. Der historische
+	// Adresscode BEZUG ist deshalb die natuerliche Join-Einheit, nicht die
+	// heutige BW_GEB_ID. Ein alter Code darf mehrere heutige BW_GEB_IDs
+	// umfassen (Gebaeudesplits/-zusammenfassungen). Wir verwenden ihn nur dann
+	// als exakten Fallback, wenn KEIN heutiger Klasse-11-Baukoerper dieses Codes
+	// bereits von aktuellem Maptoolkit-LOD2 getroffen wird.
+	const historicalCodeGroups = new Map();
+	for (const record of records) {
+		if (Number(record.properties.F_KLASSE) !== 11) continue;
+		const code = String(record.properties.BEZUG ?? "").trim();
+		if (!/^\\d{6}$/.test(code)) continue;
+		let group = historicalCodeGroups.get(code);
+		if (!group) {
+			group = {
+				historicalCode: code,
+				total: 0,
+				missing: 0,
+				records: [],
+				ownerBwGebIds: new Set()
+			};
+			historicalCodeGroups.set(code, group);
+		}
+		group.total += 1;
+		if (!record.matched) group.missing += 1;
+		group.records.push(record);
+		const owner = String(record.properties.BW_GEB_ID ?? "").trim();
+		if (owner) group.ownerBwGebIds.add(owner);
+	}
+
+	const lod21CodeCandidates = [];
+	for (const group of historicalCodeGroups.values()) {
+		if (group.missing !== group.total || group.missing <= 0) continue;
+		const representative = group.records[0];
+		const heights = group.records
+			.map((record) => Number(record.properties.render_height))
+			.filter(Number.isFinite);
+		const sheets = [...new Set(
+			group.records
+				.map((record) => lod21SheetForPoint(record.point))
+				.filter(Boolean)
+		)].sort();
+		if (!sheets.length) continue;
+		lod21CodeCandidates.push({
+			historicalCode: group.historicalCode,
+			partCount: group.total,
+			ownerBwGebIds: [...group.ownerBwGebIds].sort(),
+			fullyMissingOwnerBwGebIds: [...group.ownerBwGebIds]
+				.filter((id) => fullyMissingBuildingIds.has(id))
+				.sort(),
+			maxHeight: heights.length ? Number(Math.max(...heights).toFixed(3)) : null,
+			lng: Number(representative.point.lng.toFixed(7)),
+			lat: Number(representative.point.lat.toFixed(7)),
+			lod21Sheet: sheets[0],
+			lod21Sheets: sheets,
+			ksIds: group.records.map((record) => record.id)
+		});
+	}
+	lod21CodeCandidates.sort((a, b) => a.historicalCode.localeCompare(b.historicalCode));
+
+	// Fuer Baukoerper ohne brauchbaren historischen Code bleibt ein raeumlicher
+	// Fallback moeglich. Diese Liste wird getrennt gehalten, weil ein raeumlicher
+	// Treffer spaeter nur konkrete KS_IDs ersetzen darf, nie pauschal die ganze
+	// heutige BW_GEB_ID.
+	const lod21SpatialCandidates = fullyMissingGroups.filter((group) => (
 		group.classes.includes(11)
-		&& group.uniqueNumericHistoricalCodes.length > 0
+		&& group.numericHistoricalCodes.length === 0
 		&& group.lod21Sheet
 	));
-	const candidateSheets = [...new Set(
-		lod21Candidates.map((group) => group.lod21Sheet)
-	)].sort();
+
+	const candidateSheets = [...new Set([
+		...lod21CodeCandidates.flatMap((candidate) => candidate.lod21Sheets || []),
+		...lod21SpatialCandidates.map((candidate) => candidate.lod21Sheet)
+	])].sort();
 
 	const knownTargets = KNOWN_TARGETS.map((target) => {
 		const ids = [...knownIds.get(target.name)];
@@ -689,18 +737,19 @@ async function main() {
 			fullyMissingClass11WithNumericHistoricalCode: fullyMissingGroups.filter(
 				(group) => group.classes.includes(11) && group.numericHistoricalCodes.length > 0
 			).length,
-			lod21Candidates: lod21Candidates.length,
-			lod21CandidateCodes: lod21Candidates.reduce(
-				(sum, group) => sum + group.uniqueNumericHistoricalCodes.length,
-				0
-			),
+			lod21CodeCandidates: lod21CodeCandidates.length,
+			lod21SharedCodeCandidates: lod21CodeCandidates.filter(
+				(candidate) => candidate.ownerBwGebIds.length > 1
+			).length,
+			lod21SpatialCandidates: lod21SpatialCandidates.length,
 			lod21CandidateSheets: candidateSheets.length,
 			partiallyMissingBuildings,
 			missingByClass: byClass
 		},
 		knownTargets,
 		candidateSheets,
-		lod21Candidates,
+		lod21CodeCandidates,
+		lod21SpatialCandidates,
 		fullyMissingBuildingGroups: fullyMissingGroups,
 		missing: missing.map((record) => ({
 			KS_ID: record.id,
