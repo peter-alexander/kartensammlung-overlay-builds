@@ -1,0 +1,38 @@
+name: Analyze Vienna Maptoolkit building gaps
+
+on:
+  push:
+    branches:
+      - probe/wien-lod21-missing-buildings
+    paths:
+      - 'wien-buildings/analyze-maptoolkit-gaps.mjs'
+      - '.github/workflows/probe-wien-citywide-gaps.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install analysis dependencies
+        run: npm install --no-save --package-lock=false @mapbox/vector-tile pbf earcut
+
+      - name: Analyze all Vienna building tiles
+        run: node wien-buildings/analyze-maptoolkit-gaps.mjs /tmp/wien-maptoolkit-gaps.json
+
+      - name: Upload result
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-maptoolkit-gaps
+          path: /tmp/wien-maptoolkit-gaps.json
+          if-no-files-found: error
+          retention-days: 3
