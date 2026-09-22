@@ -2,6 +2,12 @@ name: Build Vienna LOD2.1
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/wien-lod21-production
+    paths:
+      - 'wien-lod21/build.mjs'
+      - '.github/workflows/wien-lod21.yml'
 
 permissions:
   contents: read
