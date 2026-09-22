@@ -629,37 +629,50 @@ async function main() {
 	const fullyMissingBuildings = fullyMissingGroups.length;
 
 	// LOD2.1 stammt aus einer aelteren Gebaeudegeneration. Der historische
-	// Adresscode BEZUG ist deshalb die natuerliche Join-Einheit, nicht die
-	// heutige BW_GEB_ID. Ein alter Code darf mehrere heutige BW_GEB_IDs
-	// umfassen (Gebaeudesplits/-zusammenfassungen). Wir verwenden ihn nur dann
-	// als exakten Fallback, wenn KEIN heutiger Klasse-11-Baukoerper dieses Codes
-	// bereits von aktuellem Maptoolkit-LOD2 getroffen wird.
-	const historicalCodeGroups = new Map();
+	// Adresscode BEZUG ist der primaere Join, aber er ist nicht zwingend 1:1 mit
+	// der heutigen BW_GEB_ID. Fuer den sicheren Fallback bilden wir deshalb
+	// Kandidaten nur aus den konkreten Klasse-11-FMZK-Teilen von HEUTE
+	// vollstaendig LOD2-losen BW_GEB_IDs. Ein eventuell gleichlautender BEZUG an
+	// anderen, bereits mit aktuellem Maptoolkit-LOD2 versorgten Objekten bleibt
+	// unberuehrt.
+	const historicalCodeStats = new Map();
+	const historicalCodeCandidateGroups = new Map();
 	for (const record of records) {
 		if (Number(record.properties.F_KLASSE) !== 11) continue;
 		const code = String(record.properties.BEZUG ?? "").trim();
 		if (!/^\d{6}$/.test(code)) continue;
-		let group = historicalCodeGroups.get(code);
+		const owner = String(record.properties.BW_GEB_ID ?? "").trim();
+
+		let stats = historicalCodeStats.get(code);
+		if (!stats) {
+			stats = {
+				total: 0,
+				matched: 0,
+				ownerBwGebIds: new Set()
+			};
+			historicalCodeStats.set(code, stats);
+		}
+		stats.total += 1;
+		if (record.matched) stats.matched += 1;
+		if (owner) stats.ownerBwGebIds.add(owner);
+
+		if (!owner || !fullyMissingBuildingIds.has(owner)) continue;
+		let group = historicalCodeCandidateGroups.get(code);
 		if (!group) {
 			group = {
 				historicalCode: code,
-				total: 0,
-				missing: 0,
 				records: [],
 				ownerBwGebIds: new Set()
 			};
-			historicalCodeGroups.set(code, group);
+			historicalCodeCandidateGroups.set(code, group);
 		}
-		group.total += 1;
-		if (!record.matched) group.missing += 1;
 		group.records.push(record);
-		const owner = String(record.properties.BW_GEB_ID ?? "").trim();
-		if (owner) group.ownerBwGebIds.add(owner);
+		group.ownerBwGebIds.add(owner);
 	}
 
 	const lod21CodeCandidates = [];
-	for (const group of historicalCodeGroups.values()) {
-		if (group.missing !== group.total || group.missing <= 0) continue;
+	for (const group of historicalCodeCandidateGroups.values()) {
+		if (!group.records.length) continue;
 		const representative = group.records[0];
 		const heights = group.records
 			.map((record) => Number(record.properties.render_height))
@@ -670,19 +683,20 @@ async function main() {
 				.filter(Boolean)
 		)].sort();
 		if (!sheets.length) continue;
+		const stats = historicalCodeStats.get(group.historicalCode);
 		lod21CodeCandidates.push({
 			historicalCode: group.historicalCode,
-			partCount: group.total,
+			partCount: group.records.length,
 			ownerBwGebIds: [...group.ownerBwGebIds].sort(),
-			fullyMissingOwnerBwGebIds: [...group.ownerBwGebIds]
-				.filter((id) => fullyMissingBuildingIds.has(id))
-				.sort(),
 			maxHeight: heights.length ? Number(Math.max(...heights).toFixed(3)) : null,
 			lng: Number(representative.point.lng.toFixed(7)),
 			lat: Number(representative.point.lat.toFixed(7)),
 			lod21Sheet: sheets[0],
 			lod21Sheets: sheets,
-			ksIds: group.records.map((record) => record.id)
+			ksIds: group.records.map((record) => record.id).sort(),
+			sameCodeTotalParts: Number(stats?.total || group.records.length),
+			sameCodeMatchedParts: Number(stats?.matched || 0),
+			sameCodeOwnerBwGebIds: [...(stats?.ownerBwGebIds || [])].sort()
 		});
 	}
 	lod21CodeCandidates.sort((a, b) => a.historicalCode.localeCompare(b.historicalCode));
@@ -740,6 +754,9 @@ async function main() {
 			lod21CodeCandidates: lod21CodeCandidates.length,
 			lod21SharedCodeCandidates: lod21CodeCandidates.filter(
 				(candidate) => candidate.ownerBwGebIds.length > 1
+			).length,
+			lod21CodeCandidatesWithMatchedPeers: lod21CodeCandidates.filter(
+				(candidate) => candidate.sameCodeMatchedParts > 0
 			).length,
 			lod21SpatialCandidates: lod21SpatialCandidates.length,
 			lod21CandidateSheets: candidateSheets.length,
