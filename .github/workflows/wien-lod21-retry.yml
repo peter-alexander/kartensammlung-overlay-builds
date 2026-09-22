@@ -1,0 +1,144 @@
+name: Retry Vienna LOD2.1 citywide batches
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-matcher
+    paths:
+      - '.github/workflows/wien-lod21-retry.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [1, 6, 7, 10, 11, 12, 15]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install matcher dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Download previous gap analysis
+        uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-gap-analysis
+          path: /tmp/lod21-input
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35774639420
+
+      - name: Retry LOD2.1 batch
+        run: |
+          node wien-lod21/match-candidates.mjs \
+            --input /tmp/lod21-input/wien-maptoolkit-gaps.json \
+            --output /tmp/wien-lod21-matches-batch-${{ matrix.batch }}.json \
+            --all \
+            --batch-index ${{ matrix.batch }} \
+            --batch-count 16
+
+      - name: Upload retry report
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-retry-${{ matrix.batch }}
+          path: /tmp/wien-lod21-matches-batch-${{ matrix.batch }}.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+  merge:
+    needs: match
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Download successful reports from first run
+        uses: actions/download-artifact@v8
+        with:
+          pattern: wien-lod21-match-*
+          path: /tmp/lod21-batches
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35774639420
+
+      - name: Download retried reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: wien-lod21-retry-*
+          path: /tmp/lod21-retries
+          merge-multiple: true
+
+      - name: Combine original and retried reports
+        run: |
+          cp /tmp/lod21-retries/wien-lod21-matches-batch-*.json /tmp/lod21-batches/
+          count="$(find /tmp/lod21-batches -maxdepth 1 -type f -name 'wien-lod21-matches-batch-*.json' | wc -l | tr -d ' ')"
+          test "$count" -eq 16
+          node wien-lod21/merge-match-reports.mjs \
+            --input-dir /tmp/lod21-batches \
+            --output /tmp/wien-lod21-citywide.json
+
+      - name: Validate pilot classifications
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(fs.readFileSync("/tmp/wien-lod21-citywide.json", "utf8"));
+          const expected = new Map([
+          	["006973", "strong"],
+          	["009238", "legacy-subset"],
+          	["113842", "legacy-subset"],
+          	["212535", "legacy-subset"]
+          ]);
+          for (const item of report.pilot || []) {
+          	const code = String(item.historicalCode || "");
+          	if (!expected.has(code)) continue;
+          	if (item.method !== "historical-code") {
+          		throw new Error("Pilot " + code + " lost the historical-code match.");
+          	}
+          	if (item.band !== expected.get(code)) {
+          		throw new Error(
+          			"Pilot " + code + " expected " + expected.get(code)
+          			+ " but got " + item.band
+          		);
+          	}
+          	if (!item.lod21?.hasPitchedRoof) {
+          		throw new Error("Pilot " + code + " has no pitched roof in merged report.");
+          	}
+          	expected.delete(code);
+          }
+          if (expected.size) {
+          	throw new Error("Missing pilot codes: " + [...expected.keys()].join(", "));
+          }
+          console.log("Pilot classifications are stable.");
+          NODE
+
+      - name: Upload citywide report
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-citywide-analysis
+          path: /tmp/wien-lod21-citywide.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
