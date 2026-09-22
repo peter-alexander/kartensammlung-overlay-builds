@@ -13,6 +13,7 @@ const TARGET_CRS = "EPSG:4326";
 const MAGIC = "KSL21B01";
 const FORMAT_VERSION = 1;
 const VERTEX_STRIDE = 16;
+const XY_QUANTIZATION = 4;
 const EARTH_RADIUS_M = 6_371_008.8;
 const ROOF_MIN_UP_NORMAL = 0.2;
 const FLAT_ROOF_MIN_UP_NORMAL = 0.985;
@@ -285,14 +286,22 @@ function metersPerRenderUnit(tile, extent) {
 	return earthCircumference * Math.cos(lat) / n / extent;
 }
 
+function snapTilePoint(point) {
+	return {
+		x: Math.round(point.x * XY_QUANTIZATION) / XY_QUANTIZATION,
+		y: Math.round(point.y * XY_QUANTIZATION) / XY_QUANTIZATION,
+		z: Math.round(point.z * 100) / 100
+	};
+}
+
 function transformRingToTile(ring, tile, extent, baseZ) {
 	return ring.map((point) => {
 		const { lng, lat } = sourcePointToLngLat(point);
-		return {
+		return snapTilePoint({
 			x: (worldX(lng, tile.z) - tile.x) * extent,
 			y: (worldY(lat, tile.z) - tile.y) * extent,
 			z: point.z - baseZ
-		};
+		});
 	}).reverse();
 }
 
@@ -390,6 +399,12 @@ function triangulateSurface(surface, tile, extent, baseZ) {
 			z: pc.z
 		};
 		const triangleNormal = cross3(sub3(vb, va), sub3(vc, va));
+		const triangleLength = Math.hypot(
+			triangleNormal.x,
+			triangleNormal.y,
+			triangleNormal.z
+		);
+		if (triangleLength <= 1e-8) continue;
 		if (dot3(triangleNormal, normal) < 0) {
 			const swap = b;
 			b = c;
@@ -449,12 +464,16 @@ function sourceSheetFromPath(filePath) {
 	return /^\d{6}$/.test(base) ? base : "";
 }
 
-function ensureQuantizedVertex(vertex) {
-	const x = Math.round(vertex.x);
-	const y = Math.round(vertex.y);
+function ensureQuantizedVertex(vertex, extent) {
+	const origin = extent / 2;
+	const x = Math.round((vertex.x - origin) * XY_QUANTIZATION);
+	const y = Math.round((vertex.y - origin) * XY_QUANTIZATION);
 	const zCm = Math.round(vertex.z * 100);
 	if (x < -32768 || x > 32767 || y < -32768 || y > 32767) {
-		throw new Error(`LOD2.1 vertex exceeds signed tile-local range: ${x}, ${y}`);
+		throw new Error(
+			`LOD2.1 vertex exceeds signed tile-local range after `
+			+ `1/${XY_QUANTIZATION} quantization: ${vertex.x}, ${vertex.y}`
+		);
 	}
 	if (zCm < 0 || zCm > 65535) {
 		throw new Error(`LOD2.1 relative height exceeds UInt16 centimetres: ${zCm}`);
@@ -469,7 +488,8 @@ function encodeTile(tile, tileData, extent) {
 		extent,
 		vertexStride: VERTEX_STRIDE,
 		quantization: {
-			xyRenderUnits: 1,
+			xyRenderUnits: 1 / XY_QUANTIZATION,
+			xyOrigin: extent / 2,
 			zMeters: 0.01,
 			normalScale: 32767
 		},
@@ -495,7 +515,7 @@ function encodeTile(tile, tileData, extent) {
 
 	let offset = headerBytes + metadataBytes.length + metadataPadding;
 	for (const vertex of tileData.vertices) {
-		const quantized = ensureQuantizedVertex(vertex);
+		const quantized = ensureQuantizedVertex(vertex, extent);
 		output.writeInt16LE(quantized.x, offset);
 		output.writeInt16LE(quantized.y, offset + 2);
 		output.writeUInt16LE(quantized.zCm, offset + 4);
@@ -722,7 +742,7 @@ async function main() {
 			zoom,
 			extent,
 			vertexStride: VERTEX_STRIDE,
-			positions: "Int16 x/y in render units; UInt16 z in centimetres above source building base",
+			positions: "Int16 x/y at 1/4 render unit relative to tile centre; UInt16 z in centimetres above source building base",
 			normals: "Int16 normalized vector / 32767",
 			indices: "UInt32 little-endian",
 			surfaceKinds: {
