@@ -11,6 +11,8 @@ DOWNLOAD_BASE="https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gm
 rm -rf "$BUILD_DIR"
 mkdir -p "$SOURCE_DIR" "$OUTPUT_DIR"
 
+node --check "$SCRIPT_DIR/build.mjs"
+
 mapfile -t SHEETS < <(
 	node --input-type=module - "$TARGETS_FILE" <<'NODE'
 import fs from "node:fs";
