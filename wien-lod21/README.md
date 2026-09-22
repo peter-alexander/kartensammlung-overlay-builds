@@ -15,6 +15,11 @@ Primär wird der historische FMZK-Adresscode `BEZUG` mit `gml:name` des
 LOD2.1 verknüpft. Räumliche Treffer ohne historischen Code werden analysiert,
 aber nicht automatisch produktiv übernommen.
 
+Für eine automatische Übernahme muss der historische Code außerdem eindeutig
+sein: genau eine heutige `BW_GEB_ID`, keine bereits mit aktuellem
+Maptoolkit-LOD2 versorgten Teile desselben Codes und keine weiteren heutigen
+Gebäude-IDs mit demselben Code. Shared-Code-Fälle bleiben Analyseergebnis.
+
 Die Plausibilitätsprüfung verwendet unter anderem:
 
 - Flächenüberdeckung in beide Richtungen,
