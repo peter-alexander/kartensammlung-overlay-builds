@@ -1,0 +1,287 @@
+name: Probe Vienna LOD2.1 missing buildings
+
+on:
+  push:
+    branches:
+      - probe/wien-lod21-missing-buildings
+    paths:
+      - '.github/workflows/probe-wien-lod21.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download candidate LOD2.1 CityGML sheets
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wien-lod21
+          for sheet in 104078 105078 105080; do
+            target="/tmp/wien-lod21/${sheet}.zip"
+            ok=0
+            for base in \
+              "https://www.wien.gv.at/ma41datenviewer/downloads/ma41/geodaten/lod2_gml" \
+              "https://www.wien.gv.at/ma41datenviewer/downloads/geodaten/lod2_gml"
+            do
+              url="${base}/${sheet}_lod2_gml.zip"
+              echo "Trying $url"
+              if curl -fsSL --retry 2 --retry-delay 2 -A "kartensammlung-overlay-builds/lod21-probe" -o "$target" "$url"; then
+                echo "Downloaded $sheet from $url"
+                ok=1
+                break
+              fi
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "Could not download sheet $sheet" >&2
+              exit 1
+            fi
+            mkdir -p "/tmp/wien-lod21/$sheet"
+            unzip -q "$target" -d "/tmp/wien-lod21/$sheet"
+            find "/tmp/wien-lod21/$sheet" -maxdepth 2 -type f -printf '%p %s bytes\n'
+          done
+
+      - name: Inspect buildings and roof planes
+        run: |
+          python3 - <<'PY'
+          import json
+          import math
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          TARGETS = [
+          	("Straussengasse 2-10", 2253.781536153275, 339221.39191587176, "104078"),
+          	("Straussengasse 12", 2221.9495780380953, 339252.51558530796, "104078"),
+          	("Straussengasse 14", 2211.5355273385853, 339268.0793273635, "104078"),
+          	("WKO Wiedner Hauptstrasse 63", 2591.297611271976, 339109.65570789855, "105078"),
+          	("TU Wien Karlsplatz 13", 2807.540318580173, 340054.78981044795, "105080"),
+          ]
+
+          def local(tag):
+          	return tag.rsplit("}", 1)[-1]
+
+          def direct_name(building):
+          	for child in building:
+          		if local(child.tag) == "name":
+          			return (child.text or "").strip()
+          	return ""
+
+          def generic_attributes(element):
+          	out = {}
+          	for node in element.iter():
+          		if local(node.tag) != "stringAttribute":
+          			continue
+          		name = node.get("name")
+          		if not name:
+          			continue
+          		for child in node:
+          			if local(child.tag) == "value":
+          				out[name] = (child.text or "").strip()
+          				break
+          	return out
+
+          def parse_rings(surface):
+          	rings = []
+          	for polygon in surface.iter():
+          		if local(polygon.tag) != "Polygon":
+          			continue
+          		for node in polygon.iter():
+          			if local(node.tag) != "posList" or not node.text:
+          				continue
+          			values = [float(value) for value in node.text.split()]
+          			if len(values) < 9:
+          				continue
+          			ring = [
+          				(values[index], values[index + 1], values[index + 2])
+          				for index in range(0, len(values) - 2, 3)
+          			]
+          			if len(ring) >= 3:
+          				rings.append(ring)
+          	return rings
+
+          def point_in_ring(px, py, ring):
+          	inside = False
+          	points = [(point[0], point[1]) for point in ring]
+          	if len(points) > 1 and points[0] == points[-1]:
+          		points = points[:-1]
+          	if len(points) < 3:
+          		return False
+          	j = len(points) - 1
+          	for i in range(len(points)):
+          		xi, yi = points[i]
+          		xj, yj = points[j]
+          		if ((yi > py) != (yj > py)):
+          			x_cross = (xj - xi) * (py - yi) / ((yj - yi) or 1e-15) + xi
+          			if px < x_cross:
+          				inside = not inside
+          		j = i
+          	return inside
+
+          def segment_distance(px, py, ax, ay, bx, by):
+          	dx = bx - ax
+          	dy = by - ay
+          	if dx == 0 and dy == 0:
+          		return math.hypot(px - ax, py - ay)
+          	t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)
+          	t = max(0.0, min(1.0, t))
+          	return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+          def ring_distance(px, py, ring):
+          	if point_in_ring(px, py, ring):
+          		return 0.0
+          	points = [(point[0], point[1]) for point in ring]
+          	if len(points) > 1 and points[0] == points[-1]:
+          		points = points[:-1]
+          	if len(points) < 2:
+          		return float("inf")
+          	return min(
+          		segment_distance(
+          			px,
+          			py,
+          			points[index][0],
+          			points[index][1],
+          			points[(index + 1) % len(points)][0],
+          			points[(index + 1) % len(points)][1]
+          		)
+          		for index in range(len(points))
+          	)
+
+          def slope_from_ring(ring):
+          	if len(ring) < 3:
+          		return None
+          	p0 = ring[0]
+          	for i in range(1, len(ring) - 1):
+          		a = (
+          			ring[i][0] - p0[0],
+          			ring[i][1] - p0[1],
+          			ring[i][2] - p0[2],
+          		)
+          		b = (
+          			ring[i + 1][0] - p0[0],
+          			ring[i + 1][1] - p0[1],
+          			ring[i + 1][2] - p0[2],
+          		)
+          		nx = a[1] * b[2] - a[2] * b[1]
+          		ny = a[2] * b[0] - a[0] * b[2]
+          		nz = a[0] * b[1] - a[1] * b[0]
+          		length = math.sqrt(nx * nx + ny * ny + nz * nz)
+          		if length > 1e-9:
+          			return math.degrees(math.acos(min(1.0, abs(nz) / length)))
+          	return None
+
+          def roof_type(building):
+          	values = []
+          	for node in building.iter():
+          		if local(node.tag) == "roofType":
+          			value = (node.text or "").strip()
+          			if value:
+          				values.append(value)
+          	return sorted(set(values))
+
+          sheet_buildings = {}
+          for sheet in sorted({target[3] for target in TARGETS}):
+          	files = list(pathlib.Path(f"/tmp/wien-lod21/{sheet}").rglob("*.gml"))
+          	if not files:
+          		raise RuntimeError(f"No GML found for sheet {sheet}")
+          	path = files[0]
+          	print(f"SHEET {sheet}: {path} ({path.stat().st_size} bytes)")
+          	tree = ET.parse(path)
+          	root = tree.getroot()
+          	buildings = []
+          	for building in root.iter():
+          		if local(building.tag) != "Building":
+          			continue
+          		surfaces = []
+          		for node in building.iter():
+          			if local(node.tag) != "RoofSurface":
+          				continue
+          			attrs = generic_attributes(node)
+          			for ring in parse_rings(node):
+          				slope = slope_from_ring(ring)
+          				surfaces.append({
+          					"ring": ring,
+          					"slope_deg": slope,
+          					"raw_dachneigung": attrs.get("Dachneigung"),
+          					"raw_dachorientierung": attrs.get("Dachorientierung"),
+          					"surface_uuid": attrs.get("FlaechenUUID"),
+          				})
+          		if not surfaces:
+          			continue
+          		attrs = generic_attributes(building)
+          		buildings.append({
+          			"name": direct_name(building),
+          			"roof_types": roof_type(building),
+          			"attrs": attrs,
+          			"surfaces": surfaces,
+          		})
+          	sheet_buildings[sheet] = buildings
+          	print(f"SHEET {sheet}: {len(buildings)} buildings with roof surfaces")
+
+          result = []
+          for target_name, px, py, sheet in TARGETS:
+          	candidates = []
+          	for building in sheet_buildings[sheet]:
+          		distances = [
+          			ring_distance(px, py, surface["ring"])
+          			for surface in building["surfaces"]
+          		]
+          		distance = min(distances) if distances else float("inf")
+          		if distance > 80:
+          			continue
+          		candidates.append((distance, building))
+          	candidates.sort(key=lambda item: item[0])
+
+          	print("")
+          	print(f"TARGET {target_name} @ {px:.3f},{py:.3f} sheet {sheet}")
+          	if not candidates:
+          		print("  NO BUILDING WITH ROOF SURFACE WITHIN 80 M")
+          		result.append({"target": target_name, "sheet": sheet, "matches": []})
+          		continue
+
+          	target_matches = []
+          	for distance, building in candidates[:5]:
+          		slopes = [
+          			surface["slope_deg"]
+          			for surface in building["surfaces"]
+          			if surface["slope_deg"] is not None
+          		]
+          		raw_slopes = sorted({
+          			surface["raw_dachneigung"]
+          			for surface in building["surfaces"]
+          			if surface["raw_dachneigung"]
+          		})
+          		match = {
+          			"distance_m": round(distance, 3),
+          			"address_code": building["name"],
+          			"roof_types": building["roof_types"],
+          			"roof_surface_count": len(building["surfaces"]),
+          			"computed_slope_min_deg": round(min(slopes), 3) if slopes else None,
+          			"computed_slope_max_deg": round(max(slopes), 3) if slopes else None,
+          			"computed_nonflat_surfaces": sum(1 for slope in slopes if slope > 1.0),
+          			"raw_dachneigung_values": raw_slopes[:12],
+          			"HoeheDach": building["attrs"].get("HoeheDach"),
+          			"HoeheGrund": building["attrs"].get("HoeheGrund"),
+          			"NiedrigsteTraufeDesGebaeudes": building["attrs"].get("NiedrigsteTraufeDesGebaeudes"),
+          		}
+          		target_matches.append(match)
+          		print("  " + json.dumps(match, ensure_ascii=False))
+          	result.append({"target": target_name, "sheet": sheet, "matches": target_matches})
+
+          pathlib.Path("/tmp/wien-lod21/probe.json").write_text(
+          	json.dumps(result, ensure_ascii=False, indent=2),
+          	encoding="utf-8"
+          )
+          PY
+
+      - name: Upload probe result
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-probe
+          path: /tmp/wien-lod21/probe.json
+          if-no-files-found: error
+          retention-days: 1
