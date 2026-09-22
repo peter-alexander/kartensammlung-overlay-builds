@@ -296,24 +296,55 @@ async function fetchWithRetry(url, options = {}, attempts = 5, { allow404 = fals
 	throw new Error("Fetch failed after " + attempts + " attempts: " + (lastError?.message || lastError));
 }
 
+async function fetchBinaryWithRetry(url, attempts = 5, { allow404 = false } = {}) {
+	let lastError = null;
+	for (let attempt = 1; attempt <= attempts; attempt += 1) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 120_000);
+		try {
+			const response = await fetch(url, {
+				signal: controller.signal,
+				headers: {
+					"User-Agent": "kartensammlung-overlay-builds/wien-lod21-matcher"
+				}
+			});
+			if (allow404 && response.status === 404) return null;
+			if (!response.ok) throw new Error("HTTP " + response.status + " for " + url);
+			return Buffer.from(await response.arrayBuffer());
+		} catch (error) {
+			lastError = error;
+			if (attempt >= attempts) break;
+			console.warn(
+				"Binary download retry " + attempt + "/" + attempts
+				+ " for " + url + ": " + (error?.message || error)
+			);
+			await new Promise((resolve) => setTimeout(resolve, attempt * 2_000));
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	throw new Error(
+		"Binary download failed after " + attempts + " attempts: "
+		+ (lastError?.message || lastError)
+	);
+}
+
 async function downloadSheet(sheet, root) {
 	const zipPath = path.join(root, sheet + ".zip");
 	const extractDir = path.join(root, sheet);
 	await fs.mkdir(extractDir, { recursive: true });
-	const response = await fetchWithRetry(
+	const buffer = await fetchBinaryWithRetry(
 		DOWNLOAD_BASE + "/" + sheet + "_lod2_gml.zip",
-		{},
 		5,
 		{ allow404: true }
 	);
-	if (!response) {
+	if (!buffer) {
 		return {
 			path: null,
 			zipBytes: 0,
 			available: false
 		};
 	}
-	const buffer = Buffer.from(await response.arrayBuffer());
 	await fs.writeFile(zipPath, buffer);
 	await execFileAsync("unzip", ["-q", "-o", zipPath, "-d", extractDir]);
 	const entries = await fs.readdir(extractDir, { recursive: true });
