@@ -446,6 +446,7 @@ function buildingRoofType(building) {
 }
 
 function buildingCreationDate(building) {
+	if (!building?.getElementsByTagNameNS) return "";
 	const elements = building.getElementsByTagNameNS(
 		"http://www.opengis.net/citygml/1.0",
 		"creationDate"
@@ -803,7 +804,9 @@ function addBuildingToTile(tileData, {
 	target,
 	sourceSheet,
 	extent,
-	zoom
+	zoom,
+	recordKind = "lod21",
+	recordOverrides = {}
 }) {
 	const points = getSurfacePoints(surfaces);
 	if (!points.length) return null;
@@ -873,10 +876,23 @@ function addBuildingToTile(tileData, {
 		)].sort(),
 		name: String(target.name),
 		rolloutMode: String(target.rolloutMode || "unspecified"),
-		cityGmlId: nodeAttribute(building, GML_NS, "id"),
-		roofType: buildingRoofType(building),
-		creationDate: buildingCreationDate(building),
-		sourceSheet,
+		cityGmlId: String(
+			recordOverrides.cityGmlId
+			?? nodeAttribute(building, GML_NS, "id")
+			?? ""
+		),
+		roofType: String(
+			recordOverrides.roofType
+			?? buildingRoofType(building)
+			?? ""
+		),
+		creationDate: String(
+			recordOverrides.creationDate
+			?? buildingCreationDate(building)
+			?? ""
+		),
+		sourceSheet: String(recordOverrides.sourceSheet ?? sourceSheet ?? ""),
+		recordKind,
 		vertexStart,
 		vertexCount: buildingVertexCount,
 		indexStart,
