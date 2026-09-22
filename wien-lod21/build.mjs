@@ -544,7 +544,11 @@ function addBuildingToTile(tileData, {
 }) {
 	const points = getSurfacePoints(surfaces);
 	if (!points.length) return null;
-	const baseZ = Math.min(...points.map((point) => point.z));
+	const groundPoints = surfaces
+		.filter((surface) => surface.semantic === "ground")
+		.flatMap((surface) => surface.rings.flat());
+	const basePoints = groundPoints.length ? groundPoints : points;
+	const baseZ = Math.min(...basePoints.map((point) => point.z));
 	const anchorSource = boundsCenter(points);
 	const tile = tileCoordinateForPoint(anchorSource, zoom);
 	const anchorLngLat = sourcePointToLngLat(anchorSource);
@@ -569,11 +573,14 @@ function addBuildingToTile(tileData, {
 	let groundSurfaces = 0;
 
 	for (const surface of surfaces) {
+		if (surface.semantic === "ground") {
+			groundSurfaces += 1;
+			continue;
+		}
 		const triangulated = triangulateSurface(surface, tile, extent, baseZ);
 		if (!triangulated) continue;
 		if (surface.semantic === "roof") roofSurfaces += 1;
 		else if (surface.semantic === "wall") wallSurfaces += 1;
-		else if (surface.semantic === "ground") groundSurfaces += 1;
 
 		const surfaceVertexStart = data.vertices.length;
 		for (const point of triangulated.vertices) {
