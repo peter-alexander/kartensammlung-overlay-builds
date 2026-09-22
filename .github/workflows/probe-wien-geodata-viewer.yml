@@ -1,0 +1,47 @@
+name: Probe Vienna geodata viewer download API
+
+on:
+  push:
+    branches:
+      - probe/wien-lod21-missing-buildings
+    paths:
+      - '.github/workflows/probe-wien-geodata-viewer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Inspect viewer assets and download endpoints
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ma41
+          curl -fsSL -A "kartensammlung-overlay-builds/wien-viewer-probe" \
+            "https://www.wien.gv.at/MA41datenviewer/public/" \
+            -o /tmp/ma41/index.html
+
+          echo "=== SCRIPT SOURCES ==="
+          grep -Eo '<script[^>]+src="[^"]+"' /tmp/ma41/index.html \
+            | sed -E 's/.*src="([^"]+)".*/\1/' \
+            | tee /tmp/ma41/scripts.txt
+
+          while IFS= read -r src; do
+            case "$src" in
+              http://*|https://*) url="$src" ;;
+              /*) url="https://www.wien.gv.at$src" ;;
+              *) url="https://www.wien.gv.at/MA41datenviewer/public/$src" ;;
+            esac
+            file="/tmp/ma41/$(basename "${src%%\?*}")"
+            curl -fsSL -A "kartensammlung-overlay-builds/wien-viewer-probe" "$url" -o "$file" || true
+          done < /tmp/ma41/scripts.txt
+
+          echo "=== RELEVANT STRINGS ==="
+          grep -RniE \
+            'LOD2|Dachmodell|download|CityGML|citygml|Geodaten|500.?m|MA41|service|zip|gml' \
+            /tmp/ma41 \
+            | head -n 500 || true
