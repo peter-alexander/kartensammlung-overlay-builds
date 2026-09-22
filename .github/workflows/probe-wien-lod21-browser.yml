@@ -60,8 +60,24 @@ jobs:
           		const type = response.headers()["content-type"] || "";
           		const len = Number(response.headers()["content-length"] || 0);
           		if (!/(?:text|json|javascript|xml|html)/i.test(type)) return;
-          		if (len && len > 500_000) return;
+          		if (len && len > 2_000_000) return;
           		const body = await response.text();
+          		if (/GetIdentifyLayerInfos\.ctrl/i.test(url)) {
+          			for (const needle of [
+          				"generalisiertesDachmodell",
+          				"identifyGeneral",
+          				"Generalisiertes Dachmodell"
+          			]) {
+          				const index = body.indexOf(needle);
+          				if (index >= 0) {
+          					console.log(
+          						"IDENTIFY_CONFIG",
+          						needle,
+          						body.slice(Math.max(0, index - 3000), index + 9000).replace(/\s+/g, " ")
+          					);
+          				}
+          			}
+          		}
           		if (/lod2|dach|download|citygml|\.gml|\.zip|generalisiertesDachmodell/i.test(body)) {
           			console.log("BODY", url, body.slice(0, 12000).replace(/\s+/g, " "));
           		}
@@ -99,7 +115,7 @@ jobs:
           console.log("CONTROLS", JSON.stringify(controls.slice(0, 100), null, 2));
 
           const layer = page.locator("#layersControl_generalisiertesDachmodell_check");
-          await layer.check();
+          await page.locator("#layersControl_generalisiertesDachmodell_label").click();
           console.log("LAYER_CHECKED", await layer.isChecked());
           await page.waitForTimeout(2500);
 
