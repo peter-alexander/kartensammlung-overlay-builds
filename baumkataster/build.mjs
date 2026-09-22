@@ -21,6 +21,8 @@ out body geom qt;`;
 
 const DEFAULT_OUTPUT = path.resolve("baumkataster/build/tmp/baumkataster.geojsonseq");
 const DEFAULT_RELEASE = path.resolve("baumkataster/build/Baumkataster/release.json");
+const TILE_ZOOM = 15;
+const PUBLIC_TILE_BASE = "https://tiles.radlobby.at/Baumkataster";
 
 const WFS_PROPERTY_NAMES = Object.freeze([
 	"OBJECTID",
@@ -202,6 +204,25 @@ async function fetchOverpass() {
 function finiteNumber(value) {
 	const number = Number(value);
 	return Number.isFinite(number) ? number : null;
+}
+
+function lonToTileX(lng, zoom = TILE_ZOOM) {
+	return Math.floor((Number(lng) + 180) / 360 * Math.pow(2, zoom));
+}
+
+function latToTileY(lat, zoom = TILE_ZOOM) {
+	const radians = Math.max(
+		-85.05112878,
+		Math.min(85.05112878, Number(lat))
+	) * Math.PI / 180;
+	return Math.floor(
+		(1 - Math.asinh(Math.tan(radians)) / Math.PI)
+		/ 2 * Math.pow(2, zoom)
+	);
+}
+
+function tileKeyForPoint(lng, lat, zoom = TILE_ZOOM) {
+	return `${zoom}/${lonToTileX(lng, zoom)}/${latToTileY(lat, zoom)}`;
 }
 
 function normalizePointGeometry(geometry) {
@@ -537,6 +558,21 @@ async function main() {
 	const wfsIndex = new PointGridIndex();
 	const osmExplicitIndex = new PointGridIndex();
 	const osmRowIndex = new PointGridIndex();
+	const presentTilesZ15 = new Set();
+	const outputBounds = {
+		west: Infinity,
+		south: Infinity,
+		east: -Infinity,
+		north: -Infinity
+	};
+
+	const recordOutputPoint = (lng, lat) => {
+		presentTilesZ15.add(tileKeyForPoint(lng, lat));
+		outputBounds.west = Math.min(outputBounds.west, lng);
+		outputBounds.south = Math.min(outputBounds.south, lat);
+		outputBounds.east = Math.max(outputBounds.east, lng);
+		outputBounds.north = Math.max(outputBounds.north, lat);
+	};
 
 	let startIndex = 0;
 	let wfsPageCount = 0;
@@ -611,6 +647,7 @@ async function main() {
 				const properties = selectWfsProperties(feature.properties || {});
 				const [lng, lat] = geometry.coordinates;
 				wfsIndex.add(lng, lat, properties.KS_ID);
+				recordOutputPoint(lng, lat);
 				await writeFeature(stream, {
 					type: "Feature",
 					properties,
@@ -693,6 +730,7 @@ async function main() {
 				osmId: element.id
 			});
 			osmExplicitIndex.add(lng, lat, properties.KS_ID);
+			recordOutputPoint(lng, lat);
 			await writeFeature(stream, {
 				type: "Feature",
 				properties,
@@ -741,6 +779,7 @@ async function main() {
 					rowCount: sampled.length
 				});
 				osmRowIndex.add(lng, lat, properties.KS_ID);
+				recordOutputPoint(lng, lat);
 				await writeFeature(stream, {
 					type: "Feature",
 					properties,
@@ -769,9 +808,25 @@ async function main() {
 		throw new Error("Combined tree output count is inconsistent.");
 	}
 
+	const generatedAt = new Date().toISOString();
+	const sortedPresentTilesZ15 = [...presentTilesZ15].sort((a, b) => {
+		const aa = a.split("/").map(Number);
+		const bb = b.split("/").map(Number);
+		return aa[1] - bb[1] || aa[2] - bb[2];
+	});
+	const bounds = [
+		outputBounds.west,
+		outputBounds.south,
+		outputBounds.east,
+		outputBounds.north
+	];
+	if (!bounds.every(Number.isFinite)) {
+		throw new Error("Combined tree bounds are invalid.");
+	}
+
 	const release = {
-		schemaVersion: 2,
-		generatedAt: new Date().toISOString(),
+		schemaVersion: 3,
+		generatedAt,
 		sources: {
 			wienBaumkataster: {
 				url: WFS_BASE,
@@ -802,7 +857,10 @@ async function main() {
 			maxzoom: 15,
 			extent: 4096,
 			compression: "none",
-			urlTemplate: "tiles/{z}/{x}/{y}.pbf"
+			bounds,
+			urlTemplate: "tiles/{z}/{x}/{y}.pbf",
+			tilejson: "tilejson.json",
+			presentTilesZ15: sortedPresentTilesZ15
 		},
 		counts: {
 			totalOutput,
@@ -820,19 +878,48 @@ async function main() {
 		observedWfsPropertyCount: observedWfsProperties.size
 	};
 
-	await fsp.writeFile(
-		args.release,
-		JSON.stringify(release, null, "\t") + "\n",
-		"utf8"
-	);
+	const tilejson = {
+		tilejson: "3.0.0",
+		name: "Wiener Bäume – Baumkataster + OpenStreetMap",
+		scheme: "xyz",
+		tiles: [
+			`${PUBLIC_TILE_BASE}/tiles/{z}/{x}/{y}.pbf?v=${encodeURIComponent(generatedAt)}`
+		],
+		minzoom: 12,
+		maxzoom: 15,
+		bounds,
+		attribution: "Stadt Wien – data.wien.gv.at, CC BY 4.0 · © OpenStreetMap contributors, ODbL",
+		vector_layers: [
+			{
+				id: "baumkataster",
+				fields: {}
+			}
+		]
+	};
+
+	const tilejsonPath = path.join(path.dirname(args.release), "tilejson.json");
+	await Promise.all([
+		fsp.writeFile(
+			args.release,
+			JSON.stringify(release, null, "\t") + "\n",
+			"utf8"
+		),
+		fsp.writeFile(
+			tilejsonPath,
+			JSON.stringify(tilejson, null, "\t") + "\n",
+			"utf8"
+		)
+	]);
 
 	log(
 		`Combined tree extraction complete: ${totalOutput} trees = `
 		+ `${wfsOutputCount} Wien + ${osmStats.treeNodesOutput} OSM Einzelbäume + `
 		+ `${osmStats.treeRowOutput} Baumreihen-Samples.`
 	);
+	log(`Z15 tree tiles expected from point index: ${sortedPresentTilesZ15.length}`);
 	log(`GeoJSONSeq: ${args.output}`);
 	log(`Release metadata: ${args.release}`);
+	log(`TileJSON: ${tilejsonPath}`);
 }
 
 main().catch((error) => {
