@@ -553,18 +553,45 @@ async function main() {
 		if (!bwGebId) continue;
 		let group = buildingGroups.get(bwGebId);
 		if (!group) {
-			group = { total: 0, missing: 0 };
+			group = {
+				BW_GEB_ID: bwGebId,
+				total: 0,
+				missing: 0,
+				records: []
+			};
 			buildingGroups.set(bwGebId, group);
 		}
 		group.total += 1;
 		if (!record.matched) group.missing += 1;
+		group.records.push(record);
 	}
-	let fullyMissingBuildings = 0;
+	const fullyMissingGroups = [];
 	let partiallyMissingBuildings = 0;
 	for (const group of buildingGroups.values()) {
-		if (group.missing === group.total && group.missing > 0) fullyMissingBuildings += 1;
-		else if (group.missing > 0) partiallyMissingBuildings += 1;
+		if (group.missing === group.total && group.missing > 0) {
+			const classes = [...new Set(
+				group.records.map((record) => Number(record.properties.F_KLASSE))
+					.filter(Number.isFinite)
+			)].sort((a, b) => a - b);
+			const heights = group.records
+				.map((record) => Number(record.properties.render_height))
+				.filter(Number.isFinite);
+			const class11 = group.records.filter((record) => Number(record.properties.F_KLASSE) === 11);
+			const representative = class11[0] || group.records[0];
+			fullyMissingGroups.push({
+				BW_GEB_ID: group.BW_GEB_ID,
+				partCount: group.total,
+				classes,
+				maxHeight: heights.length ? Number(Math.max(...heights).toFixed(3)) : null,
+				lng: Number(representative.point.lng.toFixed(7)),
+				lat: Number(representative.point.lat.toFixed(7)),
+				ksIds: group.records.map((record) => record.id)
+			});
+		} else if (group.missing > 0) {
+			partiallyMissingBuildings += 1;
+		}
 	}
+	const fullyMissingBuildings = fullyMissingGroups.length;
 
 	const knownTargets = KNOWN_TARGETS.map((target) => {
 		const ids = [...knownIds.get(target.name)];
@@ -599,6 +626,7 @@ async function main() {
 			missingByClass: byClass
 		},
 		knownTargets,
+		fullyMissingBuildingGroups: fullyMissingGroups,
 		missing: missing.map((record) => ({
 			KS_ID: record.id,
 			FMZK_ID: record.properties.FMZK_ID ?? null,
