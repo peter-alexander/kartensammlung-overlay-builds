@@ -1,0 +1,70 @@
+name: Build Vienna LOD2.1 pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/wien-lod21-pilot
+    paths:
+      - 'wien-lod21/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/wien-lod21-pilot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vienna LOD2.1 pilot
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate pilot targets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const release = JSON.parse(
+          	fs.readFileSync("wien-lod21/build/WienBuildingsLOD21/release.json", "utf8")
+          );
+          if (release.counts.targets !== 4) {
+          	throw new Error(`Expected 4 pilot targets, got ${release.counts.targets}`);
+          }
+          if (release.counts.tiles !== 2) {
+          	throw new Error(`Expected 2 Z15 pilot tiles, got ${release.counts.tiles}`);
+          }
+          const expected = new Set(["212535", "009238", "113842", "006973"]);
+          for (const target of release.targets) {
+          	if (!expected.delete(String(target.historicalCode))) {
+          		throw new Error(`Unexpected pilot target ${target.historicalCode}`);
+          	}
+          	if (!target.matches?.length) {
+          		throw new Error(`Pilot target has no CityGML match: ${target.historicalCode}`);
+          	}
+          }
+          if (expected.size) throw new Error(`Missing pilot targets: ${[...expected].join(", ")}`);
+          console.log(JSON.stringify(release, null, 2));
+          NODE
+
+      - name: Upload pilot artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-pilot
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 3
