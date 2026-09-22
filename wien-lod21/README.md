@@ -84,3 +84,36 @@ Für jedes Produktionsziel werden außerdem die exakten aktuellen OGD-`KS_ID`s
 mitgeführt. LOD2.1 darf damit nur jene heutigen FMZK-Baukörper unterdrücken,
 die der Matcher diesem historischen Dach tatsächlich zugeordnet hat; eine
 pauschale Ausblendung der gesamten `BW_GEB_ID` ist für LOD2.1 nicht zulässig.
+
+
+## Hybrid-Restflächen
+
+Für `legacy-subset`-Fälle wird das aktuelle OGD-Feature weiterhin vollständig
+durch die exakten `KS_ID`-Filter aus dem nativen/solaren LOD1-Fallback
+entfernt. Damit heutige Anbauten nicht verloren gehen, erzeugt der
+LOD2.1-Build zusätzlich ein synthetisches LOD1-Restmesh:
+
+1. historische LOD2.1-`GroundSurface`-Polygone je historischem Code
+   vereinigen,
+2. den historischen Grundriss um **0,25 m** puffern,
+3. diesen Puffer von jedem heute zugehörigen FMZK-Polygon **einzeln**
+   abziehen,
+4. Differenzteile unter **2 m²** als Sliver verwerfen,
+5. jede verbleibende Restfläche mit den aktuellen
+   `O_KOTE/T_KOTE/HOEHE_DGM/U_KOTE`-Werten genau dieses FMZK-Teils als
+   flaches LOD1 extrudieren,
+6. historisches LOD2.1 und aktuelle Restmeshes gemeinsam im bestehenden
+   `KSL21B01`-Format speichern.
+
+Die Behandlung pro FMZK-Teil ist wichtig, weil ein heutiges Gebäude mehrere
+Baukörper mit stark unterschiedlichen Höhen enthalten kann.
+
+Der Straußengasse-Pilot bestätigt, dass die Restflächen reale Änderungen und
+keine Vermessungssäume sind:
+
+- `009238`: 234,62 m² Restfläche (33,09 %),
+- `113842`: 216,85 m² (30,14 %),
+- `212535`: 529,54 m² (20,10 %).
+
+Bei 0,25 m Puffer entstehen in keinem der drei Fälle Restkomponenten unter
+2 m².
