@@ -1,0 +1,63 @@
+name: Probe Vienna building IDs
+
+on:
+  push:
+    branches:
+      - probe/wien-lod21-missing-buildings
+    paths:
+      - '.github/workflows/probe-wien-building-ids.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install temporary MVT readers
+        run: npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+
+      - name: Compare feature properties
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wien-id-probe
+          for tile in 17873_11364 17874_11363; do
+            x="${tile%_*}"
+            y="${tile#*_}"
+            curl -fsSL "https://mtk.wien.gv.at/dataconnector/wien/buildings3d/15/${x}/${y}.pbf" -o "/tmp/wien-id-probe/mtk_${tile}.pbf"
+            curl -fsSL "https://tiles.radlobby.at/WienBuildings/tiles/15/${x}/${y}.pbf" -o "/tmp/wien-id-probe/ogd_${tile}.pbf"
+          done
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import Pbf from "pbf";
+          import { VectorTile } from "@mapbox/vector-tile";
+
+          for (const tile of ["17873_11364", "17874_11363"]) {
+          	for (const [kind, layerName] of [["mtk", "buildings3d"], ["ogd", "wien_buildings"]]) {
+          		const data = fs.readFileSync(`/tmp/wien-id-probe/${kind}_${tile}.pbf`);
+          		const vectorTile = new VectorTile(new Pbf(data));
+          		const layer = vectorTile.layers[layerName];
+          		console.log("\n", tile, kind, "layer", layerName, "features", layer?.length);
+          		if (!layer) continue;
+          		const keys = new Set();
+          		const examples = [];
+          		for (let i = 0; i < Math.min(layer.length, 200); i += 1) {
+          			const feature = layer.feature(i);
+          			for (const key of Object.keys(feature.properties || {})) keys.add(key);
+          			if (examples.length < 8) examples.push({
+          				id: feature.id,
+          				properties: feature.properties
+          			});
+          		}
+          		console.log("keys:", [...keys].sort());
+          		console.log("examples:", JSON.stringify(examples, null, 2));
+          	}
+          }
+          NODE
