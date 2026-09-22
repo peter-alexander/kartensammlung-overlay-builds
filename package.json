@@ -12,7 +12,7 @@
 		"build:wien-lod21": "bash ./wien-lod21/run.sh"
 	},
 	"dependencies": {
-		"@xmldom/xmldom": "^0.8.13",
+		"@xmldom/xmldom": "0.8.13",
 		"earcut": "^3.0.2",
 		"geos-wasm": "^3.1.1",
 		"jsts": "^2.12.1",
