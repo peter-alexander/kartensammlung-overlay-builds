@@ -609,6 +609,7 @@ function addBuildingToTile(tileData, {
 		bwGebId: Number(target.bwGebId),
 		historicalCode: String(target.historicalCode),
 		name: String(target.name),
+		rolloutMode: String(target.rolloutMode || "unspecified"),
 		cityGmlId: nodeAttribute(building, GML_NS, "id"),
 		roofType: buildingRoofType(building),
 		creationDate: buildingCreationDate(building),
@@ -732,10 +733,39 @@ async function main() {
 		totalBuildingObjects += data.buildings.length;
 	}
 
+	const generatedAt = new Date().toISOString();
+	const status = String(targetsConfig.status || "pilot");
+	const targetManifest = {
+		schemaVersion: 1,
+		generatedAt,
+		status,
+		counts: {
+			targets: targets.length,
+			directStrong: targets.filter(
+				(target) => target.rolloutMode === "direct-strong"
+			).length,
+			manualPilotHybrid: targets.filter(
+				(target) => target.rolloutMode === "manual-pilot-hybrid"
+			).length
+		},
+		targets: targets.map((target) => ({
+			...target,
+			matches: found.get(String(target.historicalCode)).map((match) => ({
+				tile: tileKey(match.tile),
+				cityGmlId: match.record.cityGmlId,
+				roofType: match.record.roofType,
+				creationDate: match.record.creationDate,
+				distanceToExpectedM: Number(match.distance.toFixed(2)),
+				roofSurfaces: match.record.roofSurfaces,
+				wallSurfaces: match.record.wallSurfaces,
+				groundSurfaces: match.record.groundSurfaces
+			}))
+		}))
+	};
 	const release = {
 		schemaVersion: 1,
-		generatedAt: new Date().toISOString(),
-		status: "pilot",
+		generatedAt,
+		status,
 		source: {
 			product: "Stadt Wien – Generalisiertes Dachmodell (LOD2.1)",
 			crs: SOURCE_CRS,
@@ -766,24 +796,14 @@ async function main() {
 			sourceGmlFiles: files.length,
 			parsedBuildings,
 			targets: targets.length,
+			directStrong: targetManifest.counts.directStrong,
+			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			cityGmlBuildingObjects: totalBuildingObjects,
 			vertices: totalVertices,
 			triangles: totalTriangles,
 			tiles: presentTilesZ15.length
 		},
-		targets: targets.map((target) => ({
-			...target,
-			matches: found.get(String(target.historicalCode)).map((match) => ({
-				tile: tileKey(match.tile),
-				cityGmlId: match.record.cityGmlId,
-				roofType: match.record.roofType,
-				creationDate: match.record.creationDate,
-				distanceToExpectedM: Number(match.distance.toFixed(2)),
-				roofSurfaces: match.record.roofSurfaces,
-				wallSurfaces: match.record.wallSurfaces,
-				groundSurfaces: match.record.groundSurfaces
-			}))
-		}))
+		targetsUrl: "targets.json"
 	};
 
 	await fs.writeFile(
@@ -791,9 +811,14 @@ async function main() {
 		JSON.stringify(release, null, "\t") + "\n",
 		"utf8"
 	);
+	await fs.writeFile(
+		path.join(args.output, "targets.json"),
+		JSON.stringify(targetManifest, null, "\t") + "\n",
+		"utf8"
+	);
 
 	console.log(JSON.stringify(release.counts));
-	for (const target of release.targets) {
+	for (const target of targetManifest.targets) {
 		console.log(
 			`${target.historicalCode} ${target.name}: `
 			+ target.matches.map((match) => (
