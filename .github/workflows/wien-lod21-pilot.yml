@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - feature/wien-lod21-pilot
     paths:
       - 'wien-lod21/**'
@@ -17,7 +18,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+      LFTP_PARALLEL: 6
 
     steps:
       - uses: actions/checkout@v7
@@ -28,7 +35,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y lftp
 
       - name: Build Vienna LOD2.1 pilot
         run: |
@@ -68,3 +78,9 @@ jobs:
           path: wien-lod21/build/WienBuildingsLOD21/
           if-no-files-found: error
           retention-days: 3
+
+      - name: Deploy LOD2.1 pilot
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienLOD21"
+          .github/scripts/lftp-upload.sh wien-lod21/build/WienBuildingsLOD21 "$REMOTE_BASE"
