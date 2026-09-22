@@ -291,6 +291,42 @@ async function downloadSheet(sheet, root) {
 	};
 }
 
+function chunks(values, size = 20) {
+	const result = [];
+	for (let index = 0; index < values.length; index += size) {
+		result.push(values.slice(index, index + size));
+	}
+	return result;
+}
+
+async function fetchCurrentFeaturesByCql(cql) {
+	const url = new URL(WFS_URL);
+	url.searchParams.set("service", "WFS");
+	url.searchParams.set("request", "GetFeature");
+	url.searchParams.set("version", "1.1.0");
+	url.searchParams.set("typeName", "ogdwien:FMZKBKMOGD");
+	url.searchParams.set("outputFormat", "json");
+	url.searchParams.set("srsName", "EPSG:31256");
+	url.searchParams.set("CQL_FILTER", cql);
+	const response = await fetchWithRetry(url.toString(), {
+		headers: { accept: "application/json" }
+	});
+	const text = await response.text();
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch {
+		throw new Error(
+			"Unexpected WFS response for CQL " + cql + ": "
+			+ text.slice(0, 240).replace(/\s+/g, " ")
+		);
+	}
+	if (!Array.isArray(json?.features)) {
+		throw new Error("Unexpected WFS FeatureCollection for CQL: " + cql);
+	}
+	return json.features;
+}
+
 async function fetchCurrentCandidateFeatures(codeCandidates, spatialCandidates) {
 	const codes = [...new Set(
 		(codeCandidates || [])
@@ -303,46 +339,34 @@ async function fetchCurrentCandidateFeatures(codeCandidates, spatialCandidates) 
 			.filter((id) => /^\d+$/.test(id))
 	)].sort();
 
-	if (!codes.length && !buildingIds.length) return [];
+	const requests = [];
+	for (const batch of chunks(codes)) {
+		requests.push(fetchCurrentFeaturesByCql(
+			"F_KLASSE=11 AND BEZUG IN ("
+			+ batch.map((code) => "'" + code + "'").join(",")
+			+ ")"
+		));
+	}
+	for (const batch of chunks(buildingIds)) {
+		requests.push(fetchCurrentFeaturesByCql(
+			"F_KLASSE=11 AND BW_GEB_ID IN (" + batch.join(",") + ")"
+		));
+	}
+	if (!requests.length) return [];
 
-	const selectors = [];
-	if (codes.length) {
-		selectors.push(
-			"BEZUG IN (" + codes.map((code) => "'" + code + "'").join(",") + ")"
+	const groups = await Promise.all(requests);
+	const unique = new Map();
+	for (const feature of groups.flat()) {
+		const key = String(
+			feature?.id
+			?? feature?.properties?.SE_SDO_ROWID
+			?? feature?.properties?.FMZK_ID
+			?? ""
 		);
+		if (!key) continue;
+		unique.set(key, feature);
 	}
-	if (buildingIds.length) {
-		selectors.push("BW_GEB_ID IN (" + buildingIds.join(",") + ")");
-	}
-
-	const url = new URL(WFS_URL);
-	url.searchParams.set("service", "WFS");
-	url.searchParams.set("request", "GetFeature");
-	url.searchParams.set("version", "1.1.0");
-	url.searchParams.set("typeName", "ogdwien:FMZKBKMOGD");
-	url.searchParams.set("outputFormat", "json");
-	url.searchParams.set("srsName", "EPSG:31256");
-	url.searchParams.set(
-		"CQL_FILTER",
-		"F_KLASSE=11 AND (" + selectors.join(" OR ") + ")"
-	);
-	const response = await fetchWithRetry(url.toString(), {
-		headers: { accept: "application/json" }
-	});
-	const text = await response.text();
-	let json;
-	try {
-		json = JSON.parse(text);
-	} catch {
-		throw new Error(
-			"Unexpected WFS response for candidate keys: "
-			+ text.slice(0, 240).replace(/\s+/g, " ")
-		);
-	}
-	if (!Array.isArray(json?.features)) {
-		throw new Error("Unexpected WFS FeatureCollection for candidate keys.");
-	}
-	return json.features;
+	return [...unique.values()];
 }
 
 function repairGeometry(geometry) {
