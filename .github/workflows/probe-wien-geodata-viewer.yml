@@ -40,8 +40,26 @@ jobs:
             curl -fsSL -A "kartensammlung-overlay-builds/wien-viewer-probe" "$url" -o "$file" || true
           done < /tmp/ma41/scripts.txt
 
-          echo "=== RELEVANT STRINGS ==="
-          grep -RniE \
-            'LOD2|Dachmodell|download|CityGML|citygml|Geodaten|500.?m|MA41|service|zip|gml' \
-            /tmp/ma41 \
-            | head -n 500 || true
+          echo "=== INDEX AROUND LOD2 THEME ==="
+          grep -n -C 5 'generalisiertesDachmodell' /tmp/ma41/index.html | head -n 160 || true
+
+          control="/tmp/ma41/ControlScript.ctrl"
+          echo "=== CONTROL SCRIPT DOWNLOAD ENDPOINTS ==="
+          grep -Eo '[A-Za-z0-9_./-]+\.ctrl[^"'"'"' ]*' "$control" \
+            | sort -u \
+            | grep -Ei 'download|geo|feature|select|export|data|file' \
+            | head -n 200 || true
+
+          echo "=== CONTROL SCRIPT LOD/DOWNLOAD CONTEXT ==="
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path("/tmp/ma41/ControlScript.ctrl").read_text(errors="ignore")
+          for pat in ["generalisiertesDachmodell","Dachmodell","Download","download","CityGML","GML","zip","Geodaten"]:
+          	print("\n###",pat)
+          	count=0
+          	for m in re.finditer(pat,s,re.I):
+          		print(s[max(0,m.start()-650):min(len(s),m.end()+1000)].replace("\n"," "))
+          		count+=1
+          		if count>=6: break
+          PY
