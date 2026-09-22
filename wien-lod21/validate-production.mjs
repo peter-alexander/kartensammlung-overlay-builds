@@ -28,6 +28,12 @@ if (release.counts.manualPilotHybrid !== 3) {
 		+ release.counts.manualPilotHybrid
 	);
 }
+if (release.counts.hybridRemainderTargets !== 3) {
+	throw new Error(
+		"Expected 3 hybrid remainder targets, got "
+		+ release.counts.hybridRemainderTargets
+	);
+}
 if (!Array.isArray(release.tiles?.presentTilesZ15) || !release.tiles.presentTilesZ15.length) {
 	throw new Error("Production release has no Z15 tiles.");
 }
@@ -38,6 +44,15 @@ if (targets.targets?.length !== 1213) {
 for (const target of targets.targets) {
 	if (!target.matches?.length) {
 		throw new Error("Target has no CityGML match: " + target.historicalCode);
+	}
+	if (
+		target.rolloutMode === "manual-pilot-hybrid"
+		&& !(target.hybridRemainder?.syntheticObjects > 0)
+	) {
+		throw new Error(
+			"Hybrid pilot has no current remainder mesh: "
+			+ target.historicalCode
+		);
 	}
 	if (!Array.isArray(target.ksIds) || !target.ksIds.length) {
 		throw new Error("Target has no exact OGD KS_IDs: " + target.historicalCode);
