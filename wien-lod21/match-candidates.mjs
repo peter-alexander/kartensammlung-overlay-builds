@@ -300,16 +300,27 @@ async function fetchCurrentSheetFeatures(sheet) {
 	url.searchParams.set("outputFormat", "json");
 	url.searchParams.set("srsName", "EPSG:31256");
 	url.searchParams.set(
-		"bbox",
-		[bounds.minX, bounds.minY, bounds.maxX, bounds.maxY, "EPSG:31256"].join(",")
+		"CQL_FILTER",
+		"F_KLASSE=11 AND BBOX("
+			+ "SHAPE,"
+			+ [bounds.minX, bounds.minY, bounds.maxX, bounds.maxY].join(",")
+			+ ",'EPSG:31256')"
 	);
-	url.searchParams.set("CQL_FILTER", "F_KLASSE=11");
 	const response = await fetchWithRetry(url.toString(), {
 		headers: { accept: "application/json" }
 	});
-	const json = await response.json();
+	const text = await response.text();
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch {
+		throw new Error(
+			"Unexpected WFS response for sheet " + sheet + ": "
+			+ text.slice(0, 240).replace(/\s+/g, " ")
+		);
+	}
 	if (!Array.isArray(json?.features)) {
-		throw new Error("Unexpected WFS response for sheet " + sheet);
+		throw new Error("Unexpected WFS FeatureCollection for sheet " + sheet);
 	}
 	return json.features;
 }
