@@ -470,6 +470,13 @@ function provisionalBand(metrics, method) {
 		|| metrics.heightToleranceM === null
 		|| metrics.heightDifferenceM <= metrics.heightToleranceM
 	);
+	const subsetHeightTolerance = metrics.currentHeightM === null
+		? 8
+		: Math.max(8, metrics.currentHeightM * 0.40);
+	const subsetHeightOk = (
+		metrics.heightDifferenceM === null
+		|| metrics.heightDifferenceM <= subsetHeightTolerance
+	);
 	if (method === "historical-code") {
 		if (
 			metrics.iou >= 0.72
@@ -478,6 +485,12 @@ function provisionalBand(metrics, method) {
 			&& metrics.centroidDistanceM <= 8
 			&& heightOk
 		) return "strong";
+		if (
+			metrics.oldCoverage >= 0.95
+			&& metrics.currentCoverage >= 0.60
+			&& metrics.centroidDistanceM <= 8
+			&& subsetHeightOk
+		) return "legacy-subset";
 		if (
 			metrics.iou >= 0.45
 			&& metrics.currentCoverage >= 0.60
@@ -1033,7 +1046,7 @@ async function main() {
 	// Derselbe historische Code kann an einer Blattgrenze in mehreren
 	// ausgewaehlten Blaettern geprueft werden. Behalte pro Kandidat den besten
 	// Treffer, statt ihn mehrfach in die Statistik zu zaehlen.
-	const bandRank = { strong: 3, plausible: 2, reject: 1 };
+	const bandRank = { strong: 4, "legacy-subset": 3, plausible: 2, reject: 1 };
 	const methodRank = { "historical-code": 2, spatial: 1 };
 	const resultKey = (item) => item.candidateType === "historical-code"
 		? "code:" + item.historicalCode
@@ -1062,11 +1075,20 @@ async function main() {
 		historicalCodeMatches: results.filter((item) => item.method === "historical-code").length,
 		spatialMatches: results.filter((item) => item.method === "spatial").length,
 		strong: results.filter((item) => item.band === "strong").length,
+		legacySubset: results.filter((item) => item.band === "legacy-subset").length,
 		plausible: results.filter((item) => item.band === "plausible").length,
 		reject: results.filter((item) => item.band === "reject").length,
 		strongWithPitchedRoof: results.filter(
 			(item) => item.band === "strong" && item.lod21?.hasPitchedRoof
 		).length,
+		legacySubsetWithPitchedRoof: results.filter(
+			(item) => item.band === "legacy-subset" && item.lod21?.hasPitchedRoof
+		).length,
+		productionEligible: results.filter((item) => (
+			item.method === "historical-code"
+			&& ["strong", "legacy-subset"].includes(item.band)
+			&& item.lod21?.hasPitchedRoof
+		)).length,
 		unavailableSheets: sheetReports.filter((sheet) => sheet.available === false).length,
 		downloadBytes: sheetReports.reduce((sum, sheet) => sum + sheet.zipBytes, 0)
 	};
@@ -1095,8 +1117,10 @@ async function main() {
 			note: "Exploratory confidence bands only; inspect distributions before production acceptance.",
 			historicalCode: {
 				strong: "IoU>=0.72, currentCoverage>=0.82, oldCoverage>=0.72, centroid<=8m, height within max(5m,35%)",
+				legacySubset: "oldCoverage>=0.95, currentCoverage>=0.60, centroid<=8m, height difference within max(8m,40%)",
 				plausible: "IoU>=0.45, currentCoverage>=0.60, centroid<=15m"
 			},
+			productionEligibility: "historical-code match, band strong or legacy-subset, and at least one pitched LOD2.1 roof surface",
 			spatial: {
 				strong: "IoU>=0.88, currentCoverage>=0.92, oldCoverage>=0.90, centroid<=3m, height within max(5m,35%)",
 				plausible: "IoU>=0.70, both coverages>=0.80, centroid<=6m"
