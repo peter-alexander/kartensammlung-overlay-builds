@@ -29,7 +29,9 @@ function parseArgs(argv) {
 		input: "",
 		output: "",
 		maxSheets: DEFAULT_MAX_SHEETS,
-		all: false
+		all: false,
+		batchIndex: null,
+		batchCount: null
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -41,12 +43,31 @@ function parseArgs(argv) {
 			result.maxSheets = Math.max(1, Number(argv[++index]) || DEFAULT_MAX_SHEETS);
 		} else if (arg === "--all") {
 			result.all = true;
+		} else if (arg === "--batch-index") {
+			result.batchIndex = Number(argv[++index]);
+		} else if (arg === "--batch-count") {
+			result.batchCount = Number(argv[++index]);
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
 	}
 	if (!result.input || !result.output) {
 		throw new Error("--input and --output are required.");
+	}
+	if ((result.batchIndex === null) !== (result.batchCount === null)) {
+		throw new Error("--batch-index and --batch-count must be used together.");
+	}
+	if (result.batchCount !== null) {
+		if (!Number.isInteger(result.batchCount) || result.batchCount < 1) {
+			throw new Error("--batch-count must be a positive integer.");
+		}
+		if (
+			!Number.isInteger(result.batchIndex)
+			|| result.batchIndex < 0
+			|| result.batchIndex >= result.batchCount
+		) {
+			throw new Error("--batch-index must be between 0 and batch-count - 1.");
+		}
 	}
 	return result;
 }
@@ -985,7 +1006,7 @@ async function main() {
 		throw new Error("Gap report contains no LOD2.1 candidates.");
 	}
 
-	const selectedSheets = selectSheets(
+	const allSelectedSheets = selectSheets(
 		report.candidateSheets || [
 			...codeCandidates.flatMap((candidate) => candidate.lod21Sheets || [candidate.lod21Sheet]),
 			...spatialCandidates.map((candidate) => candidate.lod21Sheet)
@@ -993,6 +1014,11 @@ async function main() {
 		args.maxSheets,
 		args.all
 	);
+	const selectedSheets = args.batchCount === null
+		? allSelectedSheets
+		: allSelectedSheets.filter((sheet, index) => (
+			index % args.batchCount === args.batchIndex
+		));
 	const selectedSet = new Set(selectedSheets);
 	const codeCandidatesBySheet = new Map();
 	const spatialCandidatesBySheet = new Map();
@@ -1067,6 +1093,19 @@ async function main() {
 	}
 	const results = [...bestByCandidate.values()];
 
+	const isDirectProductionCandidate = (item) => (
+		item.method === "historical-code"
+		&& item.band === "strong"
+		&& item.lod21?.hasPitchedRoof
+	);
+	const isHybridCandidate = (item) => (
+		item.method === "historical-code"
+		&& item.band === "legacy-subset"
+		&& item.lod21?.hasPitchedRoof
+	);
+	const directCandidates = results.filter(isDirectProductionCandidate);
+	const hybridCandidates = results.filter(isHybridCandidate);
+
 	const counts = {
 		sheets: selectedSheets.length,
 		candidates: results.length,
@@ -1084,16 +1123,8 @@ async function main() {
 		legacySubsetWithPitchedRoof: results.filter(
 			(item) => item.band === "legacy-subset" && item.lod21?.hasPitchedRoof
 		).length,
-		directProductionEligible: results.filter((item) => (
-			item.method === "historical-code"
-			&& item.band === "strong"
-			&& item.lod21?.hasPitchedRoof
-		)).length,
-		hybridCandidates: results.filter((item) => (
-			item.method === "historical-code"
-			&& item.band === "legacy-subset"
-			&& item.lod21?.hasPitchedRoof
-		)).length,
+		directProductionEligible: directCandidates.length,
+		hybridCandidates: hybridCandidates.length,
 		unavailableSheets: sheetReports.filter((sheet) => sheet.available === false).length,
 		downloadBytes: sheetReports.reduce((sum, sheet) => sum + sheet.zipBytes, 0)
 	};
@@ -1117,6 +1148,9 @@ async function main() {
 		generatedAt: new Date().toISOString(),
 		inputGeneratedAt: report.generatedAt || null,
 		mode: args.all ? "all" : "sample",
+		batch: args.batchCount === null
+			? null
+			: { index: args.batchIndex, count: args.batchCount },
 		selectedSheets,
 		provisionalThresholds: {
 			note: "Exploratory confidence bands only; inspect distributions before production acceptance.",
@@ -1137,6 +1171,8 @@ async function main() {
 		counts,
 		metricDistribution,
 		pilot,
+		directCandidates,
+		hybridCandidates,
 		sheets: sheetReports.map((sheet) => ({
 			sheet: sheet.sheet,
 			available: sheet.available !== false,
