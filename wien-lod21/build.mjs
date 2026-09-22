@@ -468,10 +468,12 @@ function extractFirstLocalTagText(xml, name) {
 	return match ? String(match[1]).replace(/<[^>]+>/g, "").trim() : "";
 }
 
-function buildingXmlMatches(xml) {
-	return String(xml).match(
-		/<(?:[A-Za-z_][\w.-]*:)?Building\b[\s\S]*?<\/(?:[A-Za-z_][\w.-]*:)?Building>/g
-	) || [];
+function *buildingXmlMatches(xml) {
+	const expression = /<(?:[A-Za-z_][\w.-]*:)?Building\b[\s\S]*?<\/(?:[A-Za-z_][\w.-]*:)?Building>/g;
+	let match;
+	while ((match = expression.exec(String(xml)))) {
+		yield match[0];
+	}
 }
 
 function parseBuildingFragment(buildingXml, filePath) {
@@ -737,9 +739,10 @@ async function main() {
 			throw new Error(`Unexpected CityGML CRS in ${filePath}: ${srsName || "(missing)"}`);
 		}
 
-		const buildingBlocks = buildingXmlMatches(xml);
-		for (let index = 0; index < buildingBlocks.length; index += 1) {
-			const buildingXml = buildingBlocks[index];
+		let buildingIndex = 0;
+		for (const buildingXml of buildingXmlMatches(xml)) {
+			const index = buildingIndex;
+			buildingIndex += 1;
 			parsedBuildings += 1;
 			const code = extractFirstLocalTagText(buildingXml, "name");
 			const target = targetByCode.get(code);
@@ -768,7 +771,6 @@ async function main() {
 			});
 			if (added) found.get(code).push(added);
 		}
-		buildingBlocks.length = 0;
 		xml = null;
 		if (typeof global.gc === "function" && (fileIndex + 1) % 10 === 0) {
 			global.gc();
