@@ -12,6 +12,7 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$SOURCE_DIR" "$OUTPUT_DIR"
 
 node --check "$SCRIPT_DIR/build.mjs"
+node --check "$SCRIPT_DIR/validate-production.mjs"
 
 mapfile -t SHEETS < <(
 	node --input-type=module - "$TARGETS_FILE" <<'NODE'
