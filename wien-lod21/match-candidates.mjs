@@ -247,7 +247,7 @@ function selectSheets(allSheets, maxSheets, all) {
 	return [...selected].sort();
 }
 
-async function fetchWithRetry(url, options = {}, attempts = 5) {
+async function fetchWithRetry(url, options = {}, attempts = 5, { allow404 = false } = {}) {
 	let lastError = null;
 	for (let attempt = 1; attempt <= attempts; attempt += 1) {
 		const controller = new AbortController();
@@ -261,6 +261,7 @@ async function fetchWithRetry(url, options = {}, attempts = 5) {
 					...(options.headers || {})
 				}
 			});
+			if (allow404 && response.status === 404) return null;
 			if (!response.ok) throw new Error("HTTP " + response.status + " for " + url);
 			return response;
 		} catch (error) {
@@ -278,7 +279,19 @@ async function downloadSheet(sheet, root) {
 	const zipPath = path.join(root, sheet + ".zip");
 	const extractDir = path.join(root, sheet);
 	await fs.mkdir(extractDir, { recursive: true });
-	const response = await fetchWithRetry(DOWNLOAD_BASE + "/" + sheet + "_lod2_gml.zip");
+	const response = await fetchWithRetry(
+		DOWNLOAD_BASE + "/" + sheet + "_lod2_gml.zip",
+		{},
+		5,
+		{ allow404: true }
+	);
+	if (!response) {
+		return {
+			path: null,
+			zipBytes: 0,
+			available: false
+		};
+	}
 	const buffer = Buffer.from(await response.arrayBuffer());
 	await fs.writeFile(zipPath, buffer);
 	await execFileAsync("unzip", ["-q", "-o", zipPath, "-d", extractDir]);
@@ -287,7 +300,8 @@ async function downloadSheet(sheet, root) {
 	if (!gmlName) throw new Error("No GML in LOD2.1 sheet " + sheet);
 	return {
 		path: path.join(extractDir, String(gmlName)),
-		zipBytes: buffer.length
+		zipBytes: buffer.length,
+		available: true
 	};
 }
 
@@ -781,6 +795,34 @@ async function processSheet(
 	reader
 ) {
 	const downloaded = await downloadSheet(sheet, tmpRoot);
+	if (!downloaded.available) {
+		const unavailable = [
+			...codeCandidates.map((candidate) => ({
+				...candidate,
+				sheet,
+				candidateType: "historical-code",
+				band: "reject",
+				reason: "source-sheet-unavailable"
+			})),
+			...spatialCandidates.map((candidate) => ({
+				...candidate,
+				sheet,
+				candidateType: "spatial",
+				band: "reject",
+				reason: "source-sheet-unavailable"
+			}))
+		];
+		return {
+			sheet,
+			available: false,
+			zipBytes: 0,
+			codeCandidateCount: codeCandidates.length,
+			spatialCandidateCount: spatialCandidates.length,
+			oldCodeGroups: 0,
+			currentClass11Features: 0,
+			results: unavailable
+		};
+	}
 	const [xml, currentFeatures] = await Promise.all([
 		fs.readFile(downloaded.path, "utf8"),
 		fetchCurrentCandidateFeatures(codeCandidates, spatialCandidates)
@@ -907,6 +949,7 @@ async function processSheet(
 
 	return {
 		sheet,
+		available: true,
 		zipBytes: downloaded.zipBytes,
 		codeCandidateCount: codeCandidates.length,
 		spatialCandidateCount: spatialCandidates.length,
@@ -1024,6 +1067,7 @@ async function main() {
 		strongWithPitchedRoof: results.filter(
 			(item) => item.band === "strong" && item.lod21?.hasPitchedRoof
 		).length,
+		unavailableSheets: sheetReports.filter((sheet) => sheet.available === false).length,
 		downloadBytes: sheetReports.reduce((sum, sheet) => sum + sheet.zipBytes, 0)
 	};
 
@@ -1063,6 +1107,7 @@ async function main() {
 		pilot,
 		sheets: sheetReports.map((sheet) => ({
 			sheet: sheet.sheet,
+			available: sheet.available !== false,
 			zipBytes: sheet.zipBytes,
 			codeCandidateCount: sheet.codeCandidateCount,
 			spatialCandidateCount: sheet.spatialCandidateCount,
