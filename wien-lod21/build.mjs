@@ -481,6 +481,22 @@ function ensureQuantizedVertex(vertex, extent) {
 	return { x, y, zCm };
 }
 
+function vertexCount(tileData) {
+	return tileData.vertices.length / 7;
+}
+
+function pushVertex(tileData, vertex) {
+	tileData.vertices.push(
+		vertex.x,
+		vertex.y,
+		vertex.z,
+		vertex.nx,
+		vertex.ny,
+		vertex.nz,
+		vertex.kind
+	);
+}
+
 function encodeTile(tile, tileData, extent) {
 	const metadata = {
 		schemaVersion: 1,
@@ -498,7 +514,8 @@ function encodeTile(tile, tileData, extent) {
 	const metadataBytes = Buffer.from(JSON.stringify(metadata), "utf8");
 	const metadataPadding = (4 - (metadataBytes.length % 4)) % 4;
 	const headerBytes = 32;
-	const vertexBytes = tileData.vertices.length * VERTEX_STRIDE;
+	const totalVertices = vertexCount(tileData);
+	const vertexBytes = totalVertices * VERTEX_STRIDE;
 	const indexBytes = tileData.indices.length * 4;
 	const output = Buffer.alloc(
 		headerBytes + metadataBytes.length + metadataPadding + vertexBytes + indexBytes
@@ -507,14 +524,23 @@ function encodeTile(tile, tileData, extent) {
 	output.write(MAGIC, 0, 8, "ascii");
 	output.writeUInt32LE(FORMAT_VERSION, 8);
 	output.writeUInt32LE(extent, 12);
-	output.writeUInt32LE(tileData.vertices.length, 16);
+	output.writeUInt32LE(totalVertices, 16);
 	output.writeUInt32LE(tileData.indices.length, 20);
 	output.writeUInt32LE(tileData.buildings.length, 24);
 	output.writeUInt32LE(metadataBytes.length, 28);
 	metadataBytes.copy(output, headerBytes);
 
 	let offset = headerBytes + metadataBytes.length + metadataPadding;
-	for (const vertex of tileData.vertices) {
+	for (let index = 0; index < tileData.vertices.length; index += 7) {
+		const vertex = {
+			x: tileData.vertices[index],
+			y: tileData.vertices[index + 1],
+			z: tileData.vertices[index + 2],
+			nx: tileData.vertices[index + 3],
+			ny: tileData.vertices[index + 4],
+			nz: tileData.vertices[index + 5],
+			kind: tileData.vertices[index + 6]
+		};
 		const quantized = ensureQuantizedVertex(vertex, extent);
 		output.writeInt16LE(quantized.x, offset);
 		output.writeInt16LE(quantized.y, offset + 2);
@@ -561,7 +587,7 @@ function addBuildingToTile(tileData, {
 		tileData.set(key, data);
 	}
 
-	const vertexStart = data.vertices.length;
+	const vertexStart = vertexCount(data);
 	const indexStart = data.indices.length;
 	let roofSurfaces = 0;
 	let wallSurfaces = 0;
@@ -577,9 +603,9 @@ function addBuildingToTile(tileData, {
 		if (surface.semantic === "roof") roofSurfaces += 1;
 		else if (surface.semantic === "wall") wallSurfaces += 1;
 
-		const surfaceVertexStart = data.vertices.length;
+		const surfaceVertexStart = vertexCount(data);
 		for (const point of triangulated.vertices) {
-			data.vertices.push({
+			pushVertex(data, {
 				x: point.x,
 				y: point.y,
 				z: point.z,
@@ -594,9 +620,9 @@ function addBuildingToTile(tileData, {
 		}
 	}
 
-	const vertexCount = data.vertices.length - vertexStart;
+	const buildingVertexCount = vertexCount(data) - vertexStart;
 	const indexCount = data.indices.length - indexStart;
-	if (!vertexCount || !indexCount) return null;
+	if (!buildingVertexCount || !indexCount) return null;
 
 	const anchorWorldX = worldX(anchorLngLat.lng, zoom);
 	const anchorWorldY = worldY(anchorLngLat.lat, zoom);
@@ -610,7 +636,7 @@ function addBuildingToTile(tileData, {
 		creationDate: buildingCreationDate(building),
 		sourceSheet,
 		vertexStart,
-		vertexCount,
+		vertexCount: buildingVertexCount,
 		indexStart,
 		indexCount,
 		anchorX: Number(((anchorWorldX - tile.x) * extent).toFixed(3)),
@@ -723,7 +749,7 @@ async function main() {
 		const encoded = encodeTile(data.tile, data, extent);
 		await fs.writeFile(outputPath, encoded);
 		presentTilesZ15.push(key);
-		totalVertices += data.vertices.length;
+		totalVertices += vertexCount(data);
 		totalTriangles += data.indices.length / 3;
 		totalBuildingObjects += data.buildings.length;
 	}
