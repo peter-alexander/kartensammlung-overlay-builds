@@ -1,0 +1,65 @@
+name: Probe Vienna WFS BBOX syntax
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-matcher
+    paths:
+      - '.github/workflows/probe-wien-wfs-bbox.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Probe WFS variants
+        run: |
+          set -euo pipefail
+          BASE='https://data.wien.gv.at/daten/geo'
+          common=(
+            --data-urlencode 'service=WFS'
+            --data-urlencode 'request=GetFeature'
+            --data-urlencode 'version=1.1.0'
+            --data-urlencode 'typeName=ogdwien:FMZKBKMOGD'
+            --data-urlencode 'outputFormat=json'
+            --data-urlencode 'CQL_FILTER=F_KLASSE=11'
+          )
+
+          echo '=== A: bbox with CRS + srsName ==='
+          curl -sSG "${common[@]}" \
+            --data-urlencode 'srsName=EPSG:31256' \
+            --data-urlencode 'bbox=-11000,342500,-10500,343000,EPSG:31256' \
+            "$BASE" | head -c 1200; echo
+
+          echo '=== B: bbox without CRS + srsName ==='
+          curl -sSG "${common[@]}" \
+            --data-urlencode 'srsName=EPSG:31256' \
+            --data-urlencode 'bbox=-11000,342500,-10500,343000' \
+            "$BASE" | head -c 1200; echo
+
+          echo '=== C: CQL BBOX SHAPE ==='
+          curl -sSG \
+            --data-urlencode 'service=WFS' \
+            --data-urlencode 'request=GetFeature' \
+            --data-urlencode 'version=1.1.0' \
+            --data-urlencode 'typeName=ogdwien:FMZKBKMOGD' \
+            --data-urlencode 'outputFormat=json' \
+            --data-urlencode 'srsName=EPSG:31256' \
+            --data-urlencode "CQL_FILTER=F_KLASSE=11 AND BBOX(SHAPE,-11000,342500,-10500,343000,'EPSG:31256')" \
+            "$BASE" | head -c 1200; echo
+
+          echo '=== D: WFS 2.0 bbox ==='
+          curl -sSG \
+            --data-urlencode 'service=WFS' \
+            --data-urlencode 'request=GetFeature' \
+            --data-urlencode 'version=2.0.0' \
+            --data-urlencode 'typeNames=ogdwien:FMZKBKMOGD' \
+            --data-urlencode 'outputFormat=application/json' \
+            --data-urlencode 'srsName=EPSG:31256' \
+            --data-urlencode 'bbox=-11000,342500,-10500,343000,EPSG:31256' \
+            "$BASE" | head -c 1200; echo
