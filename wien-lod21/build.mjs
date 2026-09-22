@@ -5,6 +5,11 @@ import path from "node:path";
 import { DOMParser } from "@xmldom/xmldom";
 import earcut from "earcut";
 import proj4 from "proj4";
+import GeoJSONReader from "jsts/org/locationtech/jts/io/GeoJSONReader.js";
+import GeoJSONWriter from "jsts/org/locationtech/jts/io/GeoJSONWriter.js";
+import OverlayOp from "jsts/org/locationtech/jts/operation/overlay/OverlayOp.js";
+import UnionOp from "jsts/org/locationtech/jts/operation/union/UnionOp.js";
+import BufferOp from "jsts/org/locationtech/jts/operation/buffer/BufferOp.js";
 
 const GML_NS = "http://www.opengis.net/gml";
 const BLDG_NS = "http://www.opengis.net/citygml/building/1.0";
@@ -17,6 +22,8 @@ const XY_QUANTIZATION = 4;
 const EARTH_RADIUS_M = 6_371_008.8;
 const ROOF_MIN_UP_NORMAL = 0.2;
 const FLAT_ROOF_MIN_UP_NORMAL = 0.985;
+const HYBRID_HISTORY_BUFFER_M = 0.25;
+const HYBRID_MIN_REMAINDER_AREA_M2 = 2;
 
 proj4.defs(
 	SOURCE_CRS,
@@ -29,7 +36,8 @@ function parseArgs(argv) {
 	const result = {
 		input: path.resolve("wien-lod21/build/source"),
 		output: path.resolve("wien-lod21/build/WienBuildingsLOD21"),
-		targets: path.resolve("wien-lod21/targets.pilot.json")
+		targets: path.resolve("wien-lod21/targets.pilot.json"),
+		hybridCurrent: ""
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -42,6 +50,9 @@ function parseArgs(argv) {
 			index += 1;
 		} else if (arg === "--targets") {
 			result.targets = path.resolve(value);
+			index += 1;
+		} else if (arg === "--hybrid-current") {
+			result.hybridCurrent = path.resolve(value);
 			index += 1;
 		} else {
 			throw new Error(`Unknown argument: ${arg}`);
