@@ -10,6 +10,7 @@ import GeoJSONReader from "jsts/org/locationtech/jts/io/GeoJSONReader.js";
 import OverlayOp from "jsts/org/locationtech/jts/operation/overlay/OverlayOp.js";
 import UnionOp from "jsts/org/locationtech/jts/operation/union/UnionOp.js";
 import BufferOp from "jsts/org/locationtech/jts/operation/buffer/BufferOp.js";
+import Centroid from "jsts/org/locationtech/jts/algorithm/Centroid.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -371,8 +372,8 @@ function geometryMetrics(currentGeometry, oldGeometry, currentHeight, oldHeight)
 	const currentCoverage = intersectionArea / currentArea;
 	const oldCoverage = intersectionArea / oldArea;
 	const iou = unionArea > 0 ? intersectionArea / unionArea : 0;
-	const currentCentroid = currentGeometry.getCentroid().getCoordinate();
-	const oldCentroid = oldGeometry.getCentroid().getCoordinate();
+	const currentCentroid = Centroid.getCentroid(currentGeometry);
+	const oldCentroid = Centroid.getCentroid(oldGeometry);
 	const centroidDistance = Math.hypot(
 		currentCentroid.x - oldCentroid.x,
 		currentCentroid.y - oldCentroid.y
@@ -525,7 +526,7 @@ function parseOldBuildingRecords(xml, reader) {
 	for (const group of byCode.values()) {
 		group.geometry = unionGeometries(group.geometries);
 		group.height = group.heights.length ? Math.max(...group.heights) : null;
-		group.centroid = group.geometry?.getCentroid?.().getCoordinate?.() || null;
+		group.centroid = group.geometry ? Centroid.getCentroid(group.geometry) : null;
 	}
 	return byCode;
 }
@@ -574,7 +575,7 @@ function combineOldGroups(groups) {
 }
 
 function findBestSpatialMatch(currentGeometry, oldByCode, currentHeight) {
-	const centroid = currentGeometry.getCentroid().getCoordinate();
+	const centroid = Centroid.getCentroid(currentGeometry);
 	let best = null;
 	for (const old of oldByCode.values()) {
 		if (!old?.geometry || !old.centroid) continue;
