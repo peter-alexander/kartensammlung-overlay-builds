@@ -688,6 +688,11 @@ function addBuildingToTile(tileData, {
 	const record = {
 		bwGebId: Number(target.bwGebId),
 		historicalCode: String(target.historicalCode),
+		ogdKsIds: [...new Set(
+			(target.ksIds || [])
+				.map((value) => String(value || "").trim())
+				.filter(Boolean)
+		)].sort(),
 		name: String(target.name),
 		rolloutMode: String(target.rolloutMode || "unspecified"),
 		cityGmlId: nodeAttribute(building, GML_NS, "id"),
