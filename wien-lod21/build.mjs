@@ -450,14 +450,7 @@ function extractEnvelopeSrsName(xml) {
 }
 
 function extractFirstLocalTagText(xml, name) {
-	const escaped = String(name).replace(/[.*+?^$()|[\]\\{}]/g, "\\function buildingCreationDate(building) {
-	const elements = building.getElementsByTagNameNS(
-		"http://www.opengis.net/citygml/1.0",
-		"creationDate"
-	);
-	return textContent(elements?.[0]);
-}
-");
+	const escaped = String(name).replace(/[.*+?^$()|[\]\\{}]/g, "\\$&");
 	const expression = new RegExp(
 		"<(?:[A-Za-z_][\\w.-]*:)?" + escaped
 		+ "\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?"
