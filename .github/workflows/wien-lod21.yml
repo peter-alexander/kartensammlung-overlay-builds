@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - feature/wien-lod21-production
     paths:
       - 'wien-lod21/build.mjs'
       - 'wien-lod21/run.sh'
