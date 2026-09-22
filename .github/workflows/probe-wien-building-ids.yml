@@ -36,14 +36,13 @@ jobs:
           done
           node --input-type=module <<'NODE'
           import fs from "node:fs";
-          import * as PbfModule from "pbf";
-          const Pbf = PbfModule.default || PbfModule.Pbf;
+          import { PbfReader } from "pbf";
           import { VectorTile } from "@mapbox/vector-tile";
 
           for (const tile of ["17873_11364", "17874_11363"]) {
           	for (const [kind, layerName] of [["mtk", "buildings3d"], ["ogd", "wien_buildings"]]) {
           		const data = fs.readFileSync(`/tmp/wien-id-probe/${kind}_${tile}.pbf`);
-          		const vectorTile = new VectorTile(new Pbf(data));
+          		const vectorTile = new VectorTile(new PbfReader(data));
           		const layer = vectorTile.layers[layerName];
           		console.log("\n", tile, kind, "layer", layerName, "features", layer?.length);
           		if (!layer) continue;
