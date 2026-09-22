@@ -56,10 +56,19 @@ function targetFromCandidate(candidate, {
 	if (!Number.isFinite(bwGebId)) {
 		throw new Error("Invalid BW_GEB_ID for " + code);
 	}
+	const ksIds = [...new Set(
+		(candidate.ksIds || [])
+			.map((value) => String(value || "").trim())
+			.filter((value) => /^wien-fmzk:/.test(value))
+	)].sort();
+	if (!ksIds.length) {
+		throw new Error("No exact OGD KS_IDs for " + code);
+	}
 	return {
 		name: name || ("Wien LOD2.1 " + code),
 		historicalCode: code,
 		bwGebId,
+		ksIds,
 		sheet,
 		lng: Number(candidate.lng),
 		lat: Number(candidate.lat),
