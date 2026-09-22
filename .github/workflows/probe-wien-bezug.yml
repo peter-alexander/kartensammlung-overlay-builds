@@ -1,0 +1,35 @@
+name: Probe Vienna historical building IDs
+
+on:
+  push:
+    branches:
+      - probe/wien-lod21-missing-buildings
+    paths:
+      - '.github/workflows/probe-wien-bezug.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read known FMZK building attributes
+        run: |
+          set -euo pipefail
+          for id in 4001396133 4001396104 4007229119 4003631491 4006220365; do
+            echo "FMZK_ID=$id"
+            curl -fsSLG \
+              -A "kartensammlung-overlay-builds/wien-bezug-probe" \
+              --data-urlencode "service=WFS" \
+              --data-urlencode "request=GetFeature" \
+              --data-urlencode "version=1.1.0" \
+              --data-urlencode "typeName=ogdwien:FMZKBKMOGD" \
+              --data-urlencode "outputFormat=json" \
+              --data-urlencode "CQL_FILTER=FMZK_ID=$id" \
+              "https://data.wien.gv.at/daten/geo" \
+              | jq '.features[0].properties | {FMZK_ID, BW_GEB_ID, BEZUG, F_KLASSE, O_KOTE, T_KOTE}'
+          done
