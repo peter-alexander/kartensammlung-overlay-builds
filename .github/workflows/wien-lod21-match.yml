@@ -1,0 +1,80 @@
+name: Analyze Vienna LOD2.1 candidates
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_sheets:
+        description: 'Number of representative LOD2.1 sheets to inspect'
+        required: false
+        default: '24'
+
+permissions:
+  contents: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Analyze current Maptoolkit gaps
+        run: |
+          node wien-buildings/analyze-maptoolkit-gaps.mjs /tmp/wien-maptoolkit-gaps.json
+
+      - name: Match representative LOD2.1 candidates
+        env:
+          MAX_SHEETS: ${{ inputs.max_sheets || '24' }}
+        run: |
+          node wien-lod21/match-candidates.mjs \
+            --input /tmp/wien-maptoolkit-gaps.json \
+            --output /tmp/wien-lod21-matches.json \
+            --max-sheets "$MAX_SHEETS"
+
+      - name: Validate known pilot buildings
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(fs.readFileSync("/tmp/wien-lod21-matches.json", "utf8"));
+          const expected = new Set(["212535", "009238", "113842", "006973"]);
+          for (const item of report.pilot || []) {
+          	const code = String(item.historicalCode || "");
+          	if (!expected.has(code)) continue;
+          	if (item.method !== "historical-code") {
+          		throw new Error(`Pilot ${code} did not use the historical-code match.`);
+          	}
+          	if (item.band === "reject") {
+          		throw new Error(`Pilot ${code} failed the provisional plausibility check.`);
+          	}
+          	expected.delete(code);
+          }
+          if (expected.size) {
+          	throw new Error(`Missing pilot codes: ${[...expected].join(", ")}`);
+          }
+          console.log("All four known pilot buildings pass the matcher.");
+          NODE
+
+      - name: Upload analysis
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-candidate-analysis
+          path: |
+            /tmp/wien-maptoolkit-gaps.json
+            /tmp/wien-lod21-matches.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6

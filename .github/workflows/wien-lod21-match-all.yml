@@ -1,0 +1,154 @@
+name: Analyze Vienna LOD2.1 citywide
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install gap-analysis dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+
+      - name: Analyze current Maptoolkit gaps
+        run: |
+          node wien-buildings/analyze-maptoolkit-gaps.mjs /tmp/wien-maptoolkit-gaps.json
+
+      - name: Upload gap analysis
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-gap-analysis
+          path: /tmp/wien-maptoolkit-gaps.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+  match:
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install matcher dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Download gap analysis
+        uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-gap-analysis
+          path: /tmp/lod21-input
+
+      - name: Match LOD2.1 batch
+        run: |
+          node wien-lod21/match-candidates.mjs \
+            --input /tmp/lod21-input/wien-maptoolkit-gaps.json \
+            --output /tmp/wien-lod21-matches-batch-${{ matrix.batch }}.json \
+            --all \
+            --batch-index ${{ matrix.batch }} \
+            --batch-count 16
+
+      - name: Upload batch report
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-match-${{ matrix.batch }}
+          path: /tmp/wien-lod21-matches-batch-${{ matrix.batch }}.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+  merge:
+    needs: match
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Download all batch reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: wien-lod21-match-*
+          path: /tmp/lod21-batches
+          merge-multiple: true
+
+      - name: Merge citywide report
+        run: |
+          node wien-lod21/merge-match-reports.mjs \
+            --input-dir /tmp/lod21-batches \
+            --output /tmp/wien-lod21-citywide.json
+
+      - name: Validate pilot classifications
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(fs.readFileSync("/tmp/wien-lod21-citywide.json", "utf8"));
+          const expected = new Map([
+          	["006973", "strong"],
+          	["009238", "legacy-subset"],
+          	["113842", "legacy-subset"],
+          	["212535", "legacy-subset"]
+          ]);
+          for (const item of report.pilot || []) {
+          	const code = String(item.historicalCode || "");
+          	if (!expected.has(code)) continue;
+          	if (item.method !== "historical-code") {
+          		throw new Error("Pilot " + code + " lost the historical-code match.");
+          	}
+          	if (item.band !== expected.get(code)) {
+          		throw new Error(
+          			"Pilot " + code + " expected " + expected.get(code)
+          			+ " but got " + item.band
+          		);
+          	}
+          	if (!item.lod21?.hasPitchedRoof) {
+          		throw new Error("Pilot " + code + " has no pitched roof in merged report.");
+          	}
+          	expected.delete(code);
+          }
+          if (expected.size) {
+          	throw new Error("Missing pilot codes: " + [...expected.keys()].join(", "));
+          }
+          console.log("Pilot classifications are stable.");
+          NODE
+
+      - name: Upload citywide report
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-citywide-analysis
+          path: /tmp/wien-lod21-citywide.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
