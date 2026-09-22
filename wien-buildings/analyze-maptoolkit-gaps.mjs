@@ -265,10 +265,8 @@ function newellUpFraction(ring, xyMetersPerUnit) {
 	return length > 1e-9 ? Math.abs(nz) / length : 0;
 }
 
-function interiorSurfacePoint(surface, extent) {
-	const rings = (surface || [])
-		.map(openRing)
-		.filter((ring) => ring.length >= 3);
+function interiorPolygonPoint(polygon) {
+	const rings = (polygon || []).filter((ring) => ring.length >= 3);
 	if (!rings.length) return null;
 
 	const flat = [];
@@ -287,12 +285,23 @@ function interiorSurfacePoint(surface, extent) {
 	const b = triangles[1] * 2;
 	const c = triangles[2] * 2;
 	return {
-		x: (flat[a] + flat[b] + flat[c]) / 3 / extent,
-		y: (flat[a + 1] + flat[b + 1] + flat[c + 1]) / 3 / extent
+		x: (flat[a] + flat[b] + flat[c]) / 3,
+		y: (flat[a + 1] + flat[b + 1] + flat[c + 1]) / 3
 	};
 }
 
-function extractLod2Points(buffer, tile) {
+function normalizeSurfacePolygon(surface, extent) {
+	const rings = (surface || [])
+		.map(openRing)
+		.filter((ring) => ring.length >= 3)
+		.map((ring) => ring.map((point) => ({
+			x: point.x / extent,
+			y: point.y / extent
+		})));
+	return rings.length ? rings : null;
+}
+
+function extractLod2Surfaces(buffer, tile) {
 	const vectorTile = new VectorTile(new PbfReader(buffer));
 	const layer = vectorTile.layers?.buildings3d;
 	if (!layer?.length) return [];
@@ -301,7 +310,7 @@ function extractLod2Points(buffer, tile) {
 	const centerLat = tilePointLngLat(tile, 0.5, 0.5).lat * Math.PI / 180;
 	const tileWidthM = EARTH_CIRCUMFERENCE_METERS * Math.cos(centerLat) / 2 ** tile.z;
 	const xyMetersPerUnit = tileWidthM / extent;
-	const points = [];
+	const surfaces = [];
 
 	for (let featureIndex = 0; featureIndex < layer.length; featureIndex += 1) {
 		const feature = layer.feature(featureIndex);
@@ -309,11 +318,18 @@ function extractLod2Points(buffer, tile) {
 		for (const surface of getSurfaceGroups(groups)) {
 			const contour = surface?.[0];
 			if (!contour || newellUpFraction(contour, xyMetersPerUnit) < 0.12) continue;
-			const point = interiorSurfacePoint(surface, extent);
-			if (point) points.push(point);
+			const polygon = normalizeSurfacePolygon(surface, extent);
+			if (!polygon) continue;
+			const point = interiorPolygonPoint(polygon);
+			if (!point) continue;
+			surfaces.push({
+				point,
+				polygon,
+				bounds: polygonBounds([polygon])
+			});
 		}
 	}
-	return points;
+	return surfaces;
 }
 
 function decodeOgdFeatures(buffer) {
@@ -380,21 +396,50 @@ async function processTile(tile) {
 		fetchBuffer(tileUrl(MTK_TILE_URL, tile), true)
 	]);
 	const ogdFeatures = decodeOgdFeatures(ogdBuffer);
-	const lod2Points = mtkBuffer ? extractLod2Points(mtkBuffer, tile) : [];
+	const lod2Surfaces = mtkBuffer ? extractLod2Surfaces(mtkBuffer, tile) : [];
 
-	const grid = new Map();
+	const ogdGrid = new Map();
 	for (let i = 0; i < ogdFeatures.length; i += 1) {
-		addFeatureToGrid(grid, i, ogdFeatures[i].bounds);
+		addFeatureToGrid(ogdGrid, i, ogdFeatures[i].bounds);
 	}
 	const matched = new Set();
-	for (const point of lod2Points) {
-		for (const featureIndex of gridCandidates(grid, point)) {
+
+	// Richtung 1: Ein sicherer LOD2-Dachpunkt liegt in einem aktuellen
+	// OGD-Baukoerper. Das ist praezise fuer fein geteilte LOD2-Daecher.
+	for (const surface of lod2Surfaces) {
+		for (const featureIndex of gridCandidates(ogdGrid, surface.point)) {
 			if (matched.has(featureIndex)) continue;
 			const feature = ogdFeatures[featureIndex];
-			if (feature.polygons.some((polygon) => polygonContainsPoint(polygon, point))) {
+			if (feature.polygons.some((polygon) => polygonContainsPoint(polygon, surface.point))) {
 				matched.add(featureIndex);
 			}
 		}
+	}
+
+	// Richtung 2: Ein sicherer Innenpunkt des aktuellen OGD-Baukoerpers liegt
+	// in einer projizierten LOD2-Dachflaeche. Dadurch werden auch Faelle
+	// erkannt, in denen ein aelteres/groesseres Dach mehrere heutige
+	// OGD-Teilflaechen ueberspannt.
+	const lod2Grid = new Map();
+	for (let i = 0; i < lod2Surfaces.length; i += 1) {
+		addFeatureToGrid(lod2Grid, i, lod2Surfaces[i].bounds);
+	}
+	for (let featureIndex = 0; featureIndex < ogdFeatures.length; featureIndex += 1) {
+		if (matched.has(featureIndex)) continue;
+		const feature = ogdFeatures[featureIndex];
+		let reverseMatched = false;
+		for (const polygon of feature.polygons) {
+			const point = interiorPolygonPoint(polygon);
+			if (!point) continue;
+			for (const surfaceIndex of gridCandidates(lod2Grid, point)) {
+				if (polygonContainsPoint(lod2Surfaces[surfaceIndex].polygon, point)) {
+					reverseMatched = true;
+					break;
+				}
+			}
+			if (reverseMatched) break;
+		}
+		if (reverseMatched) matched.add(featureIndex);
 	}
 
 	const known = {};
@@ -407,7 +452,7 @@ async function processTile(tile) {
 		if (targetTile.x !== tile.x || targetTile.y !== tile.y) continue;
 		const point = localPointForLngLat(tile, target.lng, target.lat);
 		const ids = [];
-		for (const featureIndex of gridCandidates(grid, point)) {
+		for (const featureIndex of gridCandidates(ogdGrid, point)) {
 			const feature = ogdFeatures[featureIndex];
 			if (feature.polygons.some((polygon) => polygonContainsPoint(polygon, point))) {
 				ids.push(feature.id);
@@ -420,7 +465,7 @@ async function processTile(tile) {
 		tile,
 		ogdFeatures,
 		matched,
-		lod2PointCount: lod2Points.length,
+		lod2PointCount: lod2Surfaces.length,
 		known
 	};
 }
@@ -539,7 +584,7 @@ async function main() {
 		method: {
 			zoom: ZOOM,
 			tiles: tiles.length,
-			match: "one interior point per non-wall Maptoolkit LOD2 surface -> containing current OGD building feature",
+			match: "bidirectional interior-point containment between non-wall Maptoolkit LOD2 surfaces and current OGD building polygons",
 			aggregation: "KS_ID across tile boundaries"
 		},
 		counts: {
