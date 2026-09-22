@@ -933,6 +933,27 @@ async function main() {
 	const targetByCode = new Map(targets.map((target) => [String(target.historicalCode), target]));
 	if (targetByCode.size !== targets.length) throw new Error("Duplicate historicalCode in pilot targets.");
 
+	const hybridTargets = targets.filter((target) => (
+		String(target.rolloutMode || "").includes("hybrid")
+	));
+	let hybridCurrent = { type: "FeatureCollection", features: [] };
+	if (args.hybridCurrent) {
+		hybridCurrent = JSON.parse(await fs.readFile(args.hybridCurrent, "utf8"));
+		if (!Array.isArray(hybridCurrent?.features)) {
+			throw new Error("Hybrid current geometry is not a FeatureCollection.");
+		}
+	}
+	if (hybridTargets.length && !args.hybridCurrent) {
+		console.warn(
+			"Hybrid targets configured without --hybrid-current; "
+			+ "building only historical LOD2.1 geometry."
+		);
+	}
+
+	const geoReader = new GeoJSONReader();
+	const geoWriter = new GeoJSONWriter();
+	const historicalGroundByCode = new Map();
+
 	const files = await listFilesRecursive(args.input);
 	if (!files.length) throw new Error(`No CityGML files found below ${args.input}`);
 
@@ -972,6 +993,15 @@ async function main() {
 			if (!surfaces.length) {
 				throw new Error(`Target ${code} has no semantic LOD2.1 boundary surfaces.`);
 			}
+			if (String(target.rolloutMode || "").includes("hybrid")) {
+				const groundGeometry = groundGeometryFromSurfaces(surfaces, geoReader);
+				if (groundGeometry) {
+					if (!historicalGroundByCode.has(code)) {
+						historicalGroundByCode.set(code, []);
+					}
+					historicalGroundByCode.get(code).push(groundGeometry);
+				}
+			}
 			const added = addBuildingToTile(tileData, {
 				building,
 				surfaces,
@@ -996,6 +1026,101 @@ async function main() {
 				rssMiB: Number((memory.rss / 1048576).toFixed(1))
 			}));
 		}
+	}
+
+
+	const hybridCurrentByKsId = new Map();
+	for (const feature of hybridCurrent.features || []) {
+		const ksId = String(feature?.properties?.KS_ID || "").trim();
+		if (ksId) hybridCurrentByKsId.set(ksId, feature);
+	}
+
+	const hybridStats = [];
+	for (const target of hybridTargets) {
+		const code = String(target.historicalCode);
+		const historicalGround = unionJstsGeometries(
+			historicalGroundByCode.get(code) || []
+		);
+		if (!historicalGround) {
+			throw new Error("Hybrid target " + code + " has no historical ground geometry.");
+		}
+		const bufferedHistorical = BufferOp.bufferOp(
+			historicalGround,
+			HYBRID_HISTORY_BUFFER_M
+		);
+		let remainderAreaM2 = 0;
+		let remainderParts = 0;
+		let syntheticObjects = 0;
+
+		for (const ksId of target.ksIds || []) {
+			const feature = hybridCurrentByKsId.get(String(ksId));
+			if (!feature?.geometry) {
+				throw new Error("Hybrid target " + code + " is missing current " + ksId);
+			}
+			const levels = currentFeatureLevels(feature.properties || {});
+			if (!levels) {
+				throw new Error("Hybrid current feature has invalid height levels: " + ksId);
+			}
+			const currentGeometry = repairJstsGeometry(
+				geoReader.read(feature.geometry)
+			);
+			if (!currentGeometry) continue;
+			const remainder = differenceJstsGeometry(
+				currentGeometry,
+				bufferedHistorical
+			);
+			if (!remainder || remainder.isEmpty()) continue;
+
+			let partIndex = 0;
+			for (const part of jstsGeometryParts(remainder)) {
+				const area = Number(part.getArea?.() || 0);
+				if (!(area >= HYBRID_MIN_REMAINDER_AREA_M2)) continue;
+				const geojson = geoWriter.write(part);
+				const polygons = geojson?.type === "Polygon"
+					? [geojson.coordinates]
+					: geojson?.type === "MultiPolygon"
+						? geojson.coordinates
+						: [];
+				for (const coordinates of polygons) {
+					const surfaces = extrusionSurfacesFromPolygon(
+						coordinates,
+						levels
+					);
+					if (!surfaces.length) continue;
+					const added = addBuildingToTile(tileData, {
+						building: null,
+						surfaces,
+						target,
+						sourceSheet: "current-ogd",
+						extent,
+						zoom,
+						recordKind: "ogd-remainder",
+						recordOverrides: {
+							cityGmlId:
+								"ogd-remainder:"
+								+ String(feature.properties?.FMZK_ID || ksId)
+								+ ":"
+								+ partIndex,
+							roofType: "current-lod1-remainder",
+							creationDate: ""
+						}
+					});
+					if (added) {
+						syntheticObjects += 1;
+						remainderAreaM2 += area;
+					}
+					partIndex += 1;
+				}
+				remainderParts += 1;
+			}
+		}
+
+		hybridStats.push({
+			historicalCode: code,
+			remainderAreaM2: Number(remainderAreaM2.toFixed(2)),
+			remainderParts,
+			syntheticObjects
+		});
 	}
 
 	for (const target of targets) {
@@ -1047,10 +1172,16 @@ async function main() {
 			).length,
 			manualPilotHybrid: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-hybrid"
+			).length,
+			hybridRemainderTargets: hybridStats.filter(
+				(item) => item.syntheticObjects > 0
 			).length
 		},
 		targets: targets.map((target) => ({
 			...target,
+			hybridRemainder: hybridStats.find(
+				(item) => item.historicalCode === String(target.historicalCode)
+			) || null,
 			matches: found.get(String(target.historicalCode)).map((match) => ({
 				tile: tileKey(match.tile),
 				cityGmlId: match.record.cityGmlId,
@@ -1100,6 +1231,7 @@ async function main() {
 			directStrong: targetManifest.counts.directStrong,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
+			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
 			cityGmlBuildingObjects: totalBuildingObjects,
 			vertices: totalVertices,
 			triangles: totalTriangles,
