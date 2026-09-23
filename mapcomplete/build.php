@@ -7,8 +7,8 @@ const MAPCOMPLETE_ASSET_RAW_URL = 'https://source.mapcomplete.org/MapComplete/Ma
 const MAPCOMPLETE_CACHE_FILE = __DIR__ . '/build/MapcompleteLayers.json';
 const MAPCOMPLETE_LOCK_FILE = __DIR__ . '/build/MapcompleteLayers.lock';
 const MAPCOMPLETE_ICON_DIRECTORY = __DIR__ . '/build/Icons';
-const MAPCOMPLETE_MAPPING_FILE = __DIR__ . '/input/MapcompleteMapping.json';
-const MAPCOMPLETE_OSM_OVERLAYS_FILE = __DIR__ . '/input/OsmOverlays.js';
+const MAPCOMPLETE_MAPPING_FILE = __DIR__ . '/icon-sections.json';
+const MAPCOMPLETE_OSM_OVERLAYS_FILE = __DIR__ . '/OsmColors.js';
 
 function mapcompleteFetch(string $url): string {
 	$curl = curl_init($url);
