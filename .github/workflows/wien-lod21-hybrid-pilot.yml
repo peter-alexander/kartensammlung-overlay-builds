@@ -6,6 +6,7 @@ on:
       - feature/wien-lod21-hybrid-remainder
     paths:
       - 'wien-lod21/analyze-hybrid-remainders.mjs'
+      - 'wien-lod21/build.mjs'
       - '.github/workflows/wien-lod21-hybrid-pilot.yml'
 
 permissions:
