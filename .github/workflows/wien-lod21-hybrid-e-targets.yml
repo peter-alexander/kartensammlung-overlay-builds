@@ -1,0 +1,125 @@
+name: Refresh Vienna Hybrid-E production targets
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-height-audit
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-e-targets.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate production target snapshot
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --height-audit wien-lod21/height-audit.generated.json \
+            --output wien-lod21/targets.production.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute \
+            --include-hybrid-b-thin \
+            --include-hybrid-b-clip \
+            --include-hybrid-c-clip \
+            --include-hybrid-d-clip \
+            --include-hybrid-e-height
+
+      - name: Verify production target snapshot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          const audit = JSON.parse(
+          	fs.readFileSync("wien-lod21/height-audit.generated.json", "utf8")
+          );
+          const expected = {
+          	total: 2270,
+          	directStrong: 1209,
+          	hybridA: 614,
+          	hybridBAbsolute: 72,
+          	hybridBThin: 3,
+          	hybridBClip: 7,
+          	hybridCClip: 169,
+          	hybridDClip: 169,
+          	hybridEHeight: 25,
+          	manualPilotStrong: 1,
+          	manualPilotHybrid: 1
+          };
+          for (const [key, value] of Object.entries(expected)) {
+          	if (Number(data.counts?.[key]) !== value) {
+          		throw new Error(
+          			"Expected " + key + "=" + value
+          			+ ", got " + data.counts?.[key]
+          		);
+          	}
+          }
+          if (Number(data.sourceAnalysis?.hybridCandidatesDeferred) !== 4) {
+          	throw new Error(
+          		"Expected 4 automatically deferred hybrid candidates, got "
+          		+ data.sourceAnalysis?.hybridCandidatesDeferred
+          	);
+          }
+          const heightTargets = data.buildings.filter(
+          	(item) => item.rolloutMode === "hybrid-e-height"
+          );
+          if (heightTargets.length !== 25) {
+          	throw new Error("Expected 25 Hybrid-E height targets.");
+          }
+          const codes = heightTargets.map(
+          	(item) => String(item.historicalCode)
+          ).sort();
+          const expectedCodes = [...audit.automaticHeightCodes].sort();
+          if (JSON.stringify(codes) !== JSON.stringify(expectedCodes)) {
+          	throw new Error("Hybrid-E target codes differ from height audit.");
+          }
+          for (const item of heightTargets) {
+          	if (
+          		item.auditedHistoricalClip !== true
+          		|| item.auditedHeightEave !== true
+          		|| Number(item.heightAudit?.maxRelevantAbsEaveDifferenceM)
+          			> 2.5001
+          	) {
+          		throw new Error(
+          			item.historicalCode + ": invalid height-audit metadata"
+          		);
+          	}
+          }
+          console.log(JSON.stringify({
+          	counts: data.counts,
+          	deferred: data.sourceAnalysis.hybridCandidatesDeferred,
+          	remainingNonManual: audit.remainingNonManualCodes
+          }, null, 2));
+          NODE
+
+      - name: Commit production target snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/targets.production.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote calibrated Vienna height-audited targets"
+          git push
