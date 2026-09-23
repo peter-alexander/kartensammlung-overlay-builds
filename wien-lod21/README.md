@@ -67,12 +67,13 @@ enthält:
 - 72 `hybrid-b-absolute`-Gebäude,
 - 3 geometrisch auditierte `hybrid-b-thin`-Gebäude,
 - 7 geometrisch geclippte `hybrid-b-clip`-Gebäude,
+- 169 vollständig auditierte `hybrid-c-clip`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 1.907 Gebäude.
+- insgesamt 2.076 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-696 automatisch freigegeben. **367 bleiben weiterhin zurückgestellt**; bei
+865 automatisch freigegeben. **198 bleiben weiterhin zurückgestellt**; bei
 ihnen ist die historische/heutige Grundrissabweichung oder eine andere
 Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
 
@@ -239,3 +240,35 @@ Der gemeinsame Sieben-Fall-Test erreicht für alle sieben Codes praktisch
 vollständige Dachabdeckung und **0,000 m unabgedeckten Außenrand** innerhalb
 der 5-cm-Toleranz. Entfernt werden je nach Gebäude 1,326 bis 3,838 m²
 historischer Überstand.
+
+
+## Hybrid-C clip
+
+Nach dem vollständigen Hybrid-B-Rollout verbleiben 169 Kandidaten der
+ursprünglichen `hybrid-c`-Klasse. Sie erfüllen weiterhin:
+
+- mindestens 60 % heutige Überdeckung,
+- Schwerpunktabstand höchstens 8 m,
+- Höhenabweichung höchstens `max(6 m, 30 %)`,
+
+haben aber nur 98,0 bis 99,5 % historische Überdeckung. Eine bloße
+Toleranzregel ist dafür nicht sinnvoll; deshalb wird auch diese Klasse mit
+dem geschlossenen historischen 3D-Clipping behandelt.
+
+Vor dem Produktionsrollout wurden **alle 169 Gebäude gemeinsam** gebaut und
+mit denselben strengen geometrischen Kriterien wie Hybrid-B clip geprüft:
+
+- entfernte historische Fläche gegen die Stadtanalyse (±0,05 m²),
+- projizierte Dachabdeckung mindestens 99,5 %,
+- geometrische Außenrandabdeckung durch Wände mindestens 99,9 %,
+- höchstens 1 cm tatsächlich unabgedeckte Randlänge,
+- weiterhin vorhandene aktuelle LOD1-Restmeshes.
+
+Ein Sonderfall (`124241`) zeigte zwei durch die Overlay-Operation erzeugte
+numerische Innenlöcher. Sie hatten zusammen nur 0,000888 m² Fläche und
+maximal 0,143 mm mittlere Dicke. Solche Innenringe werden nun nach derselben
+5-cm-Dünnheitsregel wie andere numerische Hybrid-Sliver geschlossen. Echte
+Innenhöfe bleiben erhalten.
+
+Mit dieser Bereinigung bestehen **169 von 169 Hybrid-C-Kandidaten** den
+vollständigen Clipping-Audit.
