@@ -26,7 +26,7 @@ const EARTH_RADIUS_M = 6_371_008.8;
 const ROOF_MIN_UP_NORMAL = 0.2;
 const FLAT_ROOF_MIN_UP_NORMAL = 0.985;
 const HYBRID_HISTORY_BUFFER_M = 0;
-const HYBRID_MIN_REMAINDER_AREA_M2 = 2;
+const HYBRID_MAX_SLIVER_MEAN_WIDTH_M = 0.05;
 
 proj4.defs(
 	SOURCE_CRS,
@@ -1078,9 +1078,13 @@ async function main() {
 			historicalGround,
 			HYBRID_HISTORY_BUFFER_M
 		);
+		let rawRemainderAreaM2 = 0;
 		let remainderAreaM2 = 0;
 		let remainderParts = 0;
 		let syntheticObjects = 0;
+		let discardedSliverAreaM2 = 0;
+		let discardedSliverParts = 0;
+		let maxDiscardedSliverWidthM = 0;
 
 		for (const ksId of target.ksIds || []) {
 			const feature = hybridCurrentByKsId.get(String(ksId));
@@ -1105,7 +1109,21 @@ async function main() {
 			let partIndex = 0;
 			for (const part of jstsGeometryParts(remainder)) {
 				const area = Number(part.getArea?.() || 0);
-				if (!(area >= HYBRID_MIN_REMAINDER_AREA_M2)) continue;
+				if (!(area > 0)) continue;
+				rawRemainderAreaM2 += area;
+				const perimeter = Number(part.getLength?.() || 0);
+				const meanWidthM = perimeter > 0
+					? (2 * area) / perimeter
+					: Number.POSITIVE_INFINITY;
+				if (meanWidthM <= HYBRID_MAX_SLIVER_MEAN_WIDTH_M) {
+					discardedSliverAreaM2 += area;
+					discardedSliverParts += 1;
+					maxDiscardedSliverWidthM = Math.max(
+						maxDiscardedSliverWidthM,
+						meanWidthM
+					);
+					continue;
+				}
 				const geojson = geoWriter.write(part);
 				const polygons = geojson?.type === "Polygon"
 					? [geojson.coordinates]
@@ -1148,9 +1166,15 @@ async function main() {
 
 		hybridStats.push({
 			historicalCode: code,
-			remainderAreaM2: Number(remainderAreaM2.toFixed(2)),
+			rawRemainderAreaM2: Number(rawRemainderAreaM2.toFixed(3)),
+			remainderAreaM2: Number(remainderAreaM2.toFixed(3)),
 			remainderParts,
-			syntheticObjects
+			syntheticObjects,
+			discardedSliverAreaM2: Number(discardedSliverAreaM2.toFixed(3)),
+			discardedSliverParts,
+			maxDiscardedSliverWidthM: Number(
+				maxDiscardedSliverWidthM.toFixed(4)
+			)
 		});
 	}
 
