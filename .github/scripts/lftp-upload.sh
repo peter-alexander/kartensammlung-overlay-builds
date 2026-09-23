@@ -6,13 +6,9 @@ if [ "$#" -ne 2 ]; then
 	exit 1
 fi
 
-FTP_HOST="${FTP_HOST:-${EASYNAME_FTP_HOST:-}}"
-FTP_USER="${FTP_USER:-${EASYNAME_FTP_USER:-}}"
-FTP_PASSWORD="${FTP_PASSWORD:-${EASYNAME_FTP_PASSWORD:-}}"
-
-: "${FTP_HOST:?FTP_HOST is required}"
-: "${FTP_USER:?FTP_USER is required}"
-: "${FTP_PASSWORD:?FTP_PASSWORD is required}"
+: "${EASYNAME_FTP_HOST:?EASYNAME_FTP_HOST is required}"
+: "${EASYNAME_FTP_USER:?EASYNAME_FTP_USER is required}"
+: "${EASYNAME_FTP_PASSWORD:?EASYNAME_FTP_PASSWORD is required}"
 
 LOCAL_PATH="$1"
 REMOTE_PATH="$2"
@@ -31,7 +27,7 @@ FTP_RETRY_DELAY="${FTP_RETRY_DELAY:-30}"
 FTP_RETRY_MAX_TIME="${FTP_RETRY_MAX_TIME:-900}"
 
 if [ -f "$LOCAL_PATH" ] && command -v curl >/dev/null 2>&1; then
-	CURL_URL="ftp://${FTP_HOST}/${REMOTE_PATH}"
+	CURL_URL="ftp://${EASYNAME_FTP_HOST}/${REMOTE_PATH}"
 	CURL_ARGS=(
 		--fail
 		--silent
@@ -44,7 +40,7 @@ if [ -f "$LOCAL_PATH" ] && command -v curl >/dev/null 2>&1; then
 		--retry-delay "$FTP_RETRY_DELAY"
 		--retry-max-time "$FTP_RETRY_MAX_TIME"
 		--retry-all-errors
-		--user "${FTP_USER}:${FTP_PASSWORD}"
+		--user "${EASYNAME_FTP_USER}:${EASYNAME_FTP_PASSWORD}"
 		--upload-file "$LOCAL_PATH"
 		"$CURL_URL"
 	)
@@ -77,8 +73,8 @@ trap 'rm -f "$LFTP_CMDS"' EXIT
 	echo "set net:timeout $LFTP_NET_TIMEOUT"
 	echo "set net:reconnect-interval-base $LFTP_RETRY_DELAY"
 	echo "set net:reconnect-interval-multiplier 1"
-	echo "open "$FTP_HOST""
-	echo "user "$FTP_USER" "$FTP_PASSWORD""
+	echo "open "$EASYNAME_FTP_HOST""
+	echo "user "$EASYNAME_FTP_USER" "$EASYNAME_FTP_PASSWORD""
 
 	if [ -d "$LOCAL_PATH" ]; then
 		echo "mirror -R --delete --verbose --parallel=$PARALLEL "$LOCAL_PATH" "$REMOTE_PATH""
