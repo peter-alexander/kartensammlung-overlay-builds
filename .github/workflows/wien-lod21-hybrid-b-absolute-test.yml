@@ -1,0 +1,242 @@
+name: Test Vienna Hybrid-B absolute
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-b-absolute
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-b-absolute-test.yml'
+      - 'wien-lod21/build.mjs'
+      - 'wien-lod21/fetch-hybrid-current.mjs'
+      - 'wien-lod21/make-production-targets.mjs'
+      - 'wien-lod21/run.sh'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 6
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate absolute-safe target set
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --output /tmp/targets.next.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const all = JSON.parse(fs.readFileSync("/tmp/targets.next.json", "utf8"));
+          const buildings = all.buildings.filter(
+          	(item) => item.rolloutMode === "hybrid-b-absolute"
+          );
+          if (buildings.length !== 72) {
+          	throw new Error("Expected 72 Hybrid-B absolute targets, got " + buildings.length);
+          }
+          for (const item of buildings) {
+          	const outsideM2 = Number(item.historicalOutsideCurrentM2);
+          	if (!Number.isFinite(outsideM2) || outsideM2 > 0.5801) {
+          		throw new Error(
+          			item.historicalCode + ": historical outside area " + outsideM2
+          		);
+          	}
+          }
+          fs.writeFileSync("/tmp/targets.b-absolute.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "hybrid-b-absolute-test",
+          	zoom: all.zoom,
+          	extent: all.extent,
+          	counts: {
+          		total: buildings.length,
+          		hybridBAbsolute: buildings.length,
+          		sourceSheets: new Set(buildings.map((item) => item.sheet)).size
+          	},
+          	buildings
+          }, null, "\t") + "\n");
+          console.log(JSON.stringify({
+          	targets: buildings.length,
+          	sourceSheets: new Set(buildings.map((item) => item.sheet)).size,
+          	maxHistoricalOutsideCurrentM2: Math.max(
+          		...buildings.map((item) => Number(item.historicalOutsideCurrentM2))
+          	)
+          }, null, 2));
+          NODE
+
+      - name: Build isolated Hybrid-B absolute set
+        env:
+          WIEN_LOD21_TARGETS: /tmp/targets.b-absolute.json
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate isolated Hybrid-B geometry
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const release = JSON.parse(
+          	fs.readFileSync(path.join(root, "release.json"), "utf8")
+          );
+          const manifest = JSON.parse(
+          	fs.readFileSync(path.join(root, "targets.json"), "utf8")
+          );
+          const items = manifest.targets || [];
+
+          if (release.status !== "hybrid-b-absolute-test") {
+          	throw new Error("Unexpected release status: " + release.status);
+          }
+          if (items.length !== 72 || Number(release.counts.targets) !== 72) {
+          	throw new Error("Expected exactly 72 built targets.");
+          }
+          if (Number(release.counts.hybridBAbsolute || 0) !== 72) {
+          	throw new Error(
+          		"Hybrid-B release count mismatch: "
+          		+ Number(release.counts.hybridBAbsolute || 0)
+          	);
+          }
+
+          let remainderTargets = 0;
+          let totalRemainderAreaM2 = 0;
+          let totalDiscardedSliverAreaM2 = 0;
+          let maxHistoricalOutsideCurrentM2 = 0;
+          let maxDiscardedSliverWidthM = 0;
+          const noSynthetic = [];
+
+          for (const target of items) {
+          	if (target.rolloutMode !== "hybrid-b-absolute") {
+          		throw new Error(
+          			"Unexpected rollout mode for " + target.historicalCode
+          		);
+          	}
+          	if (!target.matches?.length) {
+          		throw new Error("No CityGML match for " + target.historicalCode);
+          	}
+          	if (!Array.isArray(target.ksIds) || !target.ksIds.length) {
+          		throw new Error("No exact KS_IDs for " + target.historicalCode);
+          	}
+
+          	const outsideM2 = Number(target.historicalOutsideCurrentM2);
+          	if (!Number.isFinite(outsideM2) || outsideM2 > 0.5801) {
+          		throw new Error(
+          			"Historical outside area exceeds limit for "
+          			+ target.historicalCode + ": " + outsideM2
+          		);
+          	}
+          	maxHistoricalOutsideCurrentM2 = Math.max(
+          		maxHistoricalOutsideCurrentM2,
+          		outsideM2
+          	);
+
+          	const remainder = target.hybridRemainder;
+          	if (!remainder) {
+          		throw new Error("Missing hybrid stats for " + target.historicalCode);
+          	}
+          	const syntheticObjects = Number(remainder.syntheticObjects || 0);
+          	const rawArea = Number(remainder.rawRemainderAreaM2 || 0);
+          	const keptArea = Number(remainder.remainderAreaM2 || 0);
+          	const discardedArea = Number(remainder.discardedSliverAreaM2 || 0);
+          	const discardedWidth = Number(
+          		remainder.maxDiscardedSliverWidthM || 0
+          	);
+          	if (syntheticObjects > 0) {
+          		remainderTargets += 1;
+          	} else {
+          		const unaccounted = Math.max(0, rawArea - discardedArea);
+          		if (unaccounted > 0.01 || discardedWidth > 0.0501) {
+          			throw new Error(
+          				"Meaningful remainder missing for "
+          				+ target.historicalCode
+          				+ ": raw=" + rawArea
+          				+ ", discarded=" + discardedArea
+          				+ ", width=" + discardedWidth
+          			);
+          		}
+          		noSynthetic.push({
+          			historicalCode: target.historicalCode,
+          			rawAreaM2: rawArea,
+          			discardedAreaM2: discardedArea,
+          			maxDiscardedSliverWidthM: discardedWidth
+          		});
+          	}
+          	totalRemainderAreaM2 += keptArea;
+          	totalDiscardedSliverAreaM2 += discardedArea;
+          	maxDiscardedSliverWidthM = Math.max(
+          		maxDiscardedSliverWidthM,
+          		discardedWidth
+          	);
+          }
+
+          if (
+          	Number(release.counts.hybridRemainderTargets || 0)
+          	!== remainderTargets
+          ) {
+          	throw new Error("Hybrid remainder target count mismatch.");
+          }
+
+          const summary = {
+          	targets: items.length,
+          	sourceSheets: release.source.sheets.length,
+          	tiles: release.tiles.presentTilesZ15.length,
+          	vertices: release.counts.vertices,
+          	triangles: release.counts.triangles,
+          	remainderTargets,
+          	noSyntheticTargets: noSynthetic.length,
+          	totalRemainderAreaM2: Number(totalRemainderAreaM2.toFixed(3)),
+          	totalDiscardedSliverAreaM2: Number(
+          		totalDiscardedSliverAreaM2.toFixed(3)
+          	),
+          	maxHistoricalOutsideCurrentM2: Number(
+          		maxHistoricalOutsideCurrentM2.toFixed(3)
+          	),
+          	maxDiscardedSliverWidthM: Number(
+          		maxDiscardedSliverWidthM.toFixed(4)
+          	),
+          	noSynthetic
+          };
+          fs.writeFileSync(
+          	"/tmp/hybrid-b-absolute-summary.json",
+          	JSON.stringify(summary, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-b-absolute-test
+          path: |
+            wien-lod21/build/WienBuildingsLOD21/
+            /tmp/hybrid-b-absolute-summary.json
+            /tmp/targets.next.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
