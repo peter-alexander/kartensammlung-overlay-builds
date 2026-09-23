@@ -40,6 +40,7 @@ const hybridBThin = countMode("hybrid-b-thin");
 const hybridBClip = countMode("hybrid-b-clip");
 const hybridCClip = countMode("hybrid-c-clip");
 const hybridDClip = countMode("hybrid-d-clip");
+const hybridEHeight = countMode("hybrid-e-height");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -111,8 +112,18 @@ if (
 		+ Number(release.counts.hybridDClip || 0)
 	);
 }
-if (items.length !== 2245) {
-	throw new Error("Expected 2245 production targets, got " + items.length);
+if (
+	hybridEHeight !== 25
+	|| Number(release.counts.hybridEHeight || 0) !== hybridEHeight
+) {
+	throw new Error(
+		"Expected 25 audited Hybrid-E height targets, got "
+		+ hybridEHeight + " / release "
+		+ Number(release.counts.hybridEHeight || 0)
+	);
+}
+if (items.length !== 2270) {
+	throw new Error("Expected 2270 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -129,6 +140,7 @@ const hybrid = items.filter((target) => (
 	|| target.rolloutMode === "hybrid-b-clip"
 	|| target.rolloutMode === "hybrid-c-clip"
 	|| target.rolloutMode === "hybrid-d-clip"
+	|| target.rolloutMode === "hybrid-e-height"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -178,6 +190,7 @@ for (const target of items) {
 		target.rolloutMode === "hybrid-b-clip"
 		|| target.rolloutMode === "hybrid-c-clip"
 		|| target.rolloutMode === "hybrid-d-clip"
+		|| target.rolloutMode === "hybrid-e-height"
 	) {
 		if (target.auditedHistoricalClip !== true) {
 			throw new Error(
@@ -241,6 +254,42 @@ for (const target of items) {
 				"Hybrid clip removed an interior hole wider than 5 cm for "
 				+ target.historicalCode + ": "
 				+ maxSliverHoleWidthM + " m"
+			);
+		}
+	}
+	if (target.rolloutMode === "hybrid-e-height") {
+		if (
+			target.auditedHeightEave !== true
+			|| target.heightAudit?.estimator !== "roof-min-p25"
+			|| Number(target.heightAudit?.minCurrentPartAreaM2) !== 10
+			|| Number(target.heightAudit?.minHistoricalCoverage) !== 0.5
+			|| Number(target.heightAudit?.maxAllowedAbsEaveDifferenceM) !== 2.5
+		) {
+			throw new Error(
+				"Hybrid-E height audit metadata is invalid for "
+				+ target.historicalCode
+			);
+		}
+		const maxAbsEaveDifferenceM = Number(
+			target.heightAudit?.maxRelevantAbsEaveDifferenceM
+		);
+		if (
+			!Number.isFinite(maxAbsEaveDifferenceM)
+			|| maxAbsEaveDifferenceM > 2.5001
+		) {
+			throw new Error(
+				"Hybrid-E eave mismatch exceeds 2.5 m for "
+				+ target.historicalCode + ": "
+				+ maxAbsEaveDifferenceM
+			);
+		}
+		const controlQ95M = Number(
+			target.heightAudit?.controlP25Q95AbsDifferenceM
+		);
+		if (!Number.isFinite(controlQ95M) || controlQ95M < 2.5) {
+			throw new Error(
+				"Hybrid-E control calibration is invalid for "
+				+ target.historicalCode + ": " + controlQ95M
 			);
 		}
 	}
@@ -326,6 +375,7 @@ console.log(JSON.stringify({
 		hybridBClip,
 		hybridCClip,
 		hybridDClip,
+		hybridEHeight,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
