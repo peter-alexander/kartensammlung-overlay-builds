@@ -1,0 +1,67 @@
+name: Refresh Verkehrsunfallkarte years
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'vu-years/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/vu-years.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'vu-years/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/vu-years.yml'
+  schedule:
+    - cron: '13 5 * * *'
+
+concurrency:
+  group: vu-years
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+      CURRENT_URL: https://fahrrad.lima-city.de/Maps/VuYears.js
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Build year list
+        run: node vu-years/build.mjs
+
+      - name: Check whether production file changed
+        id: changed
+        run: |
+          if curl -fsS --retry 3 --retry-delay 2 -o /tmp/current-vu-years.js "$CURRENT_URL" \
+            && cmp -s /tmp/current-vu-years.js vu-years/build/VuYears.js; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "VU year list unchanged."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "VU year list changed or production file is unavailable."
+          fi
+
+      - name: Deploy year list to Lima
+        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            vu-years/build/VuYears.js \
+            "${MAIN_REMOTE_ROOT%/}/VuYears.js"
