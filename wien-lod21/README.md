@@ -68,12 +68,15 @@ enthält:
 - 3 geometrisch auditierte `hybrid-b-thin`-Gebäude,
 - 7 geometrisch geclippte `hybrid-b-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-c-clip`-Gebäude,
+- 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.076 Gebäude.
+- insgesamt 2.245 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-865 automatisch freigegeben. **198 bleiben weiterhin zurückgestellt**; bei
+1.034 automatisch freigegeben. **29 erfüllen die automatische Höhenprüfung
+nicht**; einer davon (`113842`, Straußengasse 14) ist bereits als manuell
+bestätigte Hybrid-Ausnahme produktiv. Bei den übrigen
 ihnen ist die historische/heutige Grundrissabweichung oder eine andere
 Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
 
@@ -272,3 +275,40 @@ Innenhöfe bleiben erhalten.
 
 Mit dieser Bereinigung bestehen **169 von 169 Hybrid-C-Kandidaten** den
 vollständigen Clipping-Audit.
+
+
+## Hybrid-D clip
+
+Nach Hybrid-C verbleiben 169 Kandidaten, die ausschließlich an der bisherigen
+98-%-Grenze für die historische Grundrissüberdeckung scheitern. Alle erfüllen
+weiterhin die übrigen automatischen Plausibilitätsregeln:
+
+- historische Überdeckung mindestens 95,0 %,
+- heutige Überdeckung mindestens 60 %,
+- Schwerpunktabstand höchstens 8 m,
+- Höhenabweichung höchstens `max(6 m, 30 %)`.
+
+Da das historische 3D-Modell ohnehin auf den heutigen exakten OGD-Grundriss
+geclippt wird, wurde die gesamte Gruppe gemeinsam getestet, statt die
+Prozentgrenze weiter als reine Toleranzregel zu interpretieren.
+
+Ein erster Test zeigte dabei eine JSTS-`GeometryCollection` aus einem
+Polygon plus flächenlosen Linien-/Punktresten. Clip-Intersections werden
+deshalb vor der weiteren Verarbeitung explizit auf ihre polygonalen
+Bestandteile normalisiert. Flächenlose Overlay-Reste beeinflussen damit weder
+Grundfläche noch Wandableitung.
+
+Der vollständige Test aller 169 Hybrid-D-Kandidaten ergibt:
+
+- **169/169 bestanden**,
+- minimale projizierte Dachabdeckung: **99,9988 %**,
+- geometrische Wandabdeckung: **100 % bei allen Gebäuden**,
+- unabgedeckter Außenrand: **0,000 m bei allen Gebäuden**,
+- historisch entfernte Fläche: 0,595 bis 50,294 m²,
+- numerische Innenloch-Bereinigung bei 21 Gebäuden; maximale mittlere Dicke
+  nur 0,389 mm.
+
+Damit wird die gesamte geometrisch validierte 95–98-%-Gruppe als
+`hybrid-d-clip` produktiv übernommen. Anschließend verbleiben 29 Kandidaten,
+bei denen nicht die Grundrissgeometrie, sondern die Höhenplausibilität die
+automatische Freigabe verhindert.
