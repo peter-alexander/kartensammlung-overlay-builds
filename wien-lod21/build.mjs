@@ -1765,7 +1765,7 @@ async function main() {
 			const clipped = clipHistoricalSurfacesToFootprint(
 				entry.surfaces,
 				objectClip,
-				heightSplit ? currentGeometry : clippedHistoricalGround,
+				clippedHistoricalGround,
 				geoReader,
 				geoWriter,
 				code,
