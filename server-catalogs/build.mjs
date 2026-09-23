@@ -6,6 +6,7 @@ const OUTPUT_DIR = new URL("./build/", import.meta.url);
 const SOURCES = Object.freeze({
 	wienWfs: "https://data.wien.gv.at/daten/geo?version=1.1.0&service=WFS&request=GetCapabilities",
 	wienWms: "https://data.wien.gv.at/daten/wms?service=WMS&request=GetCapabilities&version=1.1.1",
+	wienWmts: "https://mapsneu.wien.gv.at/wmtsneu/1.0.0/WMTSCapabilities.xml",
 	laermkarte: "https://inspire.lfrz.gv.at/000804/wms?version=1.3.0&request=GetCapabilities",
 	noeWms: "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows?service=WMS&version=1.1.1&request=GetCapabilities",
 	stadtplan: "https://www.wien.gv.at/spezial/stadtplan/json/themes.json",
@@ -263,6 +264,53 @@ function buildNoeWmsNames(xml) {
 	return sortObject(result);
 }
 
+function buildWienWmtsNames(xml) {
+	const doc = parseXml(xml, "Wien WMTS");
+	const result = [];
+
+	for (const layer of allElements(doc, "Layer")) {
+		const identifier = firstChildText(layer, "Identifier");
+		const rawTitle = firstChildText(layer, "Title");
+		if (!identifier || !rawTitle) continue;
+
+		const styleNode = firstChild(layer, "Style");
+		const matrixLink = firstChild(layer, "TileMatrixSetLink");
+		const resource = childElements(layer, "ResourceURL")
+			.find((node) => String(node.getAttribute("resourceType") || "").toLowerCase() === "tile")
+			|| firstChild(layer, "ResourceURL");
+
+		const style = styleNode ? firstChildText(styleNode, "Identifier") : "";
+		const tileMatrixSet = matrixLink ? firstChildText(matrixLink, "TileMatrixSet") : "";
+		let template = String(resource?.getAttribute("template") || "").trim();
+
+		if (!style || !tileMatrixSet || !template) continue;
+
+		template = template
+			.replace("{Style}", style)
+			.replace("{TileMatrixSet}", tileMatrixSet)
+			.replace("{TileMatrix}", "{z}")
+			.replace("{TileRow}", "{y}")
+			.replace("{TileCol}", "{x}");
+
+		result.push([
+			identifier,
+			rawTitle === "Stadtplan Beschriftung" ? "Beschriftung" : rawTitle,
+			template
+		]);
+	}
+
+	if (result.length < 5) {
+		throw new Error(`Wien WMTS: unplausibel wenige Layer: ${result.length}`);
+	}
+
+	result.sort((a, b) => String(a[0]).localeCompare(String(b[0]), "de", {
+		numeric: true,
+		sensitivity: "base"
+	}));
+
+	return result;
+}
+
 function normalizeStadtplanThemes(data) {
 	const themes = Array.isArray(data) ? data : data?.themes;
 
@@ -513,6 +561,7 @@ console.log("Lade öffentliche Serverkataloge ...");
 const [
 	wienWfsXml,
 	wienWmsXml,
+	wienWmtsXml,
 	laermXml,
 	noeXml,
 	stadtplanJson,
@@ -521,6 +570,7 @@ const [
 ] = await Promise.all([
 	fetchText(SOURCES.wienWfs, { accept: "application/xml,text/xml,*/*;q=0.8" }),
 	fetchText(SOURCES.wienWms, { accept: "application/xml,text/xml,*/*;q=0.8" }),
+	fetchText(SOURCES.wienWmts, { accept: "application/xml,text/xml,*/*;q=0.8" }),
 	fetchText(SOURCES.laermkarte, { accept: "application/xml,text/xml,*/*;q=0.8" }),
 	fetchText(SOURCES.noeWms, { accept: "application/xml,text/xml,*/*;q=0.8" }),
 	fetchJson(SOURCES.stadtplan),
@@ -533,6 +583,7 @@ const [
 
 const geoserverNames = buildWienWfsNames(wienWfsXml);
 const wmsNames = buildWienWmsNames(wienWmsXml);
+const wienWmtsNames = buildWienWmtsNames(wienWmtsXml);
 const laermkarteNames = buildWienWmsNames(laermXml, "Lärmkarte WMS");
 const noeWmsNames = buildNoeWmsNames(noeXml);
 const stadtplan = normalizeStadtplanThemes(stadtplanJson);
@@ -541,6 +592,7 @@ const bev = await buildBevCatalog(bevXml);
 
 writeJs("GeoserverNames.js", "GeoserverNames", geoserverNames);
 writeJs("WmsNames.js", "WmsNames", wmsNames);
+writeJs("WienWmtsNames.js", "WienWmtsNames", wienWmtsNames);
 writeJs("LaermkarteNames.js", "LaermkarteNames", laermkarteNames);
 writeJs("NoeWmsNames.js", "NoeWmsNames", noeWmsNames);
 writeJs("StadtplanJson.js", "StadtplanJson", stadtplan);
@@ -555,6 +607,7 @@ fs.writeFileSync(
 console.log([
 	`Wien WFS: ${Object.keys(geoserverNames).length}`,
 	`Wien WMS: ${Object.keys(wmsNames).length}`,
+	`Wien WMTS: ${wienWmtsNames.length}`,
 	`Lärmkarte: ${Object.keys(laermkarteNames).length}`,
 	`NÖ WMS: ${Object.keys(noeWmsNames).length}`,
 	`Stadtplan-Themes: ${stadtplan.themes.length}`,
