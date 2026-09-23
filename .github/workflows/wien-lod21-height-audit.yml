@@ -125,7 +125,16 @@ jobs:
           )
           download_sheet() {
           	local sheet="$1"
-          	curl           		--fail           		--location           		--retry 4           		--retry-all-errors           		--connect-timeout 30           		--max-time 300           		--user-agent "kartensammlung-overlay-builds/wien-lod21-height-audit"           		"https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml/${sheet}_lod2_gml.zip"           		-o "/tmp/lod21-zips/${sheet}.zip"
+          	curl \
+          		--fail \
+          		--location \
+          		--retry 4 \
+          		--retry-all-errors \
+          		--connect-timeout 30 \
+          		--max-time 300 \
+          		--user-agent "kartensammlung-overlay-builds/wien-lod21-height-audit" \
+          		"https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml/${sheet}_lod2_gml.zip" \
+          		-o "/tmp/lod21-zips/${sheet}.zip"
           }
           export -f download_sheet
           printf '%s\n' "${SHEETS[@]}" \
