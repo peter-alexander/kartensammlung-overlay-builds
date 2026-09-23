@@ -47,13 +47,24 @@ async function fetchWithRetry(url, attempts = 3, timeoutMs = 45_000) {
 	throw lastError;
 }
 
+function nodeListToArray(nodes) {
+	const result = [];
+
+	for (let index = 0; index < nodes.length; index++) {
+		const node = nodes.item(index);
+		if (node) result.push(node);
+	}
+
+	return result;
+}
+
 function firstText(element, namespace, localName) {
 	const nodes = element.getElementsByTagNameNS(namespace, localName);
 	return nodes.length ? String(nodes.item(0)?.textContent || "").trim() : "";
 }
 
 function rasterFormat(layer) {
-	const formats = [...layer.getElementsByTagNameNS(WMTS_NS, "Format")]
+	const formats = nodeListToArray(layer.getElementsByTagNameNS(WMTS_NS, "Format"))
 		.map((node) => String(node.textContent || "").trim());
 
 	if (formats.includes("image/png")) return "png";
@@ -67,7 +78,7 @@ function legends(layer) {
 		v: ""
 	};
 
-	for (const node of [...layer.getElementsByTagNameNS(WMTS_NS, "LegendURL")]) {
+	for (const node of nodeListToArray(layer.getElementsByTagNameNS(WMTS_NS, "LegendURL"))) {
 		const role = node.getAttributeNS(XLINK_NS, "role") || "";
 		const href = node.getAttributeNS(XLINK_NS, "href") || "";
 
@@ -99,7 +110,7 @@ function parseCapabilities(xml) {
 
 	const layers = [];
 
-	for (const layer of [...doc.getElementsByTagNameNS(WMTS_NS, "Layer")]) {
+	for (const layer of nodeListToArray(doc.getElementsByTagNameNS(WMTS_NS, "Layer"))) {
 		const key = firstText(layer, OWS_NS, "Identifier");
 		const title = firstText(layer, OWS_NS, "Title");
 		const tileMatrixSet = firstText(layer, WMTS_NS, "TileMatrixSet");
