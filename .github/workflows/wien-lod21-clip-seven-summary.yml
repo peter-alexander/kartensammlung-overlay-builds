@@ -25,7 +25,7 @@ jobs:
           path: /tmp/clip-seven
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: 35853518298
+          run-id: 35853874504
 
       - name: Commit compact seven-case summary
         run: |
