@@ -40,6 +40,7 @@ const hybridBThin = countMode("hybrid-b-thin");
 const hybridBClip = countMode("hybrid-b-clip");
 const hybridCClip = countMode("hybrid-c-clip");
 const hybridDClip = countMode("hybrid-d-clip");
+const hybridEaveClip = countMode("hybrid-eave-clip");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -111,8 +112,18 @@ if (
 		+ Number(release.counts.hybridDClip || 0)
 	);
 }
-if (items.length !== 2245) {
-	throw new Error("Expected 2245 production targets, got " + items.length);
+if (
+	hybridEaveClip !== 26
+	|| Number(release.counts.hybridEaveClip || 0) !== hybridEaveClip
+) {
+	throw new Error(
+		"Expected 26 audited eave-corrected clip targets, got "
+		+ hybridEaveClip + " / release "
+		+ Number(release.counts.hybridEaveClip || 0)
+	);
+}
+if (items.length !== 2271) {
+	throw new Error("Expected 2271 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -129,6 +140,7 @@ const hybrid = items.filter((target) => (
 	|| target.rolloutMode === "hybrid-b-clip"
 	|| target.rolloutMode === "hybrid-c-clip"
 	|| target.rolloutMode === "hybrid-d-clip"
+	|| target.rolloutMode === "hybrid-eave-clip"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -178,6 +190,7 @@ for (const target of items) {
 		target.rolloutMode === "hybrid-b-clip"
 		|| target.rolloutMode === "hybrid-c-clip"
 		|| target.rolloutMode === "hybrid-d-clip"
+		|| target.rolloutMode === "hybrid-eave-clip"
 	) {
 		if (target.auditedHistoricalClip !== true) {
 			throw new Error(
@@ -241,6 +254,33 @@ for (const target of items) {
 				"Hybrid clip removed an interior hole wider than 5 cm for "
 				+ target.historicalCode + ": "
 				+ maxSliverHoleWidthM + " m"
+			);
+		}
+	}
+
+	if (target.rolloutMode === "hybrid-eave-clip") {
+		if (target.auditedHeightMetric !== "median-roof-surface-minimum") {
+			throw new Error(
+				"Unexpected eave height metric for "
+				+ target.historicalCode
+			);
+		}
+		const eaveHeightM = Number(target.auditedHistoricalEaveHeightM);
+		const eaveDifferenceM = Number(
+			target.auditedHistoricalEaveDifferenceM
+		);
+		const eaveToleranceM = Number(
+			target.auditedHistoricalEaveToleranceM
+		);
+		if (
+			!Number.isFinite(eaveHeightM)
+			|| !Number.isFinite(eaveDifferenceM)
+			|| !Number.isFinite(eaveToleranceM)
+			|| eaveDifferenceM > eaveToleranceM + 1e-9
+		) {
+			throw new Error(
+				"Invalid audited eave height for "
+				+ target.historicalCode
 			);
 		}
 	}
@@ -326,6 +366,7 @@ console.log(JSON.stringify({
 		hybridBClip,
 		hybridCClip,
 		hybridDClip,
+		hybridEaveClip,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
