@@ -790,6 +790,20 @@ function polygonGeoJsonParts(geometry, writer) {
 	return [];
 }
 
+function polygonalJstsGeometry(geometry, reader, writer) {
+	const polygons = [];
+	for (const coordinates of polygonGeoJsonParts(geometry, writer)) {
+		try {
+			const polygon = reader.read({
+				type: "Polygon",
+				coordinates
+			});
+			if (polygon && !polygon.isEmpty()) polygons.push(polygon);
+		} catch {}
+	}
+	return unionJstsGeometries(polygons);
+}
+
 function signedArea2D(ring) {
 	let area = 0;
 	for (let index = 0; index + 1 < ring.length; index += 1) {
@@ -1052,6 +1066,7 @@ function isHistoricalClipTarget(target) {
 		mode === "hybrid-clip-pilot"
 		|| mode === "hybrid-b-clip"
 		|| mode === "hybrid-c-clip"
+		|| mode === "hybrid-d-clip"
 	);
 }
 
@@ -1562,6 +1577,11 @@ async function main() {
 			currentGeometry,
 			code + " target footprint clip"
 		);
+		clippedHistoricalGround = polygonalJstsGeometry(
+			clippedHistoricalGround,
+			geoReader,
+			geoWriter
+		);
 		if (!clippedHistoricalGround || clippedHistoricalGround.isEmpty()) {
 			throw new Error("Hybrid clip target " + code + " has empty target footprint.");
 		}
@@ -1611,10 +1631,15 @@ async function main() {
 			const entry = entries[index];
 			const objectGround = objectGrounds[index];
 			if (!objectGround) continue;
-			const objectClip = intersectionJstsGeometry(
+			let objectClip = intersectionJstsGeometry(
 				objectGround,
 				currentGeometry,
 				code + " object footprint clip"
+			);
+			objectClip = polygonalJstsGeometry(
+				objectClip,
+				geoReader,
+				geoWriter
 			);
 			if (
 				!objectClip
@@ -1877,6 +1902,9 @@ async function main() {
 			hybridCClip: targets.filter(
 				(target) => target.rolloutMode === "hybrid-c-clip"
 			).length,
+			hybridDClip: targets.filter(
+				(target) => target.rolloutMode === "hybrid-d-clip"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -1985,6 +2013,7 @@ async function main() {
 			hybridBThin: targetManifest.counts.hybridBThin,
 			hybridBClip: targetManifest.counts.hybridBClip,
 			hybridCClip: targetManifest.counts.hybridCClip,
+			hybridDClip: targetManifest.counts.hybridDClip,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
