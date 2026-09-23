@@ -10,7 +10,7 @@ const SOURCES = Object.freeze({
 	noeWms: "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows?service=WMS&version=1.1.1&request=GetCapabilities",
 	stadtplan: "https://www.wien.gv.at/spezial/stadtplan/json/themes.json",
 	arcgisStyles: "https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/self",
-	bevHome: "https://data.bev.gv.at/geoserver/web/"
+	bevWms: "https://data.bev.gv.at/geoserver/ows?service=WMS&request=GetCapabilities&version=1.3.0"
 });
 
 const BEV_SKIP_WORKSPACES = new Set([
@@ -400,117 +400,52 @@ function buildArcGisStyles(data) {
 	};
 }
 
-function extractBevWorkspaces(html) {
-	const selectMatch = html.match(/<select\b[^>]*name=["']workspace:select["'][^>]*>([\s\S]*?)<\/select>/i);
-	if (!selectMatch) return [];
-
-	const result = new Set();
-	const optionRegex = /<option\b[^>]*value=["']([^"']+)["'][^>]*>/gi;
-	let match;
-
-	while ((match = optionRegex.exec(selectMatch[1]))) {
-		const value = String(match[1] || "").trim();
-		if (value) result.add(value);
-	}
-
-	return [...result].sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
-}
-
-function bevServiceTitle(doc) {
-	const service = allElements(doc, "Service")[0];
-	return service ? firstChildText(service, "Title") : "";
-}
-
-function buildBevWorkspace(xml, workspace) {
-	const doc = parseXml(xml, `BEV ${workspace}`);
-	const layers = {};
+function buildBevCatalog(xml) {
+	const doc = parseXml(xml, "BEV WMS");
+	const catalog = {};
 
 	for (const layer of allElements(doc, "Layer")) {
-		const rawName = firstChildText(layer, "Name");
-		if (!rawName) continue;
+		const fullName = firstChildText(layer, "Name");
+		if (!fullName || !fullName.includes(":")) continue;
 
-		const fullName = rawName.includes(":") ? rawName : `${workspace}:${rawName}`;
-		let title = firstChildText(layer, "Title") || rawName;
+		const workspace = fullName.split(":", 1)[0];
+		if (!workspace || BEV_SKIP_WORKSPACES.has(workspace)) continue;
+
+		let title = firstChildText(layer, "Title") || fullName;
 
 		if (title === "Digitales Landschaftsmodell - Geographische Namen INSPIRE") {
 			title = "DLM Geographische Namen INSPIRE";
 		}
 
-		layers[fullName] = title;
-	}
-
-	if (!Object.keys(layers).length) {
-		throw new Error(`BEV ${workspace}: keine benannten Layer.`);
-	}
-
-	return {
-		name: workspace,
-		title: bevServiceTitle(doc),
-		layers: sortObject(layers)
-	};
-}
-
-async function mapConcurrent(items, concurrency, fn) {
-	const results = new Array(items.length);
-	let nextIndex = 0;
-
-	async function worker() {
-		while (true) {
-			const index = nextIndex++;
-			if (index >= items.length) return;
-			results[index] = await fn(items[index], index);
+		if (!catalog[workspace]) {
+			catalog[workspace] = {
+				name: workspace,
+				title: workspace,
+				layers: {}
+			};
 		}
+
+		catalog[workspace].layers[fullName] = title;
 	}
 
-	await Promise.all(
-		Array.from(
-			{ length: Math.min(concurrency, items.length) },
-			() => worker()
-		)
-	);
-
-	return results;
-}
-
-async function buildBevCatalog() {
-	const home = await fetchText(SOURCES.bevHome, {
-		accept: "text/html,*/*;q=0.8"
-	});
-
-	let workspaces = extractBevWorkspaces(home);
-	if (!workspaces.length) {
-		workspaces = BEV_FALLBACK_WORKSPACES;
+	for (const workspace of Object.values(catalog)) {
+		workspace.layers = sortObject(workspace.layers);
 	}
 
-	workspaces = [...new Set(workspaces)]
-		.filter((workspace) => !BEV_SKIP_WORKSPACES.has(workspace))
-		.sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
-
-	if (workspaces.length < 3) {
-		throw new Error(`BEV: unplausibel wenige Workspaces: ${workspaces.length}`);
-	}
-
-	const entries = await mapConcurrent(workspaces, 5, async (workspace) => {
-		const url = `https://data.bev.gv.at/geoserver/${encodeURIComponent(workspace)}/ows?service=WMS&request=GetCapabilities&version=1.3.0`;
-		const xml = await fetchText(url, {
-			accept: "application/xml,text/xml,*/*;q=0.8",
-			timeoutMs: 60_000
-		});
-
-		return [workspace, buildBevWorkspace(xml, workspace)];
-	});
-
-	const catalog = sortObject(Object.fromEntries(entries));
-	const layerCount = Object.values(catalog)
+	const sortedCatalog = sortObject(catalog);
+	const workspaceCount = Object.keys(sortedCatalog).length;
+	const layerCount = Object.values(sortedCatalog)
 		.reduce((sum, workspace) => sum + Object.keys(workspace.layers || {}).length, 0);
 
-	if (layerCount < 20) {
-		throw new Error(`BEV: unplausibel wenige Layer insgesamt: ${layerCount}`);
+	if (workspaceCount < 3 || layerCount < 20) {
+		throw new Error(
+			`BEV: unplausibler zentraler Katalog: ${workspaceCount} Workspaces / ${layerCount} Layer`
+		);
 	}
 
 	return {
-		catalog,
-		workspaceCount: Object.keys(catalog).length,
+		catalog: sortedCatalog,
+		workspaceCount,
 		layerCount
 	};
 }
@@ -533,7 +468,7 @@ const [
 	noeXml,
 	stadtplanJson,
 	arcgisJson,
-	bev
+	bevXml
 ] = await Promise.all([
 	fetchText(SOURCES.wienWfs, { accept: "application/xml,text/xml,*/*;q=0.8" }),
 	fetchText(SOURCES.wienWms, { accept: "application/xml,text/xml,*/*;q=0.8" }),
@@ -541,7 +476,10 @@ const [
 	fetchText(SOURCES.noeWms, { accept: "application/xml,text/xml,*/*;q=0.8" }),
 	fetchJson(SOURCES.stadtplan),
 	fetchJson(SOURCES.arcgisStyles),
-	buildBevCatalog()
+	fetchText(SOURCES.bevWms, {
+		accept: "application/xml,text/xml,*/*;q=0.8",
+		timeoutMs: 60_000
+	})
 ]);
 
 const geoserverNames = buildWienWfsNames(wienWfsXml);
@@ -550,6 +488,7 @@ const laermkarteNames = buildWienWmsNames(laermXml, "Lärmkarte WMS");
 const noeWmsNames = buildNoeWmsNames(noeXml);
 const stadtplan = normalizeStadtplanThemes(stadtplanJson);
 const arcgisStyles = buildArcGisStyles(arcgisJson);
+const bev = buildBevCatalog(bevXml);
 
 writeJs("GeoserverNames.js", "GeoserverNames", geoserverNames);
 writeJs("WmsNames.js", "WmsNames", wmsNames);
