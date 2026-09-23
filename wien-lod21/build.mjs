@@ -2040,6 +2040,9 @@ async function main() {
 			hybridHeightSplit: targets.filter(
 				(target) => target.rolloutMode === "hybrid-height-split"
 			).length,
+			maptoolkitRoofReplacement: targets.filter(
+				(target) => target.rolloutMode === "maptoolkit-roof-replacement"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -2108,6 +2111,25 @@ async function main() {
 			}))
 		}))
 	};
+	const maptoolkitRoofOverrideTargets = targetManifest.targets
+		.filter((target) => (
+			target.rolloutMode === "maptoolkit-roof-replacement"
+		))
+		.map((target) => ({
+			historicalCode: String(target.historicalCode),
+			bwGebId: Number(target.bwGebId),
+			tile: String(target.auditedMaptoolkitOverride?.tile || ""),
+			featureSignatures: [
+				...new Set(
+					target.auditedMaptoolkitOverride?.featureSignatures || []
+				)
+			].map(String).sort()
+		}))
+		.sort((a, b) => (
+			a.tile.localeCompare(b.tile)
+			|| a.historicalCode.localeCompare(b.historicalCode)
+		));
+
 	const release = {
 		schemaVersion: 1,
 		generatedAt,
@@ -2138,6 +2160,11 @@ async function main() {
 			urlTemplate: "tiles/{z}/{x}/{y}.bin",
 			presentTilesZ15
 		},
+		maptoolkitRoofOverrides: {
+			schemaVersion: 1,
+			mode: "fail-safe-feature-fingerprint",
+			targets: maptoolkitRoofOverrideTargets
+		},
 		counts: {
 			sourceGmlFiles: files.length,
 			parsedBuildings,
@@ -2151,6 +2178,8 @@ async function main() {
 			hybridDClip: targetManifest.counts.hybridDClip,
 			hybridEaveClip: targetManifest.counts.hybridEaveClip,
 			hybridHeightSplit: targetManifest.counts.hybridHeightSplit,
+			maptoolkitRoofReplacement:
+				targetManifest.counts.maptoolkitRoofReplacement,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
