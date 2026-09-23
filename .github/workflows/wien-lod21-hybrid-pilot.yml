@@ -1,0 +1,54 @@
+name: Build Vienna LOD2.1 Hybrid Pilot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-pilot
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-pilot.yml'
+      - 'wien-lod21/**'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WIEN_LOD21_TARGETS: wien-lod21/targets.hybrid-pilot.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Build Vienna LOD2.1 hybrid pilot
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate hybrid pilot
+        run: node wien-lod21/validate-hybrid-pilot.mjs wien-lod21/build/WienBuildingsLOD21
+
+      - name: Upload hybrid pilot artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-pilot
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
