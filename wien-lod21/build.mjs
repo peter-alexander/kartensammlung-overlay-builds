@@ -5,6 +5,10 @@ import path from "node:path";
 import { DOMParser } from "@xmldom/xmldom";
 import earcut from "earcut";
 import proj4 from "proj4";
+import {
+	buildHybridRemainders,
+	fetchHybridOgdFeatures
+} from "./hybrid-geometry.mjs";
 
 const GML_NS = "http://www.opengis.net/gml";
 const BLDG_NS = "http://www.opengis.net/citygml/building/1.0";
@@ -612,9 +616,77 @@ function encodeTile(tile, tileData, extent) {
 	return output;
 }
 
+function openGeoJsonRing(coordinates, z) {
+	const points = (coordinates || [])
+		.map((coordinate) => ({
+			x: Number(coordinate?.[0]),
+			y: Number(coordinate?.[1]),
+			z
+		}))
+		.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+	if (
+		points.length > 1
+		&& points[0].x === points[points.length - 1].x
+		&& points[0].y === points[points.length - 1].y
+	) {
+		points.pop();
+	}
+	return points;
+}
+
+function polygonCoordinateSets(geometry) {
+	if (!geometry) return [];
+	if (geometry.type === "Polygon") return [geometry.coordinates || []];
+	if (geometry.type === "MultiPolygon") return geometry.coordinates || [];
+	if (geometry.type === "GeometryCollection") {
+		return (geometry.geometries || []).flatMap(polygonCoordinateSets);
+	}
+	return [];
+}
+
+function hybridRemainderSurfaces(remainder, baseZ) {
+	const topZ = baseZ + Number(remainder?.height || 0);
+	const bottomZ = baseZ + Number(remainder?.base || 0);
+	if (!(topZ > bottomZ)) return [];
+
+	const surfaces = [];
+	for (const polygon of polygonCoordinateSets(remainder?.geometry)) {
+		const roofRings = (polygon || [])
+			.map((ring) => openGeoJsonRing(ring, topZ))
+			.filter((ring) => ring.length >= 3);
+		if (!roofRings.length) continue;
+		surfaces.push({
+			semantic: "roof",
+			rings: roofRings,
+			hybridRemainder: true
+		});
+
+		for (const coordinateRing of polygon || []) {
+			const topRing = openGeoJsonRing(coordinateRing, topZ);
+			const bottomRing = openGeoJsonRing(coordinateRing, bottomZ);
+			if (topRing.length < 3 || topRing.length !== bottomRing.length) continue;
+			for (let index = 0; index < topRing.length; index += 1) {
+				const next = (index + 1) % topRing.length;
+				surfaces.push({
+					semantic: "wall",
+					rings: [[
+						bottomRing[index],
+						bottomRing[next],
+						topRing[next],
+						topRing[index]
+					]],
+					hybridRemainder: true
+				});
+			}
+		}
+	}
+	return surfaces;
+}
+
 function addBuildingToTile(tileData, {
 	building,
 	surfaces,
+	hybridRemainders = [],
 	target,
 	sourceSheet,
 	extent,
@@ -644,17 +716,12 @@ function addBuildingToTile(tileData, {
 	let roofSurfaces = 0;
 	let wallSurfaces = 0;
 	let groundSurfaces = 0;
+	let hybridRemainderRoofSurfaces = 0;
+	let hybridRemainderWallSurfaces = 0;
 
-	for (const surface of surfaces) {
-		if (surface.semantic === "ground") {
-			groundSurfaces += 1;
-			continue;
-		}
+	const appendSurface = (surface) => {
 		const triangulated = triangulateSurface(surface, tile, extent, baseZ);
-		if (!triangulated) continue;
-		if (surface.semantic === "roof") roofSurfaces += 1;
-		else if (surface.semantic === "wall") wallSurfaces += 1;
-
+		if (!triangulated) return false;
 		const surfaceVertexStart = vertexCount(data);
 		for (const point of triangulated.vertices) {
 			pushVertex(data, {
@@ -669,6 +736,25 @@ function addBuildingToTile(tileData, {
 		}
 		for (const index of triangulated.indices) {
 			data.indices.push(surfaceVertexStart + index);
+		}
+		return true;
+	};
+
+	for (const surface of surfaces) {
+		if (surface.semantic === "ground") {
+			groundSurfaces += 1;
+			continue;
+		}
+		if (!appendSurface(surface)) continue;
+		if (surface.semantic === "roof") roofSurfaces += 1;
+		else if (surface.semantic === "wall") wallSurfaces += 1;
+	}
+
+	for (const remainder of hybridRemainders) {
+		for (const surface of hybridRemainderSurfaces(remainder, baseZ)) {
+			if (!appendSurface(surface)) continue;
+			if (surface.semantic === "roof") hybridRemainderRoofSurfaces += 1;
+			else if (surface.semantic === "wall") hybridRemainderWallSurfaces += 1;
 		}
 	}
 
@@ -703,6 +789,17 @@ function addBuildingToTile(tileData, {
 		wallSurfaces,
 		groundSurfaces
 	};
+	if (hybridRemainders.length) {
+		record.hybridRemainder = {
+			featureCount: hybridRemainders.length,
+			ksIds: hybridRemainders.map((remainder) => remainder.ksId).sort(),
+			areaM2: Number(hybridRemainders
+				.reduce((sum, remainder) => sum + Number(remainder.areaM2 || 0), 0)
+				.toFixed(3)),
+			roofSurfaces: hybridRemainderRoofSurfaces,
+			wallSurfaces: hybridRemainderWallSurfaces
+		};
+	}
 	data.buildings.push(record);
 	return { tile, record, distance };
 }
@@ -719,6 +816,7 @@ async function main() {
 	if (!targets.length) throw new Error("No LOD2.1 pilot targets configured.");
 	const targetByCode = new Map(targets.map((target) => [String(target.historicalCode), target]));
 	if (targetByCode.size !== targets.length) throw new Error("Duplicate historicalCode in pilot targets.");
+	const hybridOgdFeatures = await fetchHybridOgdFeatures(targets);
 
 	const files = await listFilesRecursive(args.input);
 	if (!files.length) throw new Error(`No CityGML files found below ${args.input}`);
@@ -759,9 +857,15 @@ async function main() {
 			if (!surfaces.length) {
 				throw new Error(`Target ${code} has no semantic LOD2.1 boundary surfaces.`);
 			}
+			const hybridRemainders = buildHybridRemainders(
+				target,
+				surfaces,
+				hybridOgdFeatures
+			);
 			const added = addBuildingToTile(tileData, {
 				building,
 				surfaces,
+				hybridRemainders,
 				target,
 				sourceSheet,
 				extent,
@@ -846,7 +950,8 @@ async function main() {
 				distanceToExpectedM: Number(match.distance.toFixed(2)),
 				roofSurfaces: match.record.roofSurfaces,
 				wallSurfaces: match.record.wallSurfaces,
-				groundSurfaces: match.record.groundSurfaces
+				groundSurfaces: match.record.groundSurfaces,
+				hybridRemainder: match.record.hybridRemainder || null
 			}))
 		}))
 	};
