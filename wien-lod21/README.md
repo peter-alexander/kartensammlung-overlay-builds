@@ -69,16 +69,17 @@ enthält:
 - 7 geometrisch geclippte `hybrid-b-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-c-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
+- 26 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.245 Gebäude.
+- insgesamt 2.271 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-1.034 automatisch freigegeben. **29 erfüllen die automatische Höhenprüfung
-nicht**; einer davon (`113842`, Straußengasse 14) ist bereits als manuell
-bestätigte Hybrid-Ausnahme produktiv. Bei den übrigen
-ihnen ist die historische/heutige Grundrissabweichung oder eine andere
-Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
+1.060 automatisch freigegeben. **3 bleiben nach der automatischen
+Traufhöhenprüfung zurückgestellt**. Einer davon (`113842`, Straußengasse 14)
+ist bereits als manuell bestätigte Hybrid-Ausnahme produktiv. Nicht produktiv
+bleiben damit nur `029048` und `074864`, bei denen selbst der historische
+First deutlich unter der heutigen Traufe liegt.
 
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält nur die für den Client benötigte
@@ -312,3 +313,58 @@ Damit wird die gesamte geometrisch validierte 95–98-%-Gruppe als
 `hybrid-d-clip` produktiv übernommen. Anschließend verbleiben 29 Kandidaten,
 bei denen nicht die Grundrissgeometrie, sondern die Höhenplausibilität die
 automatische Freigabe verhindert.
+
+
+## Hybrid eave clip
+
+Nach Hybrid-D verbleiben 29 Kandidaten ausschließlich wegen der bisherigen
+Höhenprüfung. Diese Prüfung verglich jedoch zwei unterschiedliche Größen:
+
+- aktuell: `O_KOTE - T_KOTE`, also die Höhe bis zur **Dachtraufe**,
+- historisch: höchster `RoofSurface`-Punkt minus Boden, also bei geneigten
+  Dächern die Höhe bis zum **First**.
+
+Für diese 29 Fälle wurde deshalb eine separate Traufhöhenanalyse durchgeführt.
+Als robuste historische Vergleichsgröße wird pro CityGML-Objekt der Median der
+jeweiligen Mindest-Z-Werte aller `RoofSurface`-Flächen verwendet; bei mehreren
+Objekten eines historischen Codes wird – analog zu den aktuellen FMZK-Teilen –
+der höchste Objektwert herangezogen.
+
+Die Datei `eave-height-analysis.generated.json` dokumentiert mehrere
+verglichene Schätzer. Der Median der RoofSurface-Minima liefert:
+
+- 26 von 29 Fällen innerhalb der bestehenden Produktionsgrenze
+  `max(6 m, 30 %)`,
+- mediane Abweichung zur aktuellen Traufenhöhe: **1,645 m**,
+- nur drei weiterhin klar abweichende Fälle:
+  `029048`, `074864` und `113842`.
+
+Alle 26 erklärbaren Fälle wurden anschließend mit demselben geschlossenen
+historischen 3D-Clipping wie Hybrid-C/D isoliert gebaut und geprüft. Der
+26er-Test besteht vollständig.
+
+Sie werden daher als `hybrid-eave-clip` geführt. Im Produktionssnapshot
+werden zusätzlich die auditierte historische Traufenhöhe, deren Abweichung
+zur aktuellen Traufe und die verwendete Toleranz gespeichert.
+
+Die drei verbleibenden Fälle werden **nicht** automatisch über die neue
+Höhenmetrik freigegeben: Bei ihnen ist sogar der historische First niedriger
+als die heutige Traufe. Eine zusätzliche FMZK-Teilflächenanalyse ist in
+`height-part-analysis.generated.json` dokumentiert:
+
+- `029048`: Der aktuelle 14,621-m-Teilbaukörper überlappt den historischen
+  Grundriss zu **95,65 %**; der historische First liegt nur bei 7,50 m.
+  Das ist damit eine echte Höhenänderung innerhalb des historischen
+  Baukörpers, nicht bloß ein neuer Anbau außerhalb des alten Grundrisses.
+- `074864`: Eine aktuelle, 19,119 m hohe FMZK-Teilfläche von 7,492 m² liegt
+  **vollständig** innerhalb des historischen Grundrisses. Der historische
+  First liegt nur bei 12,634 m. Ein reines XY-Clipping würde diesen heutigen
+  hohen Teil daher fälschlich durch das alte Dach ersetzen.
+- `113842`: Der heutige Bestand ist ein Mischfall mit 14,17-m- und
+  21,428-m-Teilflächen; die 21,428-m-Fläche überlappt den historischen
+  Grundriss teilweise. Dieser Code bleibt ausschließlich wegen der bereits
+  manuell bestätigten Straußengasse-Ausnahme produktiv.
+
+`029048` und `074864` bleiben daher bewusst beim aktuellen LOD1-Fallback.
+Eine spätere LOD2.1-Nutzung würde dort ein **höhensensitives
+Teilflächen-Clipping** erfordern, nicht lediglich eine weitere Toleranzregel.
