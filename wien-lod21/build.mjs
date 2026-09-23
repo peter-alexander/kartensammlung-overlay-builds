@@ -1751,6 +1751,9 @@ async function main() {
 			hybridBThin: targets.filter(
 				(target) => target.rolloutMode === "hybrid-b-thin"
 			).length,
+			hybridBClip: targets.filter(
+				(target) => target.rolloutMode === "hybrid-b-clip"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -1843,6 +1846,7 @@ async function main() {
 			hybridA: targetManifest.counts.hybridA,
 			hybridBAbsolute: targetManifest.counts.hybridBAbsolute,
 			hybridBThin: targetManifest.counts.hybridBThin,
+			hybridBClip: targetManifest.counts.hybridBClip,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
