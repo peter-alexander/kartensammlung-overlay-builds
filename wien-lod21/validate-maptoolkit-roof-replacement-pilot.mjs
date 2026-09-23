@@ -128,6 +128,36 @@ function getSurfaceGroups(groups) {
 	return metadata.length === 2 ? groups.slice(1) : groups;
 }
 
+function getFeatureBaseDecimeters(groups) {
+	const metadata = openRing(groups?.[0]?.[0]);
+	if (metadata.length === 2) {
+		return Math.min(metadata[0].z, metadata[1].z);
+	}
+	const points = (groups || []).flat(2);
+	const elevations = points
+		.map((point) => Number(point?.z))
+		.filter(Number.isFinite);
+	return elevations.length ? Math.min(...elevations) : 0;
+}
+
+function surfaceRelativeHeightMeters(surface, baseDecimeters) {
+	const heights = (surface || [])
+		.flatMap((ring) => openRing(ring))
+		.map((point) => (Number(point.z) - baseDecimeters) / 10)
+		.filter(Number.isFinite);
+	if (!heights.length) return null;
+	const sorted = heights.sort((a, b) => a - b);
+	const middle = Math.floor(sorted.length / 2);
+	const median = sorted.length % 2
+		? sorted[middle]
+		: (sorted[middle - 1] + sorted[middle]) / 2;
+	return {
+		min: sorted[0],
+		median,
+		max: sorted[sorted.length - 1]
+	};
+}
+
 function tileCenterLatitude(tile) {
 	const n = 2 ** tile.z;
 	const worldY = (tile.y + 0.5) / n;
@@ -294,6 +324,50 @@ function replacementPointsForBuilding(tileData, historicalCode) {
 	return points;
 }
 
+function historicalPitchedRoofStats(tileData, historicalCode) {
+	const building = (tileData.metadata.buildings || []).find((item) => (
+		String(item?.historicalCode || "") === historicalCode
+	));
+	if (!building) return null;
+	const sourceVertexStart = Number(building.vertexStart);
+	const sourceVertexCount = Number(building.vertexCount);
+	if (
+		!Number.isFinite(sourceVertexStart)
+		|| !Number.isFinite(sourceVertexCount)
+		|| sourceVertexStart < 0
+		|| sourceVertexCount <= 0
+	) return null;
+
+	const heights = [];
+	for (
+		let sourceIndex = sourceVertexStart;
+		sourceIndex < sourceVertexStart + sourceVertexCount;
+		sourceIndex += 1
+	) {
+		const offset = tileData.vertexOffset + sourceIndex * tileData.vertexStride;
+		if (tileData.view.getUint8(offset + 12) !== 1) continue;
+		heights.push(tileData.view.getUint16(offset + 4, true) / 100);
+	}
+	if (!heights.length) return null;
+	heights.sort((a, b) => a - b);
+	const min = heights[0];
+	const max = heights[heights.length - 1];
+	return {
+		minM: Number(min.toFixed(3)),
+		maxM: Number(max.toFixed(3)),
+		riseM: Number((max - min).toFixed(3))
+	};
+}
+
+function median(values) {
+	const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+	if (!sorted.length) return null;
+	const middle = Math.floor(sorted.length / 2);
+	return sorted.length % 2
+		? sorted[middle]
+		: (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
 async function fetchMtkTile(tile) {
 	const url = MTK_TILE_URL
 		.replace("{z}", String(tile.z))
@@ -337,6 +411,7 @@ async function main() {
 		);
 		const tileData = parseBin(await fs.readFile(binPath));
 		const replacementPoints = replacementPointsForBuilding(tileData, code);
+		const historicalRoof = historicalPitchedRoofStats(tileData, code);
 
 		const mtkBuffer = await fetchMtkTile(tile);
 		const vectorTile = new VectorTile(new PbfReader(mtkBuffer));
@@ -353,10 +428,12 @@ async function main() {
 		const matchedFeatures = [];
 		const flatHitPoints = new Set();
 		const pitchedHitPoints = new Set();
+		const flatHitSurfaceHeights = [];
 
 		for (let featureIndex = 0; featureIndex < layer.length; featureIndex += 1) {
 			const feature = layer.feature(featureIndex);
 			const groups = decodeGeometry3D(feature);
+			const baseDecimeters = getFeatureBaseDecimeters(groups);
 			const surfaces = getSurfaceGroups(groups);
 			const featureFlatHitPoints = new Set();
 			const featurePitchedHitPoints = new Set();
@@ -367,6 +444,7 @@ async function main() {
 				if (kind === "pitched-roof") pitchedSurfaces += 1;
 				if (kind === "flat-roof") flatSurfaces += 1;
 				if (kind === "wall") continue;
+				const hitPointIndices = [];
 				for (let pointIndex = 0; pointIndex < replacementPoints.length; pointIndex += 1) {
 					if (
 						!surfaceContainsPoint(
@@ -375,12 +453,28 @@ async function main() {
 							scale
 						)
 					) continue;
+					hitPointIndices.push(pointIndex);
 					if (kind === "pitched-roof") {
 						pitchedHitPoints.add(pointIndex);
 						featurePitchedHitPoints.add(pointIndex);
 					} else if (kind === "flat-roof") {
 						flatHitPoints.add(pointIndex);
 						featureFlatHitPoints.add(pointIndex);
+					}
+				}
+				if (kind === "flat-roof" && hitPointIndices.length) {
+					const height = surfaceRelativeHeightMeters(
+						surface,
+						baseDecimeters
+					);
+					if (height) {
+						flatHitSurfaceHeights.push({
+							featureIndex,
+							hitPointIndices,
+							minM: Number(height.min.toFixed(3)),
+							medianM: Number(height.median.toFixed(3)),
+							maxM: Number(height.max.toFixed(3))
+						});
 					}
 				}
 			}
@@ -409,6 +503,33 @@ async function main() {
 		if (!flatHitPoints.size) reasons.push("no-flat-maptoolkit-hit");
 		if (pitchedHitPoints.size) reasons.push("pitched-maptoolkit-hit");
 
+		const flatSurfaceMedians = flatHitSurfaceHeights
+			.map((surface) => Number(surface.medianM))
+			.filter(Number.isFinite);
+		const maptoolkitFlatMedianM = median(flatSurfaceMedians);
+		const eaveDeltaM = (
+			Number.isFinite(maptoolkitFlatMedianM)
+			&& Number.isFinite(historicalRoof?.minM)
+		)
+			? maptoolkitFlatMedianM - historicalRoof.minM
+			: null;
+		const ridgeDeltaM = (
+			Number.isFinite(maptoolkitFlatMedianM)
+			&& Number.isFinite(historicalRoof?.maxM)
+		)
+			? maptoolkitFlatMedianM - historicalRoof.maxM
+			: null;
+		const roofRisePosition = (
+			Number.isFinite(maptoolkitFlatMedianM)
+			&& Number.isFinite(historicalRoof?.minM)
+			&& Number(historicalRoof?.riseM) > 0.01
+		)
+			? (
+				(maptoolkitFlatMedianM - historicalRoof.minM)
+				/ historicalRoof.riseM
+			)
+			: null;
+
 		reports.push({
 			historicalCode: code,
 			bwGebId: target.bwGebId ?? null,
@@ -428,6 +549,20 @@ async function main() {
 				: 0,
 			currentOgdParts: Array.isArray(target.ksIds) ? target.ksIds.length : 0,
 			maptoolkitMatchedFeatures: matchedFeatures.length,
+			historicalPitchedRoof: historicalRoof,
+			maptoolkitFlatHitSurfaces: flatHitSurfaceHeights,
+			maptoolkitFlatMedianM: Number.isFinite(maptoolkitFlatMedianM)
+				? Number(maptoolkitFlatMedianM.toFixed(3))
+				: null,
+			maptoolkitFlatVsHistoricalEaveM: Number.isFinite(eaveDeltaM)
+				? Number(eaveDeltaM.toFixed(3))
+				: null,
+			maptoolkitFlatVsHistoricalRidgeM: Number.isFinite(ridgeDeltaM)
+				? Number(ridgeDeltaM.toFixed(3))
+				: null,
+			maptoolkitFlatRoofRisePosition: Number.isFinite(roofRisePosition)
+				? Number(roofRisePosition.toFixed(4))
+				: null,
 			maptoolkitFeatures: matchedFeatures
 		});
 	}
