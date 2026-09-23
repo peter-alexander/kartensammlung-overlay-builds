@@ -1,0 +1,404 @@
+{
+	"version": 1,
+	"additional": {
+		"advertising": {
+			"sec": "Dienstleistungen & Büros"
+		},
+		"barrier": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"assisted_repair": {
+			"sec": "Dienstleistungen & Büros"
+		},
+		"ambulancestation": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"animal_shelter": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"hospital_ward": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"arcade": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"artwork": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"assembly_point": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"beehive": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"bench_at_pt": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"bike_cafe": {
+			"sec": "Essen & Trinken"
+		},
+		"bike_themed_object": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"bicycle_assisted_repair_workshop": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"bicycle_guidepost": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"bicycle_library": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"binocular": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"birdhide": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"buildings_with_architecture": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"cafe_pub_dog_friendly": {
+			"sec": "Essen & Trinken"
+		},
+		"car_pooling": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"climbing_area": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"climbing_club": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"climbing_gym": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"climbing_route": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"condom_vending_machine": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"crossings": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"crossings_no_traffic_lights": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"cyclist_waiting_aid": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"data_center": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"departures_board": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"detour_routes": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"dog_toilet": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"dumpstations": {
+			"sec": "Unterkünfte & Camping"
+		},
+		"elongated_coin": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"entrance": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"erotic_cinema": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"etymology": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"excrement_bag_dispenser": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"extinguisher": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"facadegardens": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"farming_equipment_cooperative": {
+			"sec": "Dienstleistungen & Büros"
+		},
+		"fixme": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"food_dog_friendly": {
+			"sec": "Essen & Trinken"
+		},
+		"food_glutenfree": {
+			"sec": "Essen & Trinken"
+		},
+		"food_lactosefree": {
+			"sec": "Essen & Trinken"
+		},
+		"forest": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"footway": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"friture": {
+			"sec": "Essen & Trinken"
+		},
+		"ghost_bike": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"ghostsign": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"grave": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"group_campsite": {
+			"sec": "Unterkünfte & Camping"
+		},
+		"group_hostel": {
+			"sec": "Unterkünfte & Camping"
+		},
+		"guidepost": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"guidepost_hiking": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"historic_aircraft": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"historic_rolling_stock": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"hitchhiking": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"insect_hotel": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"information_board": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"icecream_glutenfree": {
+			"sec": "Essen & Trinken"
+		},
+		"icecream_lactosefree": {
+			"sec": "Essen & Trinken"
+		},
+		"kerbs": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"lighthouse": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"lit_streets": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"love_hotel": {
+			"sec": "Unterkünfte & Camping"
+		},
+		"manhole": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"map": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"medical_shops": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"memorial": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"mobility_hub": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"mountain_rescue": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"nesting_site": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"parking_spaces": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"parking_spaces_disabled": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"parking_ticket_machine": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"pedestrian_path": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"physiotherapist": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"police_call_box": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"postal_code_boundary": {
+			"sec": "Bildung & Verwaltung"
+		},
+		"play_forest": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"playground_equipment": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"power_cable": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"power_generator": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"power_line": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"power_minor_line": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"power_plant": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"power_pole": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"power_tower": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"psychotherapist": {
+			"sec": "Gesundheit & Soziales"
+		},
+		"pt_shelter": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"railway_platforms": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"rainbow_crossing_high_zoom": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"raised_platform": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"reception_desk": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"route_marker": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"research_institute": {
+			"sec": "Bildung & Verwaltung"
+		},
+		"scouting_group": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"serviced_streets": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"shop_dog_friendly": {
+			"sec": "Geschäfte"
+		},
+		"shops_glutenfree": {
+			"sec": "Geschäfte"
+		},
+		"shops_lactosefree": {
+			"sec": "Geschäfte"
+		},
+		"shops_with_climbing_shoe_repair": {
+			"sec": "Dienstleistungen & Büros"
+		},
+		"ski_piste": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"souvenir_coin": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"souvenir_note": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"speed_display": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"stairs": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"street_cabinet": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"street_lamps": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"street_with_width": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"stripclub": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"surveillance_camera": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"tactile_map": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"tactile_model": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"telecom": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"tertiary_education": {
+			"sec": "Bildung & Verwaltung"
+		},
+		"ticket_machine": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"ticket_validator": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"tool_library": {
+			"sec": "Dienstleistungen & Büros"
+		},
+		"transit_routes": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"transit_stops": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"traffic_calming": {
+			"sec": "Mobilität & Verkehr"
+		},
+		"tree_stump": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"utility_pole": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"village_green": {
+			"sec": "Natur, Landnutzung & Gewässer"
+		},
+		"trolley_bay": {
+			"sec": "Geschäfte"
+		},
+		"visitor_information_centre": {
+			"sec": "Freizeit, Sport & Kultur"
+		},
+		"waste_basket_dogs": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"wayside_shrine": {
+			"sec": "Geschichte & Archäologie"
+		},
+		"windpump": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		},
+		"windturbine": {
+			"sec": "Öffentliche Infrastruktur & Versorgung"
+		}
+	}
+}
