@@ -1,0 +1,70 @@
+{
+	"schemaVersion": 1,
+	"status": "pilot",
+	"zoom": 15,
+	"extent": 8192,
+	"buildings": [
+		{
+			"name": "Roof-loss pilot 030964",
+			"historicalCode": "030964",
+			"bwGebId": 5597244,
+			"ksIds": [
+				"wien-fmzk:4007833562",
+				"wien-fmzk:4007833565"
+			],
+			"sheet": "095077",
+			"lng": 16.300963,
+			"lat": 48.1858416,
+			"rolloutMode": "maptoolkit-roof-replacement-pilot"
+		},
+		{
+			"name": "Roof-loss pilot 075028",
+			"historicalCode": "075028",
+			"bwGebId": 5409463,
+			"ksIds": [
+				"wien-fmzk:4001168245",
+				"wien-fmzk:4001168255"
+			],
+			"sheet": "120089",
+			"lng": 16.4713021,
+			"lat": 48.2431845,
+			"rolloutMode": "maptoolkit-roof-replacement-pilot"
+		},
+		{
+			"name": "Roof-loss pilot 092098",
+			"historicalCode": "092098",
+			"bwGebId": 5382545,
+			"ksIds": [
+				"wien-fmzk:4004084345"
+			],
+			"sheet": "093069",
+			"lng": 16.2885283,
+			"lat": 48.149295,
+			"rolloutMode": "maptoolkit-roof-replacement-pilot"
+		},
+		{
+			"name": "Roof-loss pilot 097306",
+			"historicalCode": "097306",
+			"bwGebId": 5547041,
+			"ksIds": [
+				"wien-fmzk:4004126094"
+			],
+			"sheet": "091068",
+			"lng": 16.2746251,
+			"lat": 48.1456496,
+			"rolloutMode": "maptoolkit-roof-replacement-pilot"
+		},
+		{
+			"name": "Roof-loss pilot 163184",
+			"historicalCode": "163184",
+			"bwGebId": 5346956,
+			"ksIds": [
+				"wien-fmzk:4003999911"
+			],
+			"sheet": "120084",
+			"lng": 16.4706154,
+			"lat": 48.2163735,
+			"rolloutMode": "maptoolkit-roof-replacement-pilot"
+		}
+	]
+}
