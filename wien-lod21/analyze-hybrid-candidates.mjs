@@ -91,11 +91,22 @@ async function main() {
 		? report.hybridCandidates
 		: [];
 
-	const enriched = candidates.map((candidate) => ({
-		...candidate,
-		hybridTier: tier(candidate),
-		ksIdCount: Array.isArray(candidate.ksIds) ? candidate.ksIds.length : 0
-	}));
+	const enriched = candidates.map((candidate) => {
+		const oldArea = Number(candidate.metrics?.oldArea);
+		const intersectionArea = Number(candidate.metrics?.intersectionArea);
+		const outsideOldAreaM2 = (
+			Number.isFinite(oldArea)
+			&& Number.isFinite(intersectionArea)
+		)
+			? Math.max(0, oldArea - intersectionArea)
+			: null;
+		return {
+			...candidate,
+			hybridTier: tier(candidate),
+			ksIdCount: Array.isArray(candidate.ksIds) ? candidate.ksIds.length : 0,
+			outsideOldAreaM2
+		};
+	});
 
 	const tiers = Object.fromEntries(
 		["hybrid-a", "hybrid-b", "hybrid-c", "defer"].map((name) => [
@@ -119,7 +130,17 @@ async function main() {
 				),
 				bwGebIds: new Set(
 					items.flatMap((item) => item.ownerBwGebIds || []).map(String)
-				).size
+				).size,
+				outsideOldAreaM2: quantiles(
+					items.map((item) => item.outsideOldAreaM2)
+						.filter(Number.isFinite)
+				),
+				outsideOldAreaOver: {
+					"1m2": items.filter((item) => item.outsideOldAreaM2 > 1).length,
+					"2m2": items.filter((item) => item.outsideOldAreaM2 > 2).length,
+					"5m2": items.filter((item) => item.outsideOldAreaM2 > 5).length,
+					"10m2": items.filter((item) => item.outsideOldAreaM2 > 10).length
+				}
 			}];
 		})
 	);
