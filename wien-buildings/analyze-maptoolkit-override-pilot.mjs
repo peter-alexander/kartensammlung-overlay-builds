@@ -217,6 +217,35 @@ function getSurfaceGroups(groups) {
 	return metadata.length === 2 ? groups.slice(1) : groups;
 }
 
+function featureGeometrySignature(groups) {
+	let hash = 0x811c9dc5;
+	const update = (value) => {
+		let number = Number(value);
+		if (!Number.isFinite(number)) number = 0;
+		number |= 0;
+		for (let shift = 0; shift < 32; shift += 8) {
+			hash ^= (number >>> shift) & 0xff;
+			hash = Math.imul(hash, 0x01000193) >>> 0;
+		}
+	};
+	update(groups?.length || 0);
+	for (const group of groups || []) {
+		update(0x475250);
+		update(group?.length || 0);
+		for (const ring of group || []) {
+			update(0x52494e47);
+			const points = openRing(ring);
+			update(points.length);
+			for (const point of points) {
+				update(point.x);
+				update(point.y);
+				update(point.z);
+			}
+		}
+	}
+	return hash.toString(16).padStart(8, "0");
+}
+
 function interiorPolygonPoint(polygon) {
 	const rings = (polygon || []).filter((ring) => ring.length >= 3);
 	if (!rings.length) return null;
@@ -261,6 +290,7 @@ function extractMaptoolkitSurfaces(buffer) {
 	for (let featureIndex = 0; featureIndex < layer.length; featureIndex += 1) {
 		const feature = layer.feature(featureIndex);
 		const groups = decodeGeometry3D(feature);
+		const signature = featureGeometrySignature(groups);
 		for (const surface of getSurfaceGroups(groups)) {
 			const polygon = normalizeSurfacePolygon(surface, extent);
 			if (!polygon) continue;
@@ -268,6 +298,7 @@ function extractMaptoolkitSurfaces(buffer) {
 			if (!point) continue;
 			surfaces.push({
 				featureIndex,
+				signature,
 				point,
 				polygon,
 				bounds: polygonBounds([polygon])
@@ -375,6 +406,12 @@ async function inspectTile(tile, version) {
 	}
 
 	const ownersByMtkFeature = new Map();
+	const signatureByMtkFeature = new Map();
+	for (const surface of surfaces) {
+		if (!signatureByMtkFeature.has(surface.featureIndex)) {
+			signatureByMtkFeature.set(surface.featureIndex, surface.signature);
+		}
+	}
 	const touch = (featureIndex, ogdIndex) => {
 		let owners = ownersByMtkFeature.get(featureIndex);
 		if (!owners) {
@@ -412,7 +449,8 @@ async function inspectTile(tile, version) {
 	return {
 		tile,
 		ogd,
-		ownersByMtkFeature
+		ownersByMtkFeature,
+		signatureByMtkFeature
 	};
 }
 
@@ -484,6 +522,10 @@ async function main() {
 				matchedFeatures.push({
 					tile: tileKey(tile),
 					featureIndex,
+					signature:
+						String(
+							result.signatureByMtkFeature.get(featureIndex) || ""
+						),
 					owners: [...owners].sort(),
 					exclusive: owners.size === 1
 				});
