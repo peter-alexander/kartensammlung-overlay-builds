@@ -1,5 +1,5 @@
 {
-	"generatedAt": "2026-09-23T10:11:16.371Z",
+	"generatedAt": "2026-09-23T10:34:38.515Z",
 	"sourceGeneratedAt": "2026-09-22T20:21:09.874Z",
 	"count": 1063,
 	"tiers": {
@@ -1020,6 +1020,315 @@
 			"currentHeightM": 2.8,
 			"outsideOldAreaM2": 0.030000000000001137,
 			"ksIdCount": 1
+		}
+	],
+	"remainingHybridBReasons": {
+		"total": 10,
+		"outsideOnly": 9,
+		"centroidOnly": 0,
+		"both": 1
+	},
+	"remainingHybridB": [
+		{
+			"historicalCode": "045503",
+			"sheet": "099078",
+			"bwGebIds": [
+				"5528391"
+			],
+			"ksIds": [
+				"wien-fmzk:4006993500",
+				"wien-fmzk:4006993513",
+				"wien-fmzk:4006993514",
+				"wien-fmzk:4006993515",
+				"wien-fmzk:4006993516",
+				"wien-fmzk:4006993517"
+			],
+			"oldAreaM2": 769.02,
+			"currentAreaM2": 980.94,
+			"intersectionAreaM2": 765.18,
+			"expectedCurrentRemainderM2": 215.76,
+			"oldCoverage": 0.995,
+			"currentCoverage": 0.78,
+			"centroidDistanceM": 2.74,
+			"heightDifferenceM": 3.78,
+			"currentHeightM": 20.95,
+			"oldHeightM": 17.17,
+			"outsideOldAreaM2": 3.840000000000032,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "047031",
+			"sheet": "099082",
+			"bwGebIds": [
+				"5557760"
+			],
+			"ksIds": [
+				"wien-fmzk:4006316940",
+				"wien-fmzk:4006777507",
+				"wien-fmzk:4006777510",
+				"wien-fmzk:4006777511",
+				"wien-fmzk:4006777512"
+			],
+			"oldAreaM2": 639.62,
+			"currentAreaM2": 914.9,
+			"intersectionAreaM2": 636.43,
+			"expectedCurrentRemainderM2": 278.47,
+			"oldCoverage": 0.995,
+			"currentCoverage": 0.6956,
+			"centroidDistanceM": 4.31,
+			"heightDifferenceM": 4.33,
+			"currentHeightM": 11.89,
+			"oldHeightM": 16.22,
+			"outsideOldAreaM2": 3.1900000000000546,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "088729",
+			"sheet": "098065",
+			"bwGebIds": [
+				"5503747"
+			],
+			"ksIds": [
+				"wien-fmzk:4004248879",
+				"wien-fmzk:4004248990",
+				"wien-fmzk:4005874244",
+				"wien-fmzk:4005874450",
+				"wien-fmzk:4005874452",
+				"wien-fmzk:4007232204",
+				"wien-fmzk:4007719559",
+				"wien-fmzk:4007719561"
+			],
+			"oldAreaM2": 532.63,
+			"currentAreaM2": 822.47,
+			"intersectionAreaM2": 530.89,
+			"expectedCurrentRemainderM2": 291.58,
+			"oldCoverage": 0.9967,
+			"currentCoverage": 0.6455,
+			"centroidDistanceM": 6.31,
+			"heightDifferenceM": 3.52,
+			"currentHeightM": 8.13,
+			"oldHeightM": 11.65,
+			"outsideOldAreaM2": 1.740000000000009,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": true
+			}
+		},
+		{
+			"historicalCode": "032459",
+			"sheet": "090078",
+			"bwGebIds": [
+				"5473498"
+			],
+			"ksIds": [
+				"wien-fmzk:4006386656",
+				"wien-fmzk:4006386662",
+				"wien-fmzk:4006388235",
+				"wien-fmzk:4006388254",
+				"wien-fmzk:4006934674",
+				"wien-fmzk:4006934677",
+				"wien-fmzk:4006934684"
+			],
+			"oldAreaM2": 477.15,
+			"currentAreaM2": 602.84,
+			"intersectionAreaM2": 475.42,
+			"expectedCurrentRemainderM2": 127.42,
+			"oldCoverage": 0.9964,
+			"currentCoverage": 0.7886,
+			"centroidDistanceM": 0.69,
+			"heightDifferenceM": 5.01,
+			"currentHeightM": 12.85,
+			"oldHeightM": 7.84,
+			"outsideOldAreaM2": 1.7299999999999613,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "011758",
+			"sheet": "102080",
+			"bwGebIds": [
+				"5347454"
+			],
+			"ksIds": [
+				"wien-fmzk:4001025007",
+				"wien-fmzk:4001025027",
+				"wien-fmzk:4001025044",
+				"wien-fmzk:4005011188",
+				"wien-fmzk:4006149971",
+				"wien-fmzk:4006149972",
+				"wien-fmzk:4006149973",
+				"wien-fmzk:4006150241",
+				"wien-fmzk:4006150249",
+				"wien-fmzk:4006150252",
+				"wien-fmzk:4006150259",
+				"wien-fmzk:4006150260",
+				"wien-fmzk:4007017146",
+				"wien-fmzk:4007017154"
+			],
+			"oldAreaM2": 493.55,
+			"currentAreaM2": 618.52,
+			"intersectionAreaM2": 491.85,
+			"expectedCurrentRemainderM2": 126.67,
+			"oldCoverage": 0.9966,
+			"currentCoverage": 0.7952,
+			"centroidDistanceM": 1.58,
+			"heightDifferenceM": 2.52,
+			"currentHeightM": 24.55,
+			"oldHeightM": 27.07,
+			"outsideOldAreaM2": 1.6999999999999886,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "061091",
+			"sheet": "097092",
+			"bwGebIds": [
+				"5521594"
+			],
+			"ksIds": [
+				"wien-fmzk:4003837773",
+				"wien-fmzk:4003837799",
+				"wien-fmzk:4003837859",
+				"wien-fmzk:4006612246",
+				"wien-fmzk:4006612247",
+				"wien-fmzk:4007367341"
+			],
+			"oldAreaM2": 574.28,
+			"currentAreaM2": 737.09,
+			"intersectionAreaM2": 572.76,
+			"expectedCurrentRemainderM2": 164.33,
+			"oldCoverage": 0.9973,
+			"currentCoverage": 0.7771,
+			"centroidDistanceM": 4.44,
+			"heightDifferenceM": 2.26,
+			"currentHeightM": 9.58,
+			"oldHeightM": 11.83,
+			"outsideOldAreaM2": 1.5199999999999818,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "065479",
+			"sheet": "111092",
+			"bwGebIds": [
+				"5358305"
+			],
+			"ksIds": [
+				"wien-fmzk:4006087748",
+				"wien-fmzk:4006089515",
+				"wien-fmzk:4006813956",
+				"wien-fmzk:4006813994"
+			],
+			"oldAreaM2": 296.56,
+			"currentAreaM2": 324.06,
+			"intersectionAreaM2": 295.23,
+			"expectedCurrentRemainderM2": 28.83,
+			"oldCoverage": 0.9955,
+			"currentCoverage": 0.911,
+			"centroidDistanceM": 0.37,
+			"heightDifferenceM": 5.73,
+			"currentHeightM": 12.72,
+			"oldHeightM": 18.46,
+			"outsideOldAreaM2": 1.329999999999984,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "088019",
+			"sheet": "094068",
+			"bwGebIds": [
+				"5407500"
+			],
+			"ksIds": [
+				"wien-fmzk:4005376688",
+				"wien-fmzk:4005377451",
+				"wien-fmzk:4005853447",
+				"wien-fmzk:4006460658"
+			],
+			"oldAreaM2": 777.96,
+			"currentAreaM2": 1144.77,
+			"intersectionAreaM2": 776.94,
+			"expectedCurrentRemainderM2": 367.83,
+			"oldCoverage": 0.9987,
+			"currentCoverage": 0.6787,
+			"centroidDistanceM": 4.31,
+			"heightDifferenceM": 3.88,
+			"currentHeightM": 15.61,
+			"oldHeightM": 19.49,
+			"outsideOldAreaM2": 1.0199999999999818,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "079387",
+			"sheet": "124091",
+			"bwGebIds": [
+				"5548037"
+			],
+			"ksIds": [
+				"wien-fmzk:4001235131",
+				"wien-fmzk:4006105201",
+				"wien-fmzk:4006105241",
+				"wien-fmzk:4006106108",
+				"wien-fmzk:4006106126",
+				"wien-fmzk:4006106157"
+			],
+			"oldAreaM2": 636.4,
+			"currentAreaM2": 883.33,
+			"intersectionAreaM2": 635.67,
+			"expectedCurrentRemainderM2": 247.66,
+			"oldCoverage": 0.9988,
+			"currentCoverage": 0.7196,
+			"centroidDistanceM": 4.96,
+			"heightDifferenceM": 3.13,
+			"currentHeightM": 3.85,
+			"oldHeightM": 6.98,
+			"outsideOldAreaM2": 0.7300000000000182,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
+		},
+		{
+			"historicalCode": "123321",
+			"sheet": "090078",
+			"bwGebIds": [
+				"5392478"
+			],
+			"ksIds": [
+				"wien-fmzk:4005679359"
+			],
+			"oldAreaM2": 162.14,
+			"currentAreaM2": 223.42,
+			"intersectionAreaM2": 161.42,
+			"expectedCurrentRemainderM2": 62,
+			"oldCoverage": 0.9955,
+			"currentCoverage": 0.7225,
+			"centroidDistanceM": 1.81,
+			"heightDifferenceM": 1.39,
+			"currentHeightM": 7.04,
+			"oldHeightM": 8.43,
+			"outsideOldAreaM2": 0.7199999999999989,
+			"exclusion": {
+				"outsideTooLarge": true,
+				"centroidTooFar": false
+			}
 		}
 	],
 	"lowestOldCoverageSamples": {
