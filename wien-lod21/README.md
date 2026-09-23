@@ -63,13 +63,16 @@ wurde aus der vollständigen Stadtanalyse vom 22. September 2026 erzeugt und
 enthält:
 
 - 1.209 automatisch freigegebene `direct-strong`-Gebäude,
+- 614 konservative `hybrid-a`-Gebäude,
+- 72 `hybrid-b-absolute`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
-- 3 manuell bestätigte `manual-pilot-hybrid`-Ausnahmen in der Straußengasse,
-- 538 benötigte LOD2.1-Quellblätter.
+- 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
+- insgesamt 1.897 Gebäude auf 684 benötigten LOD2.1-Quellblättern.
 
-Die übrigen 1.063 sicheren `legacy-subset`-Kandidaten werden **noch nicht**
-automatisch gebaut. Für sie muss zuerst die heutige zusätzliche Grundrissfläche
-als LOD1 erhalten bleiben.
+Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
+686 automatisch freigegeben. **377 bleiben weiterhin zurückgestellt**; bei
+ihnen ist die historische/heutige Grundrissabweichung oder eine andere
+Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
 
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält nur die für den Client benötigte
@@ -99,10 +102,10 @@ LOD2.1-Build zusätzlich ein synthetisches LOD1-Restmesh:
    zugehörigen FMZK-Polygon **einzeln** abziehen,
 3. Differenzteile mit höchstens **5 cm mittlerer geometrischer Dicke**
    (`2 × Fläche / Umfang`) als numerische Sliver verwerfen,
-5. jede verbleibende Restfläche mit den aktuellen
+4. jede verbleibende Restfläche mit den aktuellen
    `O_KOTE/T_KOTE/HOEHE_DGM/U_KOTE`-Werten genau dieses FMZK-Teils als
    flaches LOD1 extrudieren,
-6. historisches LOD2.1 und aktuelle Restmeshes gemeinsam im bestehenden
+5. historisches LOD2.1 und aktuelle Restmeshes gemeinsam im bestehenden
    `KSL21B01`-Format speichern.
 
 Die Behandlung pro FMZK-Teil ist wichtig, weil ein heutiges Gebäude mehrere
@@ -144,3 +147,30 @@ kein Restmesh. Der nachfolgende Form-Audit zeigte jedoch, dass Fläche allein
 kein geeignetes Sliver-Kriterium ist. Die Produktionsregel verwendet deshalb
 stattdessen die oben beschriebene 5-cm-Dünnheitsgrenze; auch kompakte
 Restflächen unter 2 m² bleiben damit erhalten.
+
+
+## Hybrid-B absolute
+
+Die relative 99,9-%-Grenze von Hybrid-A ist für kleine Gebäude unnötig streng:
+Ein geometrisch sehr kleiner historischer Überstand kann dort relativ stärker
+ins Gewicht fallen. Gleichzeitig enthält der bereits validierte Hybrid-A-Satz
+selbst historische Überstände bis **0,58 m²** außerhalb des heutigen
+Grundrisses.
+
+`hybrid-b-absolute` erweitert den Rollout deshalb nur um Kandidaten, die
+weiterhin die Hybrid-A-Regeln für heutige Überdeckung, Schwerpunkt und Höhe
+erfüllen und zusätzlich:
+
+- mindestens 99,5 % historische Überdeckung erreichen,
+- höchstens **0,58 m²** historischen Grundriss außerhalb des heutigen
+  Grundrisses besitzen,
+- nicht bereits Hybrid-A sind.
+
+Die stadtweite Analyse liefert damit 72 zusätzliche Gebäude. Im erzeugten
+Produktionssnapshot beträgt der tatsächliche größte historische Überstand
+**0,56 m²**. Damit akzeptiert diese Klasse absolut keine größere
+Grundrissabweichung als im bereits produktiv getesteten Hybrid-A-Satz.
+
+Ein isolierter Build aller 72 Gebäude wurde vor dem Produktionsrollout mit
+denselben exakten FMZK-Geometrien, Restmesh-Regeln und
+5-cm-Sliver-Prüfungen validiert.
