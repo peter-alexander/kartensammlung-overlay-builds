@@ -1306,6 +1306,12 @@ async function main() {
 	const geoReader = new GeoJSONReader();
 	const geoWriter = new GeoJSONWriter();
 
+	const hybridCurrentByKsId = new Map();
+	for (const feature of hybridCurrent.features || []) {
+		const ksId = String(feature?.properties?.KS_ID || "").trim();
+		if (ksId) hybridCurrentByKsId.set(ksId, feature);
+	}
+
 	const currentGeometryByCode = new Map();
 	for (const target of hybridTargets) {
 		const geometries = [];
@@ -1466,12 +1472,6 @@ async function main() {
 		}
 	}
 
-
-	const hybridCurrentByKsId = new Map();
-	for (const feature of hybridCurrent.features || []) {
-		const ksId = String(feature?.properties?.KS_ID || "").trim();
-		if (ksId) hybridCurrentByKsId.set(ksId, feature);
-	}
 
 	const hybridStats = [];
 	for (const target of hybridTargets) {
