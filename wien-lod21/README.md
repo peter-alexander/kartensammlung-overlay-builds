@@ -97,7 +97,8 @@ LOD2.1-Build zusätzlich ein synthetisches LOD1-Restmesh:
    vereinigen,
 2. diesen historischen Grundriss **ohne Render-Puffer (0 m)** von jedem heute
    zugehörigen FMZK-Polygon **einzeln** abziehen,
-3. Differenzteile unter **2 m²** als numerische Sliver verwerfen,
+3. Differenzteile mit höchstens **5 cm mittlerer geometrischer Dicke**
+   (`2 × Fläche / Umfang`) als numerische Sliver verwerfen,
 5. jede verbleibende Restfläche mit den aktuellen
    `O_KOTE/T_KOTE/HOEHE_DGM/U_KOTE`-Werten genau dieses FMZK-Teils als
    flaches LOD1 extrudieren,
@@ -115,10 +116,14 @@ keine Vermessungssäume sind:
 - `212535`: 529,54 m² (20,10 %).
 
 Die Nahtprobe mit -0,05 / 0 / +0,05 / +0,25 m zeigt: bei **0 m** entstehen
-nur numerische Mikro-Komponenten von zusammen 0,005 / 0,033 / 0,077 m².
-Der 2-m²-Filter entfernt sie vollständig, ohne einen künstlichen Spalt zwischen
-historischem LOD2.1 und aktueller Restfläche zu erzeugen. +0,25 m bleibt daher
-nur eine Diagnosevariante, nicht die Render-Geometrie.
+an den drei Pilotgebäuden nur numerische Mikro-Komponenten von zusammen
+0,005 / 0,033 / 0,077 m²; ihre maximale mittlere Dicke liegt bei nur
+0,2 / 3,0 / 2,4 mm. +0,25 m bleibt daher nur eine Diagnosevariante, nicht die
+Render-Geometrie.
+
+Eine stadtweite Auditprobe zeigte zugleich, dass eine reine 2-m²-Flächengrenze
+zu grob wäre: reale kompakte Restteile von etwa 1–2 m² erreichen 15–54 cm
+mittlere Dicke. Deshalb wird nach **Dünnheit statt Fläche** gefiltert.
 
 
 ## Hybrid-A Rollout
@@ -134,12 +139,8 @@ Für den ersten automatischen Hybrid-Rollout gilt eine strengere Teilmenge der
 Damit ergeben sich **614 Hybrid-A-Kandidaten**. Davon haben 605 nach den
 stadtweiten Matchmetriken mindestens 2 m² erwartete heutige Restfläche.
 
-Bei genau 9 Hybrid-A-Kandidaten liegt die erwartete Restfläche unter der
-2-m²-Slivergrenze (`0–1,79 m²`):
-`041626`, `082449`, `230103`, `100122`, `090445`, `222021`,
-`230447`, `084839`, `068644`.
-
-Für diese neun ist **kein synthetisches Restmesh** das beabsichtigte Ergebnis.
-Die Produktion darf daher weniger Restmesh-Ziele als Hybridziele enthalten;
-entscheidend ist, dass kein Ziel mit mindestens 2 m² erwarteter Restfläche
-ohne Restmesh bleibt.
+In einem ersten Test mit der alten 2-m²-Flächengrenze erzeugten 9 Kandidaten
+kein Restmesh. Der nachfolgende Form-Audit zeigte jedoch, dass Fläche allein
+kein geeignetes Sliver-Kriterium ist. Die Produktionsregel verwendet deshalb
+stattdessen die oben beschriebene 5-cm-Dünnheitsgrenze; auch kompakte
+Restflächen unter 2 m² bleiben damit erhalten.
