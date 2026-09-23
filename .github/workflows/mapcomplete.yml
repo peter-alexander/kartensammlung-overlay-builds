@@ -1,0 +1,93 @@
+name: Build MapComplete catalog
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mapcomplete/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/mapcomplete.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'mapcomplete/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/mapcomplete.yml'
+  schedule:
+    - cron: '47 3 * * 0'
+
+concurrency:
+  group: mapcomplete-catalog
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+      MAIN_BASE_URL: https://fahrrad.lima-city.de
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install PHP cURL support
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php-cli php-curl
+
+      - name: Fetch current Kartensammlung MapComplete configuration
+        run: |
+          mkdir -p mapcomplete/input mapcomplete/build/Icons
+          curl -fsS --retry 3 --retry-delay 2 \
+            "$MAIN_BASE_URL/Overlays/OpenStreetMap/MapcompleteMapping.json" \
+            -o mapcomplete/input/MapcompleteMapping.json
+          curl -fsS --retry 3 --retry-delay 2 \
+            "$MAIN_BASE_URL/Overlays/OpenStreetMap/OsmOverlays.js" \
+            -o mapcomplete/input/OsmOverlays.js
+
+      - name: Restore current production catalog as fallback
+        run: |
+          curl -fsS --retry 3 --retry-delay 2 \
+            "$MAIN_BASE_URL/Maps/MapComplete/MapcompleteLayers.json" \
+            -o mapcomplete/build/MapcompleteLayers.json \
+            || rm -f mapcomplete/build/MapcompleteLayers.json
+
+      - name: Build MapComplete catalog and marker icons
+        run: php mapcomplete/build.php
+
+      - name: Validate catalog against production mapping
+        run: node mapcomplete/validate.mjs
+
+      - name: Deploy marker icons to Lima
+        if: github.event_name != 'pull_request'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+
+          while IFS= read -r -d '' icon; do
+            file_name="$(basename "$icon")"
+            .github/scripts/main-ftp-upload-file.sh \
+              "$icon" \
+              "${MAIN_REMOTE_ROOT%/}/MapComplete/Icons/$file_name"
+          done < <(find mapcomplete/build/Icons -maxdepth 1 -type f -name '*.svg' -print0 | sort -z)
+
+      - name: Deploy catalog to Lima
+        if: github.event_name != 'pull_request'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            mapcomplete/build/MapcompleteLayers.json \
+            "${MAIN_REMOTE_ROOT%/}/MapComplete/MapcompleteLayers.json"
