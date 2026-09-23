@@ -134,9 +134,9 @@ if (missingMeaningfulRemainders.length) {
 			.map((item) => (
 				item.code + "("
 				+ (
-					item.expectedRemainderM2 === null
-						? "unknown"
-						: item.expectedRemainderM2.toFixed(2) + "m²"
+					Number.isFinite(item.rawRemainderAreaM2)
+						? item.rawRemainderAreaM2.toFixed(2) + "m² raw"
+						: "unknown"
 				)
 				+ ")"
 			))
