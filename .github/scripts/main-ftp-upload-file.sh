@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# SAFETY: /default-website/Maps is shared production state.
-# This helper intentionally uploads exactly one explicit file. Do not replace it
-# with mirror/sync logic that can delete or prune unrelated files/directories.
-
 if [ "$#" -ne 2 ]; then
 	echo "Usage: $0 <local-file> <remote-file>" >&2
 	exit 1
