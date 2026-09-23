@@ -1,0 +1,193 @@
+name: Audit Vienna LOD2.1 height candidates
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-height-audit
+    paths:
+      - '.github/workflows/wien-lod21-height-audit.yml'
+      - 'wien-lod21/audit-height-candidates.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 6
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Prepare 29 height-audit targets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(
+          	fs.readFileSync("/tmp/lod21-analysis/wien-lod21-citywide-final.json", "utf8")
+          );
+
+          const heightOk = (candidate) => {
+          	const metrics = candidate?.metrics || {};
+          	const difference = metrics.heightDifferenceM === null
+          		? null
+          		: Number(metrics.heightDifferenceM);
+          	const currentHeight = metrics.currentHeightM === null
+          		? null
+          		: Number(metrics.currentHeightM);
+          	const tolerance = currentHeight === null
+          		? 6
+          		: Math.max(6, currentHeight * 0.30);
+          	return difference === null || difference <= tolerance;
+          };
+
+          const candidates = (report.hybridCandidates || []).filter((candidate) => {
+          	const metrics = candidate?.metrics || {};
+          	return (
+          		Number(metrics.oldCoverage) >= 0.95
+          		&& Number(metrics.currentCoverage) >= 0.60
+          		&& Number(metrics.centroidDistanceM) <= 8
+          		&& !heightOk(candidate)
+          	);
+          });
+
+          if (candidates.length !== 29) {
+          	throw new Error("Expected 29 height candidates, got " + candidates.length);
+          }
+
+          const buildings = candidates.map((candidate) => {
+          	const owners = candidate.ownerBwGebIds || [];
+          	if (owners.length !== 1) {
+          		throw new Error(candidate.historicalCode + ": expected one owner");
+          	}
+          	return {
+          		name: "Wien LOD2.1 height audit " + candidate.historicalCode,
+          		historicalCode: String(candidate.historicalCode),
+          		bwGebId: Number(owners[0]),
+          		ksIds: candidate.ksIds,
+          		sheet: String(candidate.sheet || candidate.lod21Sheet),
+          		lng: Number(candidate.lng),
+          		lat: Number(candidate.lat),
+          		rolloutMode: "hybrid-height-audit",
+          		sourceMetrics: candidate.metrics,
+          		knownManualProduction:
+          			String(candidate.historicalCode) === "113842"
+          };
+          fs.writeFileSync("/tmp/height-targets.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "height-audit",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings
+          }, null, "\t") + "\n");
+          console.log(JSON.stringify({
+          	targets: buildings.length,
+          	sourceSheets: new Set(buildings.map((item) => item.sheet)).size,
+          	codes: buildings.map((item) => item.historicalCode)
+          }, null, 2));
+          NODE
+
+      - name: Download LOD2.1 source sheets
+        run: |
+          mkdir -p /tmp/lod21-source /tmp/lod21-zips
+          mapfile -t SHEETS < <(
+          	node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const input = JSON.parse(fs.readFileSync("/tmp/height-targets.json", "utf8"));
+          for (const sheet of [...new Set(
+          	input.buildings.map((item) => String(item.sheet))
+          )].sort()) {
+          	console.log(sheet);
+          }
+          NODE
+          )
+          download_sheet() {
+          	local sheet="$1"
+          	curl           		--fail           		--location           		--retry 4           		--retry-all-errors           		--connect-timeout 30           		--max-time 300           		--user-agent "kartensammlung-overlay-builds/wien-lod21-height-audit"           		"https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml/${sheet}_lod2_gml.zip"           		-o "/tmp/lod21-zips/${sheet}.zip"
+          }
+          export -f download_sheet
+          printf '%s\n' "${SHEETS[@]}" \
+          	| xargs -I{} -P "$WIEN_LOD21_DOWNLOAD_PARALLEL" bash -c 'download_sheet "$1"' _ {}
+          for sheet in "${SHEETS[@]}"; do
+          	unzip -q "/tmp/lod21-zips/${sheet}.zip" -d /tmp/lod21-source
+          done
+
+      - name: Fetch current FMZK parts
+        run: |
+          node wien-lod21/fetch-hybrid-current.mjs \
+          	--targets /tmp/height-targets.json \
+          	--output /tmp/height-current.json
+
+      - name: Audit part-level heights
+        run: |
+          node wien-lod21/audit-height-candidates.mjs \
+          	--input /tmp/lod21-source \
+          	--current /tmp/height-current.json \
+          	--targets /tmp/height-targets.json \
+          	--output /tmp/height-audit.json
+
+      - name: Print compact target summary
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(fs.readFileSync("/tmp/height-audit.json", "utf8"));
+          const rows = data.rows.map((row) => {
+          	const best = (row.bestOverlapByHistoricalObject || []).filter(Boolean);
+          	const diffs = best
+          		.map((item) => Number(item.eaveDifferenceM))
+          		.filter(Number.isFinite);
+          	return {
+          		code: row.historicalCode,
+          		manual: row.knownManualProduction,
+          		oldHeightM: row.sourceMetrics?.oldHeightM,
+          		currentHeightM: row.sourceMetrics?.currentHeightM,
+          		oldHeightDifferenceM: row.sourceMetrics?.heightDifferenceM,
+          		historicalObjects: row.historicalObjects.length,
+          		currentParts: row.currentParts.length,
+          		eaveDiffMinM: diffs.length ? Math.min(...diffs) : null,
+          		eaveDiffMaxM: diffs.length ? Math.max(...diffs) : null,
+          		eaveDiffMaxAbsM: diffs.length
+          			? Math.max(...diffs.map((value) => Math.abs(value)))
+          			: null,
+          		allBestEavesWithin2m:
+          			diffs.length > 0 && diffs.every((value) => Math.abs(value) <= 2)
+          	};
+          });
+          console.log(JSON.stringify({
+          	global: {
+          		targets: data.targets,
+          		bestOverlapObjects: data.bestOverlapObjects,
+          		bestOverlapEaveDifference: data.bestOverlapEaveDifference
+          	},
+          	rows
+          }, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-height-audit
+          path: /tmp/height-audit.json
+          if-no-files-found: error
+          retention-days: 5
