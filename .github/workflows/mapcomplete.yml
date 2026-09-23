@@ -47,15 +47,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y php-cli php-curl
 
-      - name: Fetch current Kartensammlung MapComplete configuration
-        run: |
-          mkdir -p mapcomplete/input mapcomplete/build/Icons
-          curl -fsS --retry 3 --retry-delay 2 \
-            "$MAIN_BASE_URL/Overlays/OpenStreetMap/MapcompleteMapping.json" \
-            -o mapcomplete/input/MapcompleteMapping.json
-          curl -fsS --retry 3 --retry-delay 2 \
-            "$MAIN_BASE_URL/Overlays/OpenStreetMap/OsmOverlays.js" \
-            -o mapcomplete/input/OsmOverlays.js
+      - name: Prepare build directories
+        run: mkdir -p mapcomplete/build/Icons
 
       - name: Restore current production catalog as fallback
         run: |
@@ -67,7 +60,7 @@ jobs:
       - name: Build MapComplete catalog and marker icons
         run: php mapcomplete/build.php
 
-      - name: Validate catalog against production mapping
+      - name: Validate catalog against build configuration
         run: node mapcomplete/validate.mjs
 
       - name: Deploy marker icons to Lima
