@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - 'kuka/**'
-      - '.github/scripts/lftp-upload.sh'
+      - '.github/scripts/main-ftp-upload-file.sh'
       - '.github/workflows/kuka.yml'
   schedule:
     - cron: '17 * * * *'
@@ -24,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
-      FTP_USER: ${{ secrets.MAIN_FTP_USER }}
-      FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
       MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
       KUKA_CACHE_URL: https://fahrrad.lima-city.de/Maps/Kuka_Entries.json
 
@@ -48,7 +48,7 @@ jobs:
           fi
 
           test -n "$MAIN_REMOTE_ROOT"
-          chmod +x .github/scripts/lftp-upload.sh
-          .github/scripts/lftp-upload.sh \
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
             kuka/build/Kuka_Entries.json \
             "${MAIN_REMOTE_ROOT%/}/Kuka_Entries.json"
