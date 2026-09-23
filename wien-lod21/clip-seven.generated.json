@@ -11,8 +11,8 @@
 		"manualPilotHybrid": 0,
 		"hybridRemainderTargets": 7,
 		"cityGmlBuildingObjects": 59,
-		"vertices": 3842,
-		"triangles": 2176,
+		"vertices": 3814,
+		"triangles": 2162,
 		"tiles": 7
 	},
 	"summary": [
@@ -25,11 +25,12 @@
 				"clippedHistoricalAreaM2": 491.854,
 				"removedHistoricalAreaM2": 1.695,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 0.993137,
+				"boundaryLengthM": 176.332,
+				"generatedWallBoundaryLengthM": 175.17,
+				"minWallBoundaryCoverageRatio": 0.99341,
 				"sourceRoofSurfaces": 22,
 				"clippedRoofSurfaces": 22,
-				"generatedWallSurfaces": 83,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 76
 			},
 			"hybridRemainder": {
 				"historicalCode": "011758",
@@ -52,11 +53,12 @@
 				"clippedHistoricalAreaM2": 475.415,
 				"removedHistoricalAreaM2": 1.737,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 1,
+				"boundaryLengthM": 169.574,
+				"generatedWallBoundaryLengthM": 169.574,
+				"minWallBoundaryCoverageRatio": 1.000003,
 				"sourceRoofSurfaces": 7,
 				"clippedRoofSurfaces": 7,
-				"generatedWallSurfaces": 47,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 47
 			},
 			"hybridRemainder": {
 				"historicalCode": "032459",
@@ -79,11 +81,12 @@
 				"clippedHistoricalAreaM2": 765.178,
 				"removedHistoricalAreaM2": 3.838,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 1,
+				"boundaryLengthM": 180.343,
+				"generatedWallBoundaryLengthM": 180.343,
+				"minWallBoundaryCoverageRatio": 0.999998,
 				"sourceRoofSurfaces": 9,
 				"clippedRoofSurfaces": 9,
-				"generatedWallSurfaces": 73,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 73
 			},
 			"hybridRemainder": {
 				"historicalCode": "045503",
@@ -106,11 +109,12 @@
 				"clippedHistoricalAreaM2": 636.427,
 				"removedHistoricalAreaM2": 3.198,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 1,
+				"boundaryLengthM": 232.472,
+				"generatedWallBoundaryLengthM": 232.472,
+				"minWallBoundaryCoverageRatio": 1.000001,
 				"sourceRoofSurfaces": 11,
 				"clippedRoofSurfaces": 11,
-				"generatedWallSurfaces": 88,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 88
 			},
 			"hybridRemainder": {
 				"historicalCode": "047031",
@@ -133,11 +137,12 @@
 				"clippedHistoricalAreaM2": 572.763,
 				"removedHistoricalAreaM2": 1.522,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 1,
+				"boundaryLengthM": 172.225,
+				"generatedWallBoundaryLengthM": 172.878,
+				"minWallBoundaryCoverageRatio": 1.00379,
 				"sourceRoofSurfaces": 13,
 				"clippedRoofSurfaces": 13,
-				"generatedWallSurfaces": 66,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 66
 			},
 			"hybridRemainder": {
 				"historicalCode": "061091",
@@ -160,11 +165,12 @@
 				"clippedHistoricalAreaM2": 295.234,
 				"removedHistoricalAreaM2": 1.326,
 				"minRoofCoverageRatio": 0.999998,
-				"minWallBoundaryCoverageRatio": 1,
+				"boundaryLengthM": 107.058,
+				"generatedWallBoundaryLengthM": 107.058,
+				"minWallBoundaryCoverageRatio": 0.999998,
 				"sourceRoofSurfaces": 8,
 				"clippedRoofSurfaces": 8,
-				"generatedWallSurfaces": 40,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 40
 			},
 			"hybridRemainder": {
 				"historicalCode": "065479",
@@ -187,11 +193,12 @@
 				"clippedHistoricalAreaM2": 530.894,
 				"removedHistoricalAreaM2": 1.737,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 1,
+				"boundaryLengthM": 165.883,
+				"generatedWallBoundaryLengthM": 166.194,
+				"minWallBoundaryCoverageRatio": 1.001874,
 				"sourceRoofSurfaces": 16,
 				"clippedRoofSurfaces": 16,
-				"generatedWallSurfaces": 63,
-				"reusedSourceWallSurfaces": 0
+				"generatedWallSurfaces": 63
 			},
 			"hybridRemainder": {
 				"historicalCode": "088729",
