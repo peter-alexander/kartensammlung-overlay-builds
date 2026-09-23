@@ -35,7 +35,8 @@ function parseArgs(argv) {
 		includeHybridA: false,
 		includeHybridBAbsolute: false,
 		includeHybridBThin: false,
-		includeHybridBClip: false
+		includeHybridBClip: false,
+		includeHybridCClip: false
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -53,6 +54,8 @@ function parseArgs(argv) {
 			result.includeHybridBThin = true;
 		} else if (arg === "--include-hybrid-b-clip") {
 			result.includeHybridBClip = true;
+		} else if (arg === "--include-hybrid-c-clip") {
+			result.includeHybridCClip = true;
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
@@ -71,6 +74,11 @@ function parseArgs(argv) {
 	if (result.includeHybridBClip && !result.includeHybridBThin) {
 		throw new Error(
 			"--include-hybrid-b-clip requires --include-hybrid-b-thin."
+		);
+	}
+	if (result.includeHybridCClip && !result.includeHybridBClip) {
+		throw new Error(
+			"--include-hybrid-c-clip requires --include-hybrid-b-clip."
 		);
 	}
 	return result;
@@ -154,6 +162,22 @@ function isHybridBClip(candidate) {
 		&& Number(metrics.oldCoverage) >= 0.995
 		&& Number(metrics.currentCoverage) >= 0.60
 		&& Number(metrics.centroidDistanceM) <= 6.5
+		&& hybridHeightOk(candidate)
+	);
+}
+
+function isHybridCClip(candidate) {
+	if (
+		isHybridA(candidate)
+		|| isHybridBAbsolute(candidate)
+		|| isHybridBThin(candidate)
+		|| isHybridBClip(candidate)
+	) return false;
+	const metrics = candidate?.metrics || {};
+	return (
+		Number(metrics.oldCoverage) >= 0.98
+		&& Number(metrics.currentCoverage) >= 0.60
+		&& Number(metrics.centroidDistanceM) <= 8
 		&& hybridHeightOk(candidate)
 	);
 }
@@ -299,6 +323,21 @@ async function main() {
 		});
 	}
 
+	const hybridCClip = args.includeHybridCClip
+		? (report.hybridCandidates || []).filter(isHybridCClip)
+		: [];
+	for (const candidate of hybridCClip) {
+		const code = String(candidate.historicalCode);
+		const pilotTarget = pilotByCode.get(code);
+		targets.push({
+			...targetFromCandidate(candidate, {
+				name: pilotTarget?.name || "",
+				rolloutMode: "hybrid-c-clip"
+			}),
+			auditedHistoricalClip: true
+		});
+	}
+
 	const resultsByCode = new Map(
 		(report.results || [])
 			.filter((item) => item.candidateType === "historical-code")
@@ -351,6 +390,9 @@ async function main() {
 	const hybridBClipCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-b-clip"
 	).length;
+	const hybridCClipCount = targets.filter(
+		(target) => target.rolloutMode === "hybrid-c-clip"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -372,13 +414,15 @@ async function main() {
 				hybridACount
 				+ hybridBAbsoluteCount
 				+ hybridBThinCount
-				+ hybridBClipCount,
+				+ hybridBClipCount
+				+ hybridCClipCount,
 			hybridCandidatesDeferred:
 				Number(report?.counts?.hybridCandidates || 0)
 				- hybridACount
 				- hybridBAbsoluteCount
 				- hybridBThinCount
-				- hybridBClipCount,
+				- hybridBClipCount
+				- hybridCClipCount,
 			hybridBAbsoluteMaxHistoricalOutsideCurrentM2:
 				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2,
 			hybridBThinMaxHistoricalOutsideMeanWidthM:
@@ -391,6 +435,7 @@ async function main() {
 			hybridBAbsolute: hybridBAbsoluteCount,
 			hybridBThin: hybridBThinCount,
 			hybridBClip: hybridBClipCount,
+			hybridCClip: hybridCClipCount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -425,6 +470,12 @@ async function main() {
 			+ " hybrid-b-clip targets, got " + hybridBClipCount
 		);
 	}
+	if (hybridCClipCount !== (args.includeHybridCClip ? 169 : 0)) {
+		throw new Error(
+			"Expected " + (args.includeHybridCClip ? 169 : 0)
+			+ " hybrid-c-clip targets, got " + hybridCClipCount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
@@ -435,9 +486,11 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeHybridBClip
-		? 1907
-		: args.includeHybridBThin
+	const expectedTargets = args.includeHybridCClip
+		? 2076
+		: args.includeHybridBClip
+			? 1907
+			: args.includeHybridBThin
 			? 1900
 			: args.includeHybridBAbsolute
 			? 1897
