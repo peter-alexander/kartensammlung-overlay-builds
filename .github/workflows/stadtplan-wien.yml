@@ -48,6 +48,9 @@ jobs:
       - name: Build complete snapshot
         run: node stadtplan-wien/build.mjs
 
+      - name: Validate built snapshot
+        run: node stadtplan-wien/validate.mjs
+
       - name: Check whether production style changed
         id: changed
         run: |
