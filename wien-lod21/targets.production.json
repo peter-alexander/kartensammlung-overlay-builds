@@ -8,18 +8,20 @@
 		"sheets": 1419,
 		"candidates": 33432,
 		"directProductionEligible": 1209,
-		"hybridCandidatesSelected": 686,
-		"hybridCandidatesDeferred": 377,
-		"hybridBAbsoluteMaxHistoricalOutsideCurrentM2": 0.58
+		"hybridCandidatesSelected": 689,
+		"hybridCandidatesDeferred": 374,
+		"hybridBAbsoluteMaxHistoricalOutsideCurrentM2": 0.58,
+		"hybridBThinMaxHistoricalOutsideMeanWidthM": 0.05
 	},
 	"counts": {
-		"total": 1897,
+		"total": 1900,
 		"directStrong": 1209,
 		"hybridA": 614,
 		"hybridBAbsolute": 72,
+		"hybridBThin": 3,
 		"manualPilotStrong": 1,
 		"manualPilotHybrid": 1,
-		"sourceSheets": 684
+		"sourceSheets": 685
 	},
 	"buildings": [
 		{
@@ -9589,6 +9591,26 @@
 			"historicalOutsideCurrentM2": 3.58
 		},
 		{
+			"name": "Wien LOD2.1 079387",
+			"historicalCode": "079387",
+			"bwGebId": 5548037,
+			"ksIds": [
+				"wien-fmzk:4001235131",
+				"wien-fmzk:4006105201",
+				"wien-fmzk:4006105241",
+				"wien-fmzk:4006106108",
+				"wien-fmzk:4006106126",
+				"wien-fmzk:4006106157"
+			],
+			"sheet": "124091",
+			"lng": 16.4996718,
+			"lat": 48.2519266,
+			"rolloutMode": "hybrid-b-thin",
+			"expectedRemainderM2": 247.66,
+			"historicalOutsideCurrentM2": 0.73,
+			"auditedHistoricalOutsideMaxMeanWidthM": 0.033
+		},
+		{
 			"name": "Wien LOD2.1 079402",
 			"historicalCode": "079402",
 			"bwGebId": 5545708,
@@ -10790,6 +10812,24 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 63.39,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 088019",
+			"historicalCode": "088019",
+			"bwGebId": 5407500,
+			"ksIds": [
+				"wien-fmzk:4005376688",
+				"wien-fmzk:4005377451",
+				"wien-fmzk:4005853447",
+				"wien-fmzk:4006460658"
+			],
+			"sheet": "094068",
+			"lng": 16.2944359,
+			"lat": 48.1478365,
+			"rolloutMode": "hybrid-b-thin",
+			"expectedRemainderM2": 367.83,
+			"historicalOutsideCurrentM2": 1.02,
+			"auditedHistoricalOutsideMaxMeanWidthM": 0.0306
 		},
 		{
 			"name": "Wien LOD2.1 088076",
@@ -15663,6 +15703,21 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 2.24
+		},
+		{
+			"name": "Wien LOD2.1 123321",
+			"historicalCode": "123321",
+			"bwGebId": 5392478,
+			"ksIds": [
+				"wien-fmzk:4005679359"
+			],
+			"sheet": "090078",
+			"lng": 16.2683675,
+			"lat": 48.1901887,
+			"rolloutMode": "hybrid-b-thin",
+			"expectedRemainderM2": 62,
+			"historicalOutsideCurrentM2": 0.72,
+			"auditedHistoricalOutsideMaxMeanWidthM": 0.0312
 		},
 		{
 			"name": "Wien LOD2.1 123426",
