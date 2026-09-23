@@ -1,0 +1,114 @@
+name: Audit Vienna Maptoolkit roof loss surfaces
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-loss-surface-audit.yml'
+      - 'wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      WIEN_LOD21_TARGETS: /tmp/wien-roof-loss-surface-targets.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Download citywide roof-loss analysis
+        uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: /tmp/roof-loss-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35913353237
+
+      - name: Select semantic non-flat strong candidates
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const summary = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/roof-loss-analysis/wien-roof-loss-summary.json",
+          		"utf8"
+          	)
+          );
+          const excludedRoofTypes = new Set(["FLACHDACH", "Sonstiges"]);
+          const candidates = (summary.strongCandidates || []).filter(
+          	(item) => (item.lod21?.roofTypes || []).some(
+          		(roofType) => !excludedRoofTypes.has(String(roofType || ""))
+          	)
+          );
+          if (candidates.length !== 149) {
+          	throw new Error(
+          		"Expected 149 semantic non-flat strong candidates, got "
+          		+ candidates.length
+          	);
+          }
+          const buildings = candidates.map((item) => ({
+          	name: "Roof-loss surface audit " + String(item.historicalCode || ""),
+          	historicalCode: String(item.historicalCode || ""),
+          	bwGebId: String(item.ownerBwGebIds?.[0] || ""),
+          	ksIds: item.ksIds || [],
+          	sheet: String(item.sheet || ""),
+          	lng: Number(item.lng),
+          	lat: Number(item.lat),
+          	rolloutMode: "maptoolkit-roof-replacement"
+          }));
+          const targets = {
+          	schemaVersion: 1,
+          	status: "analysis",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings
+          };
+          fs.writeFileSync(
+          	"/tmp/wien-roof-loss-surface-targets.json",
+          	JSON.stringify(targets, null, "\t") + "\n"
+          );
+          console.log("Selected " + buildings.length + " candidates.");
+          NODE
+
+      - name: Build historical LOD2.1 audit meshes
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Audit against live Maptoolkit surfaces
+        run: |
+          node wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs \
+            --root wien-lod21/build/WienBuildingsLOD21 \
+            --output /tmp/wien-roof-loss-surface-audit.json \
+            --expected-count 149
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-maptoolkit-roof-loss-surface-audit
+          path: |
+            /tmp/wien-roof-loss-surface-targets.json
+            /tmp/wien-roof-loss-surface-audit.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
