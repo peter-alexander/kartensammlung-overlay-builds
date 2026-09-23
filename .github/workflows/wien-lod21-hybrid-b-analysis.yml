@@ -130,6 +130,61 @@ jobs:
           		outsideOldAreaM2: item.outsideOldAreaM2,
           		ksIdCount: item.ksIdCount
           	}));
+          const remainingHybridB = candidates
+          	.filter((item) => (
+          		item.hybridTier === "hybrid-b"
+          		&& !(
+          			Number(item.metrics?.centroidDistanceM) <= 6
+          			&& Number(item.outsideOldAreaM2) <= 0.58
+          		)
+          	))
+          	.map((item) => {
+          		const outsideTooLarge = Number(item.outsideOldAreaM2) > 0.58;
+          		const centroidTooFar = Number(item.metrics?.centroidDistanceM) > 6;
+          		const currentArea = Number(item.metrics?.currentArea);
+          		const intersectionArea = Number(item.metrics?.intersectionArea);
+          		return {
+          			historicalCode: item.historicalCode,
+          			sheet: item.sheet,
+          			bwGebIds: item.ownerBwGebIds,
+          			ksIds: item.ksIds,
+          			oldAreaM2: item.metrics?.oldArea,
+          			currentAreaM2: item.metrics?.currentArea,
+          			intersectionAreaM2: item.metrics?.intersectionArea,
+          			expectedCurrentRemainderM2:
+          				Number.isFinite(currentArea) && Number.isFinite(intersectionArea)
+          					? Number(Math.max(0, currentArea - intersectionArea).toFixed(3))
+          					: null,
+          			oldCoverage: item.metrics?.oldCoverage,
+          			currentCoverage: item.metrics?.currentCoverage,
+          			centroidDistanceM: item.metrics?.centroidDistanceM,
+          			heightDifferenceM: item.metrics?.heightDifferenceM,
+          			currentHeightM: item.metrics?.currentHeightM,
+          			oldHeightM: item.metrics?.oldHeightM,
+          			outsideOldAreaM2: item.outsideOldAreaM2,
+          			exclusion: {
+          				outsideTooLarge,
+          				centroidTooFar
+          			}
+          		};
+          	})
+          	.sort((a, b) => (
+          		Number(b.outsideOldAreaM2) - Number(a.outsideOldAreaM2)
+          	));
+
+          const remainingHybridBReasons = {
+          	total: remainingHybridB.length,
+          	outsideOnly: remainingHybridB.filter((item) => (
+          		item.exclusion.outsideTooLarge && !item.exclusion.centroidTooFar
+          	)).length,
+          	centroidOnly: remainingHybridB.filter((item) => (
+          		!item.exclusion.outsideTooLarge && item.exclusion.centroidTooFar
+          	)).length,
+          	both: remainingHybridB.filter((item) => (
+          		item.exclusion.outsideTooLarge && item.exclusion.centroidTooFar
+          	)).length
+          };
+
           const summary = {
           	generatedAt: input.generatedAt,
           	sourceGeneratedAt: input.sourceGeneratedAt,
@@ -141,6 +196,8 @@ jobs:
           	hybridAExclusionReasons: reasonCounts,
           	absoluteExtensionCounts,
           	absoluteExtensionCandidatesAt058m2: absoluteExtensionCandidates,
+          	remainingHybridBReasons,
+          	remainingHybridB,
           	lowestOldCoverageSamples: sample
           };
           fs.writeFileSync(
