@@ -84,3 +84,63 @@ Für jedes Produktionsziel werden außerdem die exakten aktuellen OGD-`KS_ID`s
 mitgeführt. LOD2.1 darf damit nur jene heutigen FMZK-Baukörper unterdrücken,
 die der Matcher diesem historischen Dach tatsächlich zugeordnet hat; eine
 pauschale Ausblendung der gesamten `BW_GEB_ID` ist für LOD2.1 nicht zulässig.
+
+
+## Hybrid-Restflächen
+
+Für `legacy-subset`-Fälle wird das aktuelle OGD-Feature weiterhin vollständig
+durch die exakten `KS_ID`-Filter aus dem nativen/solaren LOD1-Fallback
+entfernt. Damit heutige Anbauten nicht verloren gehen, erzeugt der
+LOD2.1-Build zusätzlich ein synthetisches LOD1-Restmesh:
+
+1. historische LOD2.1-`GroundSurface`-Polygone je historischem Code
+   vereinigen,
+2. diesen historischen Grundriss **ohne Render-Puffer (0 m)** von jedem heute
+   zugehörigen FMZK-Polygon **einzeln** abziehen,
+3. Differenzteile mit höchstens **5 cm mittlerer geometrischer Dicke**
+   (`2 × Fläche / Umfang`) als numerische Sliver verwerfen,
+5. jede verbleibende Restfläche mit den aktuellen
+   `O_KOTE/T_KOTE/HOEHE_DGM/U_KOTE`-Werten genau dieses FMZK-Teils als
+   flaches LOD1 extrudieren,
+6. historisches LOD2.1 und aktuelle Restmeshes gemeinsam im bestehenden
+   `KSL21B01`-Format speichern.
+
+Die Behandlung pro FMZK-Teil ist wichtig, weil ein heutiges Gebäude mehrere
+Baukörper mit stark unterschiedlichen Höhen enthalten kann.
+
+Der Straußengasse-Pilot bestätigt, dass die Restflächen reale Änderungen und
+keine Vermessungssäume sind:
+
+- `009238`: 234,62 m² Restfläche (33,09 %),
+- `113842`: 216,85 m² (30,14 %),
+- `212535`: 529,54 m² (20,10 %).
+
+Die Nahtprobe mit -0,05 / 0 / +0,05 / +0,25 m zeigt: bei **0 m** entstehen
+an den drei Pilotgebäuden nur numerische Mikro-Komponenten von zusammen
+0,005 / 0,033 / 0,077 m²; ihre maximale mittlere Dicke liegt bei nur
+0,2 / 3,0 / 2,4 mm. +0,25 m bleibt daher nur eine Diagnosevariante, nicht die
+Render-Geometrie.
+
+Eine stadtweite Auditprobe zeigte zugleich, dass eine reine 2-m²-Flächengrenze
+zu grob wäre: reale kompakte Restteile von etwa 1–2 m² erreichen 15–54 cm
+mittlere Dicke. Deshalb wird nach **Dünnheit statt Fläche** gefiltert.
+
+
+## Hybrid-A Rollout
+
+Für den ersten automatischen Hybrid-Rollout gilt eine strengere Teilmenge der
+`legacy-subset`-Klasse:
+
+- historischer Grundriss zu mindestens 99,9 % im heutigen Grundriss,
+- heutige Überdeckung mindestens 60 %,
+- Schwerpunktversatz höchstens 6 m,
+- Höhenabweichung höchstens `max(6 m, 30 %)`.
+
+Damit ergeben sich **614 Hybrid-A-Kandidaten**. Davon haben 605 nach den
+stadtweiten Matchmetriken mindestens 2 m² erwartete heutige Restfläche.
+
+In einem ersten Test mit der alten 2-m²-Flächengrenze erzeugten 9 Kandidaten
+kein Restmesh. Der nachfolgende Form-Audit zeigte jedoch, dass Fläche allein
+kein geeignetes Sliver-Kriterium ist. Die Produktionsregel verwendet deshalb
+stattdessen die oben beschriebene 5-cm-Dünnheitsgrenze; auch kompakte
+Restflächen unter 2 m² bleiben damit erhalten.

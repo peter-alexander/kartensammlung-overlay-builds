@@ -6,12 +6,14 @@ BUILD_DIR="$SCRIPT_DIR/build"
 SOURCE_DIR="$BUILD_DIR/source"
 OUTPUT_DIR="$BUILD_DIR/WienBuildingsLOD21"
 TARGETS_FILE="${WIEN_LOD21_TARGETS:-$SCRIPT_DIR/targets.pilot.json}"
+HYBRID_CURRENT_FILE="$BUILD_DIR/hybrid-current.json"
 DOWNLOAD_BASE="https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$SOURCE_DIR" "$OUTPUT_DIR"
 
 node --check "$SCRIPT_DIR/build.mjs"
+node --check "$SCRIPT_DIR/fetch-hybrid-current.mjs"
 node --check "$SCRIPT_DIR/validate-production.mjs"
 
 mapfile -t SHEETS < <(
@@ -58,7 +60,15 @@ for sheet in "${SHEETS[@]}"; do
 	unzip -q "$BUILD_DIR/${sheet}_lod2_gml.zip" -d "$SOURCE_DIR"
 done
 
-node --expose-gc "$SCRIPT_DIR/build.mjs" 	--input "$SOURCE_DIR" 	--output "$OUTPUT_DIR" 	--targets "$TARGETS_FILE"
+node "$SCRIPT_DIR/fetch-hybrid-current.mjs" \
+	--targets "$TARGETS_FILE" \
+	--output "$HYBRID_CURRENT_FILE"
+
+node --expose-gc "$SCRIPT_DIR/build.mjs" \
+	--input "$SOURCE_DIR" \
+	--output "$OUTPUT_DIR" \
+	--targets "$TARGETS_FILE" \
+	--hybrid-current "$HYBRID_CURRENT_FILE"
 
 echo "Vienna LOD2.1 build complete:"
 find "$OUTPUT_DIR" -type f -printf '%P %s bytes\n' | sort

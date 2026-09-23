@@ -14,7 +14,8 @@ function parseArgs(argv) {
 	const result = {
 		report: "",
 		pilot: "",
-		output: ""
+		output: "",
+		includeHybridA: false
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -24,6 +25,8 @@ function parseArgs(argv) {
 			result.pilot = path.resolve(argv[++index]);
 		} else if (arg === "--output") {
 			result.output = path.resolve(argv[++index]);
+		} else if (arg === "--include-hybrid-a") {
+			result.includeHybridA = true;
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
@@ -32,6 +35,32 @@ function parseArgs(argv) {
 		throw new Error("--report, --pilot and --output are required.");
 	}
 	return result;
+}
+
+function isHybridA(candidate) {
+	const metrics = candidate?.metrics || {};
+	const oldCoverage = Number(metrics.oldCoverage);
+	const currentCoverage = Number(metrics.currentCoverage);
+	const centroidDistanceM = Number(metrics.centroidDistanceM);
+	const heightDifferenceM = metrics.heightDifferenceM === null
+		? null
+		: Number(metrics.heightDifferenceM);
+	const currentHeightM = metrics.currentHeightM === null
+		? null
+		: Number(metrics.currentHeightM);
+	const heightTolerance = currentHeightM === null
+		? 6
+		: Math.max(6, currentHeightM * 0.30);
+	const heightOk = (
+		heightDifferenceM === null
+		|| heightDifferenceM <= heightTolerance
+	);
+	return (
+		oldCoverage >= 0.999
+		&& currentCoverage >= 0.60
+		&& centroidDistanceM <= 6
+		&& heightOk
+	);
 }
 
 function singleOwner(candidate) {
@@ -69,6 +98,14 @@ function targetFromCandidate(candidate, {
 	if (!ksIds.length) {
 		throw new Error("No exact OGD KS_IDs for " + code);
 	}
+	const currentArea = Number(candidate?.metrics?.currentArea);
+	const intersectionArea = Number(candidate?.metrics?.intersectionArea);
+	const expectedRemainderM2 = (
+		Number.isFinite(currentArea)
+		&& Number.isFinite(intersectionArea)
+	)
+		? Math.max(0, currentArea - intersectionArea)
+		: null;
 	return {
 		name: name || ("Wien LOD2.1 " + code),
 		historicalCode: code,
@@ -77,7 +114,10 @@ function targetFromCandidate(candidate, {
 		sheet,
 		lng: Number(candidate.lng),
 		lat: Number(candidate.lat),
-		rolloutMode
+		rolloutMode,
+		expectedRemainderM2: Number.isFinite(expectedRemainderM2)
+			? Number(expectedRemainderM2.toFixed(3))
+			: null
 	};
 }
 
@@ -106,6 +146,17 @@ async function main() {
 			rolloutMode: "direct-strong"
 		});
 	});
+
+	const hybridA = args.includeHybridA
+		? (report.hybridCandidates || []).filter(isHybridA)
+		: [];
+	for (const candidate of hybridA) {
+		const pilotTarget = pilotByCode.get(String(candidate.historicalCode));
+		targets.push(targetFromCandidate(candidate, {
+			name: pilotTarget?.name || "",
+			rolloutMode: "hybrid-a"
+		}));
+	}
 
 	const resultsByCode = new Map(
 		(report.results || [])
@@ -147,6 +198,9 @@ async function main() {
 	const directCount = targets.filter(
 		(target) => target.rolloutMode === "direct-strong"
 	).length;
+	const hybridACount = targets.filter(
+		(target) => target.rolloutMode === "hybrid-a"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -164,11 +218,14 @@ async function main() {
 			sheets: Number(report?.counts?.sheets || 0),
 			candidates: Number(report?.counts?.candidates || 0),
 			directProductionEligible: Number(report?.counts?.directProductionEligible || 0),
-			hybridCandidatesDeferred: Number(report?.counts?.hybridCandidates || 0)
+			hybridCandidatesSelected: hybridACount,
+			hybridCandidatesDeferred:
+				Number(report?.counts?.hybridCandidates || 0) - hybridACount
 		},
 		counts: {
 			total: targets.length,
 			directStrong: directCount,
+			hybridA: hybridACount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -179,14 +236,28 @@ async function main() {
 	if (directCount !== 1209) {
 		throw new Error("Expected 1209 direct production targets, got " + directCount);
 	}
+	if (hybridACount !== (args.includeHybridA ? 614 : 0)) {
+		throw new Error(
+			"Expected " + (args.includeHybridA ? 614 : 0)
+			+ " hybrid-a targets, got " + hybridACount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
-	if (manualHybridCount !== 3) {
-		throw new Error("Expected 3 manual hybrid pilot targets, got " + manualHybridCount);
+	const expectedManualHybrid = args.includeHybridA ? 1 : 3;
+	if (manualHybridCount !== expectedManualHybrid) {
+		throw new Error(
+			"Expected " + expectedManualHybrid
+			+ " manual hybrid pilot targets, got " + manualHybridCount
+		);
 	}
-	if (targets.length !== 1213) {
-		throw new Error("Expected 1213 production targets, got " + targets.length);
+	const expectedTargets = args.includeHybridA ? 1825 : 1213;
+	if (targets.length !== expectedTargets) {
+		throw new Error(
+			"Expected " + expectedTargets
+			+ " production targets, got " + targets.length
+		);
 	}
 
 	await fs.mkdir(path.dirname(args.output), { recursive: true });

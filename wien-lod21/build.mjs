@@ -5,6 +5,14 @@ import path from "node:path";
 import { DOMParser } from "@xmldom/xmldom";
 import earcut from "earcut";
 import proj4 from "proj4";
+import GeoJSONReader from "jsts/org/locationtech/jts/io/GeoJSONReader.js";
+import GeoJSONWriter from "jsts/org/locationtech/jts/io/GeoJSONWriter.js";
+import OverlayOp from "jsts/org/locationtech/jts/operation/overlay/OverlayOp.js";
+import SnapIfNeededOverlayOp from "jsts/org/locationtech/jts/operation/overlay/snap/SnapIfNeededOverlayOp.js";
+import UnionOp from "jsts/org/locationtech/jts/operation/union/UnionOp.js";
+import BufferOp from "jsts/org/locationtech/jts/operation/buffer/BufferOp.js";
+import PrecisionModel from "jsts/org/locationtech/jts/geom/PrecisionModel.js";
+import GeometryPrecisionReducer from "jsts/org/locationtech/jts/precision/GeometryPrecisionReducer.js";
 
 const GML_NS = "http://www.opengis.net/gml";
 const BLDG_NS = "http://www.opengis.net/citygml/building/1.0";
@@ -17,6 +25,8 @@ const XY_QUANTIZATION = 4;
 const EARTH_RADIUS_M = 6_371_008.8;
 const ROOF_MIN_UP_NORMAL = 0.2;
 const FLAT_ROOF_MIN_UP_NORMAL = 0.985;
+const HYBRID_HISTORY_BUFFER_M = 0;
+const HYBRID_MAX_SLIVER_MEAN_WIDTH_M = 0.05;
 
 proj4.defs(
 	SOURCE_CRS,
@@ -29,7 +39,8 @@ function parseArgs(argv) {
 	const result = {
 		input: path.resolve("wien-lod21/build/source"),
 		output: path.resolve("wien-lod21/build/WienBuildingsLOD21"),
-		targets: path.resolve("wien-lod21/targets.pilot.json")
+		targets: path.resolve("wien-lod21/targets.pilot.json"),
+		hybridCurrent: ""
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -42,6 +53,9 @@ function parseArgs(argv) {
 			index += 1;
 		} else if (arg === "--targets") {
 			result.targets = path.resolve(value);
+			index += 1;
+		} else if (arg === "--hybrid-current") {
+			result.hybridCurrent = path.resolve(value);
 			index += 1;
 		} else {
 			throw new Error(`Unknown argument: ${arg}`);
@@ -435,6 +449,7 @@ function buildingRoofType(building) {
 }
 
 function buildingCreationDate(building) {
+	if (!building?.getElementsByTagNameNS) return "";
 	const elements = building.getElementsByTagNameNS(
 		"http://www.opengis.net/citygml/1.0",
 		"creationDate"
@@ -612,13 +627,334 @@ function encodeTile(tile, tileData, extent) {
 	return output;
 }
 
+
+function closeSourceRing(ring) {
+	const coordinates = (ring || []).map((point) => [Number(point.x), Number(point.y)]);
+	if (
+		coordinates.length
+		&& (
+			coordinates[0][0] !== coordinates[coordinates.length - 1][0]
+			|| coordinates[0][1] !== coordinates[coordinates.length - 1][1]
+		)
+	) {
+		coordinates.push([...coordinates[0]]);
+	}
+	return coordinates;
+}
+
+function repairJstsGeometry(geometry) {
+	if (!geometry || geometry.isEmpty()) return null;
+	try {
+		return BufferOp.bufferOp(geometry, 0);
+	} catch {
+		return geometry;
+	}
+}
+
+function unionJstsGeometries(geometries) {
+	let result = null;
+	for (const geometry of geometries || []) {
+		const repaired = repairJstsGeometry(geometry);
+		if (!repaired || repaired.isEmpty()) continue;
+		try {
+			result = result ? UnionOp.union(result, repaired) : repaired;
+		} catch {
+			const repairedResult = repairJstsGeometry(result);
+			result = repairedResult ? UnionOp.union(repairedResult, repaired) : repaired;
+		}
+	}
+	return result;
+}
+
+function differenceJstsGeometry(current, historical, context = "") {
+	try {
+		return OverlayOp.overlayOp(current, historical, OverlayOp.DIFFERENCE);
+	} catch (error) {
+		const repairedCurrent = repairJstsGeometry(current);
+		const repairedHistorical = repairJstsGeometry(historical);
+		if (!repairedCurrent || !repairedHistorical) return null;
+		try {
+			console.warn(
+				"Hybrid difference uses snap overlay"
+				+ (context ? " for " + context : "")
+				+ ": " + (error?.message || error)
+			);
+			return SnapIfNeededOverlayOp.overlayOp(
+				repairedCurrent,
+				repairedHistorical,
+				OverlayOp.DIFFERENCE
+			);
+		} catch (snapError) {
+			const precision = new PrecisionModel(1000);
+			const preciseCurrent = GeometryPrecisionReducer.reduce(
+				repairedCurrent,
+				precision
+			);
+			const preciseHistorical = GeometryPrecisionReducer.reduce(
+				repairedHistorical,
+				precision
+			);
+			console.warn(
+				"Hybrid difference uses 1 mm precision reduction"
+				+ (context ? " for " + context : "")
+				+ ": " + (snapError?.message || snapError)
+			);
+			return SnapIfNeededOverlayOp.overlayOp(
+				preciseCurrent,
+				preciseHistorical,
+				OverlayOp.DIFFERENCE
+			);
+		}
+	}
+}
+
+function groundGeometryFromSurfaces(surfaces, reader) {
+	const geometries = [];
+	for (const surface of surfaces || []) {
+		if (surface.semantic !== "ground" || !surface.rings?.length) continue;
+		const coordinates = surface.rings
+			.map(closeSourceRing)
+			.filter((ring) => ring.length >= 4);
+		if (!coordinates.length) continue;
+		try {
+			geometries.push(reader.read({
+				type: "Polygon",
+				coordinates
+			}));
+		} catch {}
+	}
+	return unionJstsGeometries(geometries);
+}
+
+function jstsGeometryParts(geometry) {
+	if (!geometry || geometry.isEmpty()) return [];
+	const count = Number(geometry.getNumGeometries?.() || 1);
+	const result = [];
+	for (let index = 0; index < count; index += 1) {
+		const part = count === 1 ? geometry : geometry.getGeometryN(index);
+		if (!part || part.isEmpty()) continue;
+		result.push(part);
+	}
+	return result;
+}
+
+function polygonGeoJsonParts(geometry, writer) {
+	if (!geometry || geometry.isEmpty()) return [];
+	const geojson = writer.write(geometry);
+	if (!geojson) return [];
+	if (geojson.type === "Polygon") return [geojson.coordinates];
+	if (geojson.type === "MultiPolygon") return geojson.coordinates;
+	if (geojson.type === "GeometryCollection") {
+		return (geojson.geometries || []).flatMap((item) => {
+			if (item.type === "Polygon") return [item.coordinates];
+			if (item.type === "MultiPolygon") return item.coordinates;
+			return [];
+		});
+	}
+	return [];
+}
+
+function signedArea2D(ring) {
+	let area = 0;
+	for (let index = 0; index + 1 < ring.length; index += 1) {
+		area += ring[index][0] * ring[index + 1][1]
+			- ring[index + 1][0] * ring[index][1];
+	}
+	return area / 2;
+}
+
+function normalizeOpen2DRing(ring, ccw) {
+	const points = [];
+	for (const coordinate of ring || []) {
+		const point = [Number(coordinate[0]), Number(coordinate[1])];
+		if (
+			!points.length
+			|| points[points.length - 1][0] !== point[0]
+			|| points[points.length - 1][1] !== point[1]
+		) {
+			points.push(point);
+		}
+	}
+	if (
+		points.length > 1
+		&& points[0][0] === points[points.length - 1][0]
+		&& points[0][1] === points[points.length - 1][1]
+	) {
+		points.pop();
+	}
+	if (points.length < 3) return [];
+	const closed = [...points, points[0]];
+	const isCcw = signedArea2D(closed) > 0;
+	if (isCcw !== ccw) points.reverse();
+	return points;
+}
+
+function boundarySegmentIndexFromGeometry(
+	geometry,
+	writer,
+	cellSizeM = 5
+) {
+	const segments = [];
+	const cells = new Map();
+	const geojson = writer.write(geometry);
+	const polygons = geojson?.type === "Polygon"
+		? [geojson.coordinates]
+		: geojson?.type === "MultiPolygon"
+			? geojson.coordinates
+			: [];
+
+	const cellKey = (x, y) => x + ":" + y;
+	const addSegment = (a, b) => {
+		const segmentIndex = segments.length;
+		segments.push([a, b]);
+		const minCellX = Math.floor(Math.min(a[0], b[0]) / cellSizeM);
+		const maxCellX = Math.floor(Math.max(a[0], b[0]) / cellSizeM);
+		const minCellY = Math.floor(Math.min(a[1], b[1]) / cellSizeM);
+		const maxCellY = Math.floor(Math.max(a[1], b[1]) / cellSizeM);
+		for (let x = minCellX; x <= maxCellX; x += 1) {
+			for (let y = minCellY; y <= maxCellY; y += 1) {
+				const key = cellKey(x, y);
+				if (!cells.has(key)) cells.set(key, []);
+				cells.get(key).push(segmentIndex);
+			}
+		}
+	};
+
+	for (const polygon of polygons) {
+		for (const ring of polygon || []) {
+			for (let index = 0; index + 1 < ring.length; index += 1) {
+				const a = ring[index];
+				const b = ring[index + 1];
+				if (
+					!Number.isFinite(Number(a?.[0]))
+					|| !Number.isFinite(Number(a?.[1]))
+					|| !Number.isFinite(Number(b?.[0]))
+					|| !Number.isFinite(Number(b?.[1]))
+				) continue;
+				addSegment(
+					[Number(a[0]), Number(a[1])],
+					[Number(b[0]), Number(b[1])]
+				);
+			}
+		}
+	}
+	return { segments, cells, cellSizeM };
+}
+
+function pointToSegmentDistance(point, a, b) {
+	const vx = b[0] - a[0];
+	const vy = b[1] - a[1];
+	const lengthSquared = vx * vx + vy * vy;
+	if (!(lengthSquared > 0)) {
+		return Math.hypot(point[0] - a[0], point[1] - a[1]);
+	}
+	const t = Math.max(0, Math.min(
+		1,
+		((point[0] - a[0]) * vx + (point[1] - a[1]) * vy)
+			/ lengthSquared
+	));
+	return Math.hypot(
+		point[0] - (a[0] + t * vx),
+		point[1] - (a[1] + t * vy)
+	);
+}
+
+function nearbyBoundarySegments(point, index) {
+	if (!index?.segments?.length) return [];
+	const cellX = Math.floor(point[0] / index.cellSizeM);
+	const cellY = Math.floor(point[1] / index.cellSizeM);
+	const indices = new Set();
+	for (let dx = -1; dx <= 1; dx += 1) {
+		for (let dy = -1; dy <= 1; dy += 1) {
+			for (
+				const segmentIndex
+				of index.cells.get((cellX + dx) + ":" + (cellY + dy)) || []
+			) {
+				indices.add(segmentIndex);
+			}
+		}
+	}
+	return [...indices].map((segmentIndex) => index.segments[segmentIndex]);
+}
+
+function edgeLiesOnBoundary(a, b, boundaryIndex, toleranceM = 0.01) {
+	if (!boundaryIndex?.segments?.length) return false;
+	const samples = [0.25, 0.5, 0.75].map((t) => [
+		a[0] + (b[0] - a[0]) * t,
+		a[1] + (b[1] - a[1]) * t
+	]);
+	return samples.every((point) => (
+		nearbyBoundarySegments(point, boundaryIndex).some(([start, end]) => (
+			pointToSegmentDistance(point, start, end) <= toleranceM
+		))
+	));
+}
+
+function currentFeatureLevels(properties = {}) {
+	const roofZ = finiteNumber(properties.O_KOTE);
+	const terrainZ = finiteNumber(properties.T_KOTE)
+		?? finiteNumber(properties.HOEHE_DGM);
+	const undersideZ = finiteNumber(properties.U_KOTE);
+	if (roofZ === null || terrainZ === null || !(roofZ > terrainZ + 0.1)) {
+		return null;
+	}
+	const bottomZ = (
+		undersideZ !== null
+		&& undersideZ > terrainZ
+		&& undersideZ < roofZ
+	)
+		? undersideZ
+		: terrainZ;
+	return { roofZ, terrainZ, bottomZ };
+}
+
+function extrusionSurfacesFromPolygon(
+	coordinates,
+	levels,
+	{ seamBoundaryIndex = null } = {}
+) {
+	const rings2D = (coordinates || [])
+		.map((ring, index) => normalizeOpen2DRing(ring, index === 0))
+		.filter((ring) => ring.length >= 3);
+	if (!rings2D.length) return [];
+
+	const toRing = (ring, z) => ring.map(([x, y]) => ({ x, y, z }));
+	const surfaces = [{
+		semantic: "ground",
+		rings: rings2D.map((ring) => toRing(ring, levels.terrainZ))
+	}, {
+		semantic: "roof",
+		rings: rings2D.map((ring) => toRing(ring, levels.roofZ))
+	}];
+
+	for (const ring of rings2D) {
+		for (let index = 0; index < ring.length; index += 1) {
+			const a = ring[index];
+			const b = ring[(index + 1) % ring.length];
+			if (edgeLiesOnBoundary(a, b, seamBoundaryIndex)) continue;
+			surfaces.push({
+				semantic: "wall",
+				rings: [[
+					{ x: a[0], y: a[1], z: levels.bottomZ },
+					{ x: b[0], y: b[1], z: levels.bottomZ },
+					{ x: b[0], y: b[1], z: levels.roofZ },
+					{ x: a[0], y: a[1], z: levels.roofZ }
+				]]
+			});
+		}
+	}
+	return surfaces;
+}
+
 function addBuildingToTile(tileData, {
 	building,
 	surfaces,
 	target,
 	sourceSheet,
 	extent,
-	zoom
+	zoom,
+	recordKind = "lod21",
+	recordOverrides = {}
 }) {
 	const points = getSurfacePoints(surfaces);
 	if (!points.length) return null;
@@ -688,10 +1024,23 @@ function addBuildingToTile(tileData, {
 		)].sort(),
 		name: String(target.name),
 		rolloutMode: String(target.rolloutMode || "unspecified"),
-		cityGmlId: nodeAttribute(building, GML_NS, "id"),
-		roofType: buildingRoofType(building),
-		creationDate: buildingCreationDate(building),
-		sourceSheet,
+		cityGmlId: String(
+			recordOverrides.cityGmlId
+			?? nodeAttribute(building, GML_NS, "id")
+			?? ""
+		),
+		roofType: String(
+			recordOverrides.roofType
+			?? buildingRoofType(building)
+			?? ""
+		),
+		creationDate: String(
+			recordOverrides.creationDate
+			?? buildingCreationDate(building)
+			?? ""
+		),
+		sourceSheet: String(recordOverrides.sourceSheet ?? sourceSheet ?? ""),
+		recordKind,
 		vertexStart,
 		vertexCount: buildingVertexCount,
 		indexStart,
@@ -719,6 +1068,27 @@ async function main() {
 	if (!targets.length) throw new Error("No LOD2.1 pilot targets configured.");
 	const targetByCode = new Map(targets.map((target) => [String(target.historicalCode), target]));
 	if (targetByCode.size !== targets.length) throw new Error("Duplicate historicalCode in pilot targets.");
+
+	const hybridTargets = targets.filter((target) => (
+		String(target.rolloutMode || "").includes("hybrid")
+	));
+	let hybridCurrent = { type: "FeatureCollection", features: [] };
+	if (args.hybridCurrent) {
+		hybridCurrent = JSON.parse(await fs.readFile(args.hybridCurrent, "utf8"));
+		if (!Array.isArray(hybridCurrent?.features)) {
+			throw new Error("Hybrid current geometry is not a FeatureCollection.");
+		}
+	}
+	if (hybridTargets.length && !args.hybridCurrent) {
+		console.warn(
+			"Hybrid targets configured without --hybrid-current; "
+			+ "building only historical LOD2.1 geometry."
+		);
+	}
+
+	const geoReader = new GeoJSONReader();
+	const geoWriter = new GeoJSONWriter();
+	const historicalGroundByCode = new Map();
 
 	const files = await listFilesRecursive(args.input);
 	if (!files.length) throw new Error(`No CityGML files found below ${args.input}`);
@@ -759,6 +1129,15 @@ async function main() {
 			if (!surfaces.length) {
 				throw new Error(`Target ${code} has no semantic LOD2.1 boundary surfaces.`);
 			}
+			if (String(target.rolloutMode || "").includes("hybrid")) {
+				const groundGeometry = groundGeometryFromSurfaces(surfaces, geoReader);
+				if (groundGeometry) {
+					if (!historicalGroundByCode.has(code)) {
+						historicalGroundByCode.set(code, []);
+					}
+					historicalGroundByCode.get(code).push(groundGeometry);
+				}
+			}
 			const added = addBuildingToTile(tileData, {
 				building,
 				surfaces,
@@ -783,6 +1162,131 @@ async function main() {
 				rssMiB: Number((memory.rss / 1048576).toFixed(1))
 			}));
 		}
+	}
+
+
+	const hybridCurrentByKsId = new Map();
+	for (const feature of hybridCurrent.features || []) {
+		const ksId = String(feature?.properties?.KS_ID || "").trim();
+		if (ksId) hybridCurrentByKsId.set(ksId, feature);
+	}
+
+	const hybridStats = [];
+	for (const target of hybridTargets) {
+		const code = String(target.historicalCode);
+		const historicalGround = unionJstsGeometries(
+			historicalGroundByCode.get(code) || []
+		);
+		if (!historicalGround) {
+			throw new Error("Hybrid target " + code + " has no historical ground geometry.");
+		}
+		const bufferedHistorical = BufferOp.bufferOp(
+			historicalGround,
+			HYBRID_HISTORY_BUFFER_M
+		);
+		const historicalBoundaryIndex = boundarySegmentIndexFromGeometry(
+			historicalGround,
+			geoWriter
+		);
+		let rawRemainderAreaM2 = 0;
+		let remainderAreaM2 = 0;
+		let remainderParts = 0;
+		let syntheticObjects = 0;
+		let discardedSliverAreaM2 = 0;
+		let discardedSliverParts = 0;
+		let maxDiscardedSliverWidthM = 0;
+
+		for (const ksId of target.ksIds || []) {
+			const feature = hybridCurrentByKsId.get(String(ksId));
+			if (!feature?.geometry) {
+				throw new Error("Hybrid target " + code + " is missing current " + ksId);
+			}
+			const levels = currentFeatureLevels(feature.properties || {});
+			if (!levels) {
+				throw new Error("Hybrid current feature has invalid height levels: " + ksId);
+			}
+			const currentGeometry = repairJstsGeometry(
+				geoReader.read(feature.geometry)
+			);
+			if (!currentGeometry) continue;
+			const remainder = differenceJstsGeometry(
+				currentGeometry,
+				bufferedHistorical,
+				code + " / " + String(ksId)
+			);
+			if (!remainder || remainder.isEmpty()) continue;
+
+			let partIndex = 0;
+			for (const part of jstsGeometryParts(remainder)) {
+				const area = Number(part.getArea?.() || 0);
+				if (!(area > 0)) continue;
+				rawRemainderAreaM2 += area;
+				const perimeter = Number(part.getLength?.() || 0);
+				const meanWidthM = perimeter > 0
+					? (2 * area) / perimeter
+					: Number.POSITIVE_INFINITY;
+				if (meanWidthM <= HYBRID_MAX_SLIVER_MEAN_WIDTH_M) {
+					discardedSliverAreaM2 += area;
+					discardedSliverParts += 1;
+					maxDiscardedSliverWidthM = Math.max(
+						maxDiscardedSliverWidthM,
+						meanWidthM
+					);
+					continue;
+				}
+				const geojson = geoWriter.write(part);
+				const polygons = geojson?.type === "Polygon"
+					? [geojson.coordinates]
+					: geojson?.type === "MultiPolygon"
+						? geojson.coordinates
+						: [];
+				for (const coordinates of polygons) {
+					const surfaces = extrusionSurfacesFromPolygon(
+						coordinates,
+						levels,
+						{ seamBoundaryIndex: historicalBoundaryIndex }
+					);
+					if (!surfaces.length) continue;
+					const added = addBuildingToTile(tileData, {
+						building: null,
+						surfaces,
+						target,
+						sourceSheet: "current-ogd",
+						extent,
+						zoom,
+						recordKind: "ogd-remainder",
+						recordOverrides: {
+							cityGmlId:
+								"ogd-remainder:"
+								+ String(feature.properties?.FMZK_ID || ksId)
+								+ ":"
+								+ partIndex,
+							roofType: "current-lod1-remainder",
+							creationDate: ""
+						}
+					});
+					if (added) {
+						syntheticObjects += 1;
+						remainderAreaM2 += area;
+					}
+					partIndex += 1;
+				}
+				remainderParts += 1;
+			}
+		}
+
+		hybridStats.push({
+			historicalCode: code,
+			rawRemainderAreaM2: Number(rawRemainderAreaM2.toFixed(3)),
+			remainderAreaM2: Number(remainderAreaM2.toFixed(3)),
+			remainderParts,
+			syntheticObjects,
+			discardedSliverAreaM2: Number(discardedSliverAreaM2.toFixed(3)),
+			discardedSliverParts,
+			maxDiscardedSliverWidthM: Number(
+				maxDiscardedSliverWidthM.toFixed(4)
+			)
+		});
 	}
 
 	for (const target of targets) {
@@ -829,15 +1333,24 @@ async function main() {
 			directStrong: targets.filter(
 				(target) => target.rolloutMode === "direct-strong"
 			).length,
+			hybridA: targets.filter(
+				(target) => target.rolloutMode === "hybrid-a"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
 			manualPilotHybrid: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-hybrid"
+			).length,
+			hybridRemainderTargets: hybridStats.filter(
+				(item) => item.syntheticObjects > 0
 			).length
 		},
 		targets: targets.map((target) => ({
 			...target,
+			hybridRemainder: hybridStats.find(
+				(item) => item.historicalCode === String(target.historicalCode)
+			) || null,
 			matches: found.get(String(target.historicalCode)).map((match) => ({
 				tile: tileKey(match.tile),
 				cityGmlId: match.record.cityGmlId,
@@ -885,8 +1398,10 @@ async function main() {
 			parsedBuildings,
 			targets: targets.length,
 			directStrong: targetManifest.counts.directStrong,
+			hybridA: targetManifest.counts.hybridA,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
+			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
 			cityGmlBuildingObjects: totalBuildingObjects,
 			vertices: totalVertices,
 			triangles: totalTriangles,
