@@ -66,12 +66,13 @@ enthält:
 - 614 konservative `hybrid-a`-Gebäude,
 - 72 `hybrid-b-absolute`-Gebäude,
 - 3 geometrisch auditierte `hybrid-b-thin`-Gebäude,
+- 7 geometrisch geclippte `hybrid-b-clip`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 1.900 Gebäude.
+- insgesamt 1.907 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-689 automatisch freigegeben. **374 bleiben weiterhin zurückgestellt**; bei
+696 automatisch freigegeben. **367 bleiben weiterhin zurückgestellt**; bei
 ihnen ist die historische/heutige Grundrissabweichung oder eine andere
 Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
 
@@ -195,7 +196,46 @@ Hybrid-Restmesh zum Verwerfen numerischer Sliver verwendet wird. Zusätzlich
 erfüllen alle drei weiterhin die Hybrid-B-Regeln für Überdeckung, Schwerpunkt
 und Höhe. Sie werden als `hybrid-b-thin` geführt.
 
-Die übrigen sieben Hybrid-B-Fälle werden nicht freigegeben: Dort erreichen
-historische Außenkomponenten etwa 11 bis 66 cm mittlere Dicke. Das sind keine
-bloßen numerischen Säume mehr; für diese Gebäude wäre ein echtes Clipping des
-historischen 3D-Modells oder eine andere gezielte Geometriebehandlung nötig.
+Die übrigen sieben Hybrid-B-Fälle erreichen historische Außenkomponenten von
+etwa 11 bis 66 cm mittlerer Dicke. Sie werden deshalb nicht über eine weitere
+Toleranzregel freigegeben, sondern mit einem echten 3D-Clipping behandelt.
+
+
+## Hybrid-B clip
+
+Für die sieben verbliebenen Hybrid-B-Fälle reicht keine numerische
+Toleranzregel mehr aus. Das historische LOD2.1 wird deshalb auf den heute
+gültigen OGD-Grundriss geclippt.
+
+Das Clipping arbeitet ohne vollständiges 3D-CSG:
+
+1. historische GroundSurfaces aller CityGML-Objekte eines Codes vereinigen,
+2. diesen historischen Grundriss mit der heutigen exakten FMZK-Geometrie
+   schneiden,
+3. jede historische Dachfläche in XY mit ihrem Objekt-Grundriss schneiden,
+4. die Z-Werte neu entstandener Dachpunkte aus der ursprünglichen Dach-Ebene
+   rekonstruieren,
+5. entlang des tatsächlichen äußeren Zielrandes neue vertikale Wände vom
+   historischen Basisniveau bis zur jeweiligen Dachkante erzeugen,
+6. die heutige zusätzliche Gebäudefläche weiterhin als bestehendes
+   Hybrid-LOD1-Restmesh ergänzen.
+
+Freigegeben sind vorerst ausschließlich die sieben vollständig auditierten
+Codes:
+
+`011758`, `032459`, `045503`, `047031`, `061091`, `065479`,
+`088729`.
+
+Die Validierung prüft dabei nicht nur Summenlängen, sondern geometrisch:
+
+- entfernte historische Fläche gegen die Matchanalyse (±0,05 m²),
+- projizierte Dachabdeckung mindestens 99,5 %,
+- Außenrand innerhalb eines 5-cm-Puffers der erzeugten Wände mindestens
+  99,9 %,
+- höchstens 1 cm tatsächlich unabgedeckte Randlänge,
+- weiterhin vorhandene aktuelle Hybrid-Restmeshes.
+
+Der gemeinsame Sieben-Fall-Test erreicht für alle sieben Codes praktisch
+vollständige Dachabdeckung und **0,000 m unabgedeckten Außenrand** innerhalb
+der 5-cm-Toleranz. Entfernt werden je nach Gebäude 1,326 bis 3,838 m²
+historischer Überstand.

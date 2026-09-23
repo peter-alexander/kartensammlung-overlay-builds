@@ -37,6 +37,7 @@ const directStrong = countMode("direct-strong");
 const hybridA = countMode("hybrid-a");
 const hybridBAbsolute = countMode("hybrid-b-absolute");
 const hybridBThin = countMode("hybrid-b-thin");
+const hybridBClip = countMode("hybrid-b-clip");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -78,8 +79,18 @@ if (
 		+ Number(release.counts.hybridBThin || 0)
 	);
 }
-if (items.length !== 1900) {
-	throw new Error("Expected 1900 production targets, got " + items.length);
+if (
+	hybridBClip !== 7
+	|| Number(release.counts.hybridBClip || 0) !== hybridBClip
+) {
+	throw new Error(
+		"Expected 7 audited clipped Hybrid-B targets, got "
+		+ hybridBClip + " / release "
+		+ Number(release.counts.hybridBClip || 0)
+	);
+}
+if (items.length !== 1907) {
+	throw new Error("Expected 1907 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -93,6 +104,7 @@ const hybrid = items.filter((target) => (
 	target.rolloutMode === "hybrid-a"
 	|| target.rolloutMode === "hybrid-b-absolute"
 	|| target.rolloutMode === "hybrid-b-thin"
+	|| target.rolloutMode === "hybrid-b-clip"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -135,6 +147,59 @@ for (const target of items) {
 			throw new Error(
 				"Hybrid-B thin overhang exceeds 5 cm for "
 				+ target.historicalCode + ": " + maxWidthM
+			);
+		}
+	}
+	if (target.rolloutMode === "hybrid-b-clip") {
+		if (target.auditedHistoricalClip !== true) {
+			throw new Error(
+				"Hybrid-B clip target is not explicitly audited: "
+				+ target.historicalCode
+			);
+		}
+		const expectedRemovedM2 = Number(
+			target.historicalOutsideCurrentM2
+		);
+		const clip = target.historicalClip;
+		const removedM2 = Number(clip?.removedHistoricalAreaM2);
+		const roofCoverage = Number(clip?.minRoofCoverageRatio);
+		const wallCoverage = Number(
+			clip?.geometricWallBoundaryCoverageRatio
+		);
+		const uncoveredBoundaryM = Number(
+			clip?.uncoveredWallBoundaryLengthM
+		);
+		if (
+			!Number.isFinite(expectedRemovedM2)
+			|| !Number.isFinite(removedM2)
+			|| Math.abs(removedM2 - expectedRemovedM2) > 0.05
+		) {
+			throw new Error(
+				"Hybrid-B clip area mismatch for "
+				+ target.historicalCode + ": "
+				+ removedM2 + " vs " + expectedRemovedM2
+			);
+		}
+		if (!Number.isFinite(roofCoverage) || roofCoverage < 0.995) {
+			throw new Error(
+				"Hybrid-B clip roof coverage is incomplete for "
+				+ target.historicalCode + ": " + roofCoverage
+			);
+		}
+		if (!Number.isFinite(wallCoverage) || wallCoverage < 0.999) {
+			throw new Error(
+				"Hybrid-B clip wall coverage is incomplete for "
+				+ target.historicalCode + ": " + wallCoverage
+			);
+		}
+		if (
+			!Number.isFinite(uncoveredBoundaryM)
+			|| uncoveredBoundaryM > 0.01
+		) {
+			throw new Error(
+				"Hybrid-B clip leaves uncovered boundary for "
+				+ target.historicalCode + ": "
+				+ uncoveredBoundaryM + " m"
 			);
 		}
 	}
@@ -217,6 +282,7 @@ console.log(JSON.stringify({
 		hybridA,
 		hybridBAbsolute,
 		hybridBThin,
+		hybridBClip,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
