@@ -32,12 +32,14 @@ function parseArgs(argv) {
 		report: "",
 		pilot: "",
 		output: "",
+		heightAudit: path.resolve("wien-lod21/height-audit.generated.json"),
 		includeHybridA: false,
 		includeHybridBAbsolute: false,
 		includeHybridBThin: false,
 		includeHybridBClip: false,
 		includeHybridCClip: false,
-		includeHybridDClip: false
+		includeHybridDClip: false,
+		includeHybridEHeight: false
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -47,6 +49,8 @@ function parseArgs(argv) {
 			result.pilot = path.resolve(argv[++index]);
 		} else if (arg === "--output") {
 			result.output = path.resolve(argv[++index]);
+		} else if (arg === "--height-audit") {
+			result.heightAudit = path.resolve(argv[++index]);
 		} else if (arg === "--include-hybrid-a") {
 			result.includeHybridA = true;
 		} else if (arg === "--include-hybrid-b-absolute") {
@@ -59,6 +63,8 @@ function parseArgs(argv) {
 			result.includeHybridCClip = true;
 		} else if (arg === "--include-hybrid-d-clip") {
 			result.includeHybridDClip = true;
+		} else if (arg === "--include-hybrid-e-height") {
+			result.includeHybridEHeight = true;
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
@@ -87,6 +93,11 @@ function parseArgs(argv) {
 	if (result.includeHybridDClip && !result.includeHybridCClip) {
 		throw new Error(
 			"--include-hybrid-d-clip requires --include-hybrid-c-clip."
+		);
+	}
+	if (result.includeHybridEHeight && !result.includeHybridDClip) {
+		throw new Error(
+			"--include-hybrid-e-height requires --include-hybrid-d-clip."
 		);
 	}
 	return result;
@@ -273,6 +284,20 @@ async function main() {
 	const args = parseArgs(process.argv);
 	const report = JSON.parse(await fs.readFile(args.report, "utf8"));
 	const pilot = JSON.parse(await fs.readFile(args.pilot, "utf8"));
+	const heightAudit = args.includeHybridEHeight
+		? JSON.parse(await fs.readFile(args.heightAudit, "utf8"))
+		: null;
+	if (heightAudit) {
+		if (
+			heightAudit.status !== "validated-height-audit"
+			|| Number(heightAudit?.counts?.automaticHeightPass) !== 25
+			|| Number(heightAudit?.criteria?.minCurrentPartAreaM2) !== 10
+			|| Number(heightAudit?.criteria?.minHistoricalCoverage) !== 0.5
+			|| Number(heightAudit?.criteria?.maxAbsEaveDifferenceM) !== 2.5
+		) {
+			throw new Error("Unexpected Vienna LOD2.1 height-audit snapshot.");
+		}
+	}
 	const pilotByCode = new Map(
 		(pilot.buildings || []).map((item) => [String(item.historicalCode), item])
 	);
@@ -378,6 +403,89 @@ async function main() {
 		});
 	}
 
+	const heightAuditRows = new Map(
+		(heightAudit?.rows || []).map(
+			(row) => [String(row.historicalCode), row]
+		)
+	);
+	const heightAuditCodes = args.includeHybridEHeight
+		? (heightAudit?.automaticHeightCodes || []).map(String)
+		: [];
+	if (args.includeHybridEHeight && heightAuditCodes.length !== 25) {
+		throw new Error(
+			"Expected 25 audited Hybrid-E height codes, got "
+			+ heightAuditCodes.length
+		);
+	}
+	const hybridCandidatesByCode = new Map(
+		(report.hybridCandidates || []).map(
+			(candidate) => [String(candidate.historicalCode), candidate]
+		)
+	);
+	const hybridEHeight = [];
+	for (const code of heightAuditCodes) {
+		const candidate = hybridCandidatesByCode.get(code);
+		const auditRow = heightAuditRows.get(code);
+		if (!candidate || !auditRow) {
+			throw new Error("Missing audited Hybrid-E candidate " + code);
+		}
+		const metrics = candidate.metrics || {};
+		const maxAbsEaveDifferenceM = Number(
+			auditRow.maxRelevantAbsEaveDifferenceP25M
+		);
+		if (
+			auditRow.passesAutomaticHeightAudit !== true
+			|| !Number.isFinite(maxAbsEaveDifferenceM)
+			|| maxAbsEaveDifferenceM > 2.5001
+			|| Number(metrics.oldCoverage) < 0.95
+			|| Number(metrics.currentCoverage) < 0.60
+			|| Number(metrics.centroidDistanceM) > 8
+		) {
+			throw new Error(
+				"Audited Hybrid-E candidate is no longer valid: " + code
+			);
+		}
+		if (
+			isHybridA(candidate)
+			|| isHybridBAbsolute(candidate)
+			|| isHybridBThin(candidate)
+			|| isHybridBClip(candidate)
+			|| isHybridCClip(candidate)
+			|| isHybridDClip(candidate)
+		) {
+			throw new Error(
+				"Hybrid-E candidate is already selected by an earlier class: "
+				+ code
+			);
+		}
+		const pilotTarget = pilotByCode.get(code);
+		const target = {
+			...targetFromCandidate(candidate, {
+				name: pilotTarget?.name || "",
+				rolloutMode: "hybrid-e-height"
+			}),
+			auditedHistoricalClip: true,
+			auditedHeightEave: true,
+			heightAudit: {
+				estimator: "roof-min-p25",
+				minCurrentPartAreaM2: 10,
+				minHistoricalCoverage: 0.5,
+				maxAllowedAbsEaveDifferenceM: 2.5,
+				maxRelevantAbsEaveDifferenceM:
+					Number(maxAbsEaveDifferenceM.toFixed(3)),
+				controlP25Q95AbsDifferenceM:
+					Number(
+						heightAudit
+							?.controlCalibration
+							?.p25AbsDifferenceM
+							?.q95
+					)
+			}
+		};
+		hybridEHeight.push(candidate);
+		targets.push(target);
+	}
+
 	const resultsByCode = new Map(
 		(report.results || [])
 			.filter((item) => item.candidateType === "historical-code")
@@ -436,6 +544,9 @@ async function main() {
 	const hybridDClipCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-d-clip"
 	).length;
+	const hybridEHeightCount = targets.filter(
+		(target) => target.rolloutMode === "hybrid-e-height"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -459,7 +570,8 @@ async function main() {
 				+ hybridBThinCount
 				+ hybridBClipCount
 				+ hybridCClipCount
-				+ hybridDClipCount,
+				+ hybridDClipCount
+				+ hybridEHeightCount,
 			hybridCandidatesDeferred:
 				Number(report?.counts?.hybridCandidates || 0)
 				- hybridACount
@@ -467,7 +579,8 @@ async function main() {
 				- hybridBThinCount
 				- hybridBClipCount
 				- hybridCClipCount
-				- hybridDClipCount,
+				- hybridDClipCount
+				- hybridEHeightCount,
 			hybridBAbsoluteMaxHistoricalOutsideCurrentM2:
 				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2,
 			hybridBThinMaxHistoricalOutsideMeanWidthM:
@@ -482,6 +595,7 @@ async function main() {
 			hybridBClip: hybridBClipCount,
 			hybridCClip: hybridCClipCount,
 			hybridDClip: hybridDClipCount,
+			hybridEHeight: hybridEHeightCount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -528,6 +642,12 @@ async function main() {
 			+ " hybrid-d-clip targets, got " + hybridDClipCount
 		);
 	}
+	if (hybridEHeightCount !== (args.includeHybridEHeight ? 25 : 0)) {
+		throw new Error(
+			"Expected " + (args.includeHybridEHeight ? 25 : 0)
+			+ " hybrid-e-height targets, got " + hybridEHeightCount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
@@ -538,9 +658,11 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeHybridDClip
-		? 2245
-		: args.includeHybridCClip
+	const expectedTargets = args.includeHybridEHeight
+		? 2270
+		: args.includeHybridDClip
+			? 2245
+			: args.includeHybridCClip
 			? 2076
 			: args.includeHybridBClip
 			? 1907
