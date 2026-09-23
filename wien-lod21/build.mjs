@@ -1500,7 +1500,11 @@ async function main() {
 				currentGeometry,
 				code + " object footprint clip"
 			);
-			if (!objectClip || objectClip.isEmpty()) continue;
+			if (
+				!objectClip
+				|| objectClip.isEmpty()
+				|| Number(objectClip.getArea?.() || 0) <= 1e-6
+			) continue;
 
 			const clipped = clipHistoricalSurfacesToFootprint(
 				entry.surfaces,
