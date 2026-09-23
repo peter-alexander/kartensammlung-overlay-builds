@@ -38,6 +38,7 @@ const hybridA = countMode("hybrid-a");
 const hybridBAbsolute = countMode("hybrid-b-absolute");
 const hybridBThin = countMode("hybrid-b-thin");
 const hybridBClip = countMode("hybrid-b-clip");
+const hybridCClip = countMode("hybrid-c-clip");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -89,8 +90,18 @@ if (
 		+ Number(release.counts.hybridBClip || 0)
 	);
 }
-if (items.length !== 1907) {
-	throw new Error("Expected 1907 production targets, got " + items.length);
+if (
+	hybridCClip !== 169
+	|| Number(release.counts.hybridCClip || 0) !== hybridCClip
+) {
+	throw new Error(
+		"Expected 169 audited clipped Hybrid-C targets, got "
+		+ hybridCClip + " / release "
+		+ Number(release.counts.hybridCClip || 0)
+	);
+}
+if (items.length !== 2076) {
+	throw new Error("Expected 2076 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -105,6 +116,7 @@ const hybrid = items.filter((target) => (
 	|| target.rolloutMode === "hybrid-b-absolute"
 	|| target.rolloutMode === "hybrid-b-thin"
 	|| target.rolloutMode === "hybrid-b-clip"
+	|| target.rolloutMode === "hybrid-c-clip"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -150,10 +162,13 @@ for (const target of items) {
 			);
 		}
 	}
-	if (target.rolloutMode === "hybrid-b-clip") {
+	if (
+		target.rolloutMode === "hybrid-b-clip"
+		|| target.rolloutMode === "hybrid-c-clip"
+	) {
 		if (target.auditedHistoricalClip !== true) {
 			throw new Error(
-				"Hybrid-B clip target is not explicitly audited: "
+				"Hybrid clip target is not explicitly audited: "
 				+ target.historicalCode
 			);
 		}
@@ -175,20 +190,20 @@ for (const target of items) {
 			|| Math.abs(removedM2 - expectedRemovedM2) > 0.05
 		) {
 			throw new Error(
-				"Hybrid-B clip area mismatch for "
+				"Hybrid clip area mismatch for "
 				+ target.historicalCode + ": "
 				+ removedM2 + " vs " + expectedRemovedM2
 			);
 		}
 		if (!Number.isFinite(roofCoverage) || roofCoverage < 0.995) {
 			throw new Error(
-				"Hybrid-B clip roof coverage is incomplete for "
+				"Hybrid clip roof coverage is incomplete for "
 				+ target.historicalCode + ": " + roofCoverage
 			);
 		}
 		if (!Number.isFinite(wallCoverage) || wallCoverage < 0.999) {
 			throw new Error(
-				"Hybrid-B clip wall coverage is incomplete for "
+				"Hybrid clip wall coverage is incomplete for "
 				+ target.historicalCode + ": " + wallCoverage
 			);
 		}
@@ -197,9 +212,22 @@ for (const target of items) {
 			|| uncoveredBoundaryM > 0.01
 		) {
 			throw new Error(
-				"Hybrid-B clip leaves uncovered boundary for "
+				"Hybrid clip leaves uncovered boundary for "
 				+ target.historicalCode + ": "
 				+ uncoveredBoundaryM + " m"
+			);
+		}
+		const maxSliverHoleWidthM = Number(
+			clip?.maxRemovedInteriorSliverHoleMeanWidthM || 0
+		);
+		if (
+			!Number.isFinite(maxSliverHoleWidthM)
+			|| maxSliverHoleWidthM > 0.0501
+		) {
+			throw new Error(
+				"Hybrid clip removed an interior hole wider than 5 cm for "
+				+ target.historicalCode + ": "
+				+ maxSliverHoleWidthM + " m"
 			);
 		}
 	}
@@ -283,6 +311,7 @@ console.log(JSON.stringify({
 		hybridBAbsolute,
 		hybridBThin,
 		hybridBClip,
+		hybridCClip,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
