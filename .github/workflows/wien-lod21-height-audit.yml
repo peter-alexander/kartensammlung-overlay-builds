@@ -94,7 +94,8 @@ jobs:
           		sourceMetrics: candidate.metrics,
           		knownManualProduction:
           			String(candidate.historicalCode) === "113842"
-          };
+          	};
+          });
           fs.writeFileSync("/tmp/height-targets.json", JSON.stringify({
           	schemaVersion: 1,
           	status: "height-audit",
