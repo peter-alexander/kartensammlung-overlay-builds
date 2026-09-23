@@ -1,0 +1,195 @@
+name: Match Vienna Maptoolkit roof loss to LOD2.1
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-loss-match.yml'
+      - 'wien-lod21/summarize-roof-loss.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-analysis
+          path: /tmp/roof-loss-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35912886836
+
+      - name: Prepare matcher input
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const source = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/roof-loss-source/wien-maptoolkit-roof-loss.json",
+          		"utf8"
+          	)
+          );
+          const candidates = source.roofLossLod21CodeCandidates || [];
+          if (candidates.length !== 15743) {
+          	throw new Error(
+          		"Expected 15743 roof-loss code candidates, got "
+          		+ candidates.length
+          	);
+          }
+          const candidateSheets = [...new Set(
+          	candidates.flatMap(
+          		(item) => item.lod21Sheets || [item.lod21Sheet]
+          	)
+          		.map(String)
+          		.filter(Boolean)
+          )].sort();
+          const output = {
+          	generatedAt: source.generatedAt || null,
+          	method: {
+          		source: "Maptoolkit flat-only roof analysis",
+          		filter:
+          			"all current OGD parts matched by Maptoolkit, "
+          			+ "no current part matched by a pitched Maptoolkit surface"
+          	},
+          	counts: {
+          		roofLossLod21CodeCandidates: candidates.length,
+          		roofLossLod21CandidateSheets: candidateSheets.length
+          	},
+          	candidateSheets,
+          	lod21CodeCandidates: candidates,
+          	lod21SpatialCandidates: []
+          };
+          fs.writeFileSync(
+          		"/tmp/wien-roof-loss-matcher-input.json",
+          		JSON.stringify(output, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(output.counts, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-roof-loss-matcher-input
+          path: /tmp/wien-roof-loss-matcher-input.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+  match:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install matcher dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-roof-loss-matcher-input
+          path: /tmp/roof-loss-input
+
+      - name: Match LOD2.1 batch
+        run: |
+          node wien-lod21/match-candidates.mjs \
+            --input /tmp/roof-loss-input/wien-roof-loss-matcher-input.json \
+            --output /tmp/wien-lod21-matches-batch-${{ matrix.batch }}.json \
+            --all \
+            --batch-index ${{ matrix.batch }} \
+            --batch-count 16
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-roof-loss-match-${{ matrix.batch }}
+          path: /tmp/wien-lod21-matches-batch-${{ matrix.batch }}.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+  merge:
+    needs: match
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wien-roof-loss-match-*
+          path: /tmp/roof-loss-batches
+          merge-multiple: true
+
+      - name: Merge citywide roof-loss matches
+        run: |
+          node wien-lod21/merge-match-reports.mjs \
+            --input-dir /tmp/roof-loss-batches \
+            --output /tmp/wien-roof-loss-citywide.json
+
+      - name: Summarize roof-loss matches
+        run: |
+          node wien-lod21/summarize-roof-loss.mjs \
+            --input /tmp/wien-roof-loss-citywide.json \
+            --output /tmp/wien-roof-loss-summary.json
+
+      - name: Sanity-check source coverage
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(
+          	fs.readFileSync("/tmp/wien-roof-loss-citywide.json", "utf8")
+          );
+          const summary = JSON.parse(
+          	fs.readFileSync("/tmp/wien-roof-loss-summary.json", "utf8")
+          );
+          if (Number(report.counts?.sheets) !== 1249) {
+          	throw new Error(
+          		"Expected 1249 analyzed LOD2.1 sheets, got "
+          		+ report.counts?.sheets
+          	);
+          }
+          if (Number(summary.counts?.candidates) !== 15743) {
+          	throw new Error(
+          		"Expected 15743 roof-loss candidates, got "
+          		+ summary.counts?.candidates
+          	);
+          }
+          console.log(JSON.stringify(summary.counts, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: |
+            /tmp/wien-roof-loss-citywide.json
+            /tmp/wien-roof-loss-summary.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
