@@ -1,0 +1,62 @@
+name: Refresh Sea-Ice capabilities
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'seaice/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/seaice.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  push:
+    branches:
+      - main
+    paths:
+      - 'seaice/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/seaice.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  schedule:
+    - cron: '11 */6 * * *'
+
+concurrency:
+  group: seaice-capabilities
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: Build Sea-Ice capabilities
+        run: node seaice/build.mjs
+
+      - name: Deploy capabilities to Lima
+        if: github.event_name != 'pull_request'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            seaice/build/SeaIceCapabilities.json \
+            "${MAIN_REMOTE_ROOT%/}/SeaIceCapabilities.json"
