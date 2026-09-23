@@ -385,12 +385,45 @@ async function main() {
 			.sort((a, b) => b.area - a.area);
 		const meaningful = remainderParts.filter((part) => part.area >= SLIVER_AREA_M2);
 
+		const currentPartMetrics = currentParts.map((entry) => {
+			const partAreaM2 = Number(entry.geometry.getArea?.() || 0);
+			const overlap = safeOverlay(
+				entry.geometry,
+				old,
+				OverlayOp.INTERSECTION
+			);
+			const overlapAreaM2 = Number(overlap?.getArea?.() || 0);
+			const properties = entry.feature?.properties || {};
+			return {
+				fmzkId: String(properties.FMZK_ID ?? ""),
+				heightM: Number(
+					(deriveHeight(properties) ?? 0).toFixed(3)
+				),
+				oKote: Number.isFinite(Number(properties.O_KOTE))
+					? Number(properties.O_KOTE)
+					: null,
+				tKote: Number.isFinite(Number(properties.T_KOTE))
+					? Number(properties.T_KOTE)
+					: null,
+				hoeheDgm: Number.isFinite(Number(properties.HOEHE_DGM))
+					? Number(properties.HOEHE_DGM)
+					: null,
+				partAreaM2: Number(partAreaM2.toFixed(3)),
+				historicalOverlapAreaM2:
+					Number(overlapAreaM2.toFixed(3)),
+				historicalOverlapRatio: partAreaM2 > 0
+					? Number((overlapAreaM2 / partAreaM2).toFixed(6))
+					: null
+			};
+		});
+
 		const metrics = {
 			historicalCode: code,
 			name: target.name,
 			bwGebId: target.bwGebId,
 			ksIds: target.ksIds,
 			currentParts: currentParts.length,
+			currentPartMetrics,
 			currentAreaM2: Number(currentArea.toFixed(2)),
 			historicalAreaM2: Number(oldArea.toFixed(2)),
 			intersectionAreaM2: Number(intersectionArea.toFixed(2)),
