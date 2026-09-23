@@ -11,8 +11,8 @@
 		"manualPilotHybrid": 0,
 		"hybridRemainderTargets": 7,
 		"cityGmlBuildingObjects": 59,
-		"vertices": 3826,
-		"triangles": 2168,
+		"vertices": 3842,
+		"triangles": 2176,
 		"tiles": 7
 	},
 	"summary": [
@@ -129,10 +129,10 @@
 				"clippedHistoricalAreaM2": 572.763,
 				"removedHistoricalAreaM2": 1.522,
 				"minRoofCoverageRatio": 1,
-				"minWallBoundaryCoverageRatio": 0.999999,
+				"minWallBoundaryCoverageRatio": 1,
 				"sourceRoofSurfaces": 13,
 				"clippedRoofSurfaces": 13,
-				"generatedWallSurfaces": 62
+				"generatedWallSurfaces": 66
 			},
 			"hybridRemainder": {
 				"historicalCode": "061091",
