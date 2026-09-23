@@ -119,3 +119,27 @@ nur numerische Mikro-Komponenten von zusammen 0,005 / 0,033 / 0,077 m².
 Der 2-m²-Filter entfernt sie vollständig, ohne einen künstlichen Spalt zwischen
 historischem LOD2.1 und aktueller Restfläche zu erzeugen. +0,25 m bleibt daher
 nur eine Diagnosevariante, nicht die Render-Geometrie.
+
+
+## Hybrid-A Rollout
+
+Für den ersten automatischen Hybrid-Rollout gilt eine strengere Teilmenge der
+`legacy-subset`-Klasse:
+
+- historischer Grundriss zu mindestens 99,9 % im heutigen Grundriss,
+- heutige Überdeckung mindestens 60 %,
+- Schwerpunktversatz höchstens 6 m,
+- Höhenabweichung höchstens `max(6 m, 30 %)`.
+
+Damit ergeben sich **614 Hybrid-A-Kandidaten**. Davon haben 605 nach den
+stadtweiten Matchmetriken mindestens 2 m² erwartete heutige Restfläche.
+
+Bei genau 9 Hybrid-A-Kandidaten liegt die erwartete Restfläche unter der
+2-m²-Slivergrenze (`0–1,79 m²`):
+`041626`, `082449`, `230103`, `100122`, `090445`, `222021`,
+`230447`, `084839`, `068644`.
+
+Für diese neun ist **kein synthetisches Restmesh** das beabsichtigte Ergebnis.
+Die Produktion darf daher weniger Restmesh-Ziele als Hybridziele enthalten;
+entscheidend ist, dass kein Ziel mit mindestens 2 m² erwarteter Restfläche
+ohne Restmesh bleibt.
