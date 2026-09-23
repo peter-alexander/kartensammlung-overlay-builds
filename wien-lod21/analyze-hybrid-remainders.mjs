@@ -200,7 +200,7 @@ async function fetchWithRetry(url, attempts = 5) {
 		try {
 			const response = await fetch(url, {
 				headers: {
-					accept: "application/json",
+					accept: "*/*",
 					"User-Agent": "kartensammlung-overlay-builds/wien-lod21-hybrid"
 				}
 			});
@@ -245,9 +245,8 @@ async function loadHistoricalBuildings(sheet, selectedCodes) {
 	const zipPath = path.join(tempRoot, sheet + ".zip");
 	const extractRoot = path.join(tempRoot, "source");
 	try {
-		const response = await fetch(
-			DOWNLOAD_BASE + "/" + sheet + "_lod2_gml.zip",
-			{ headers: { "User-Agent": "kartensammlung-overlay-builds/wien-lod21-hybrid" } }
+		const response = await fetchWithRetry(
+			DOWNLOAD_BASE + "/" + sheet + "_lod2_gml.zip"
 		);
 		if (!response.ok) throw new Error("HTTP " + response.status + " for LOD2.1 sheet " + sheet);
 		await fs.writeFile(zipPath, Buffer.from(await response.arrayBuffer()));
