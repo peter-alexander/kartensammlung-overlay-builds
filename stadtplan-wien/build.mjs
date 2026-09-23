@@ -260,7 +260,6 @@ writeFile(new URL("./build/release-id.txt", import.meta.url), releaseId + "\n");
 const manifest = {
 	version: 1,
 	release: releaseId,
-	generated: new Date().toISOString(),
 	upstreamStyle: MAIN_STYLE_URL,
 	sourceCount: sourceOutputs.size,
 	hasLocalSprite: Boolean(sprite),

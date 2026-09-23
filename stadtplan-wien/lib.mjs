@@ -124,7 +124,7 @@ export function stableJson(value) {
 
 export function makeReleaseId(parts) {
 	const hash = crypto.createHash("sha256");
-	hash.update("kartensammlung-stadtplan-wien-v1\0");
+	hash.update("kartensammlung-stadtplan-wien-v2\0");
 
 	for (const [name, content] of parts) {
 		hash.update(name);
