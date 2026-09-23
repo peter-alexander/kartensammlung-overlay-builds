@@ -1067,6 +1067,7 @@ function isHistoricalClipTarget(target) {
 		|| mode === "hybrid-b-clip"
 		|| mode === "hybrid-c-clip"
 		|| mode === "hybrid-d-clip"
+		|| mode === "hybrid-eave-clip"
 	);
 }
 
@@ -1905,6 +1906,9 @@ async function main() {
 			hybridDClip: targets.filter(
 				(target) => target.rolloutMode === "hybrid-d-clip"
 			).length,
+			hybridEaveClip: targets.filter(
+				(target) => target.rolloutMode === "hybrid-eave-clip"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -2014,6 +2018,7 @@ async function main() {
 			hybridBClip: targetManifest.counts.hybridBClip,
 			hybridCClip: targetManifest.counts.hybridCClip,
 			hybridDClip: targetManifest.counts.hybridDClip,
+			hybridEaveClip: targetManifest.counts.hybridEaveClip,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
