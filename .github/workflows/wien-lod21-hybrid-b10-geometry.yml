@@ -1,0 +1,134 @@
+name: Probe remaining Vienna Hybrid-B geometry
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-b-analysis
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-b10-geometry.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Prepare remaining Hybrid-B targets
+        run: |
+          node wien-lod21/analyze-hybrid-candidates.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --output /tmp/hybrid-candidates.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const input = JSON.parse(
+          	fs.readFileSync("/tmp/hybrid-candidates.json", "utf8")
+          );
+          const candidates = (input.candidates || []).filter((item) => (
+          	item.hybridTier === "hybrid-b"
+          	&& !(
+          		Number(item.metrics?.centroidDistanceM) <= 6
+          		&& Number(item.outsideOldAreaM2) <= 0.58
+          	)
+          ));
+          if (candidates.length !== 10) {
+          	throw new Error("Expected 10 remaining Hybrid-B candidates, got " + candidates.length);
+          }
+          const buildings = candidates.map((item) => ({
+          	name: "Wien LOD2.1 " + item.historicalCode,
+          	historicalCode: String(item.historicalCode),
+          	bwGebId: Number(item.ownerBwGebIds?.[0]),
+          	ksIds: item.ksIds,
+          	sheet: String(item.sheet || item.lod21Sheet),
+          	lng: Number(item.lng),
+          	lat: Number(item.lat),
+          	rolloutMode: "hybrid-b-probe"
+          }));
+          fs.writeFileSync("/tmp/hybrid-b10-targets.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "analysis",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings
+          }, null, "\t") + "\n");
+          fs.writeFileSync(
+          	"/tmp/hybrid-b10-codes.txt",
+          	buildings.map((item) => item.historicalCode).join(",")
+          );
+          console.log(JSON.stringify(buildings, null, 2));
+          NODE
+
+      - name: Analyze historical outside geometry
+        run: |
+          CODES="$(cat /tmp/hybrid-b10-codes.txt)"
+          node wien-lod21/analyze-hybrid-remainders.mjs \
+            /tmp/hybrid-b10-targets.json \
+            /tmp/hybrid-b10-geometry-full.json \
+            "$CODES"
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const full = JSON.parse(
+          	fs.readFileSync("/tmp/hybrid-b10-geometry-full.json", "utf8")
+          );
+          const report = (full.report || []).map((item) => {
+          	const parts = item.historicalOutsideComponentMetrics || [];
+          	return {
+          		...item,
+          		historicalOutsideMaxMeanWidthM: parts.length
+          			? Math.max(...parts.map((part) => Number(part.meanWidthM || 0)))
+          			: 0,
+          		historicalOutsideAreaWeightedMeanWidthM: parts.length
+          			? parts.reduce(
+          				(sum, part) => sum
+          					+ Number(part.meanWidthM || 0) * Number(part.areaM2 || 0),
+          				0
+          			) / parts.reduce(
+          				(sum, part) => sum + Number(part.areaM2 || 0),
+          				0
+          			)
+          			: 0
+          	};
+          });
+          const summary = {
+          	generatedAt: full.generatedAt,
+          	count: report.length,
+          	report
+          };
+          fs.writeFileSync(
+          	"wien-lod21/hybrid-b10-geometry.generated.json",
+          	JSON.stringify(summary, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - name: Commit geometry summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/hybrid-b10-geometry.generated.json
+          git commit -m "Record remaining Vienna Hybrid-B geometry audit"
+          git push
