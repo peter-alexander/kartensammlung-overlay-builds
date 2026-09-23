@@ -8,13 +8,15 @@
 		"sheets": 1419,
 		"candidates": 33432,
 		"directProductionEligible": 1209,
-		"hybridCandidatesSelected": 1034,
-		"hybridCandidatesDeferred": 29,
+		"hybridCandidatesSelected": 1060,
+		"hybridCandidatesDeferred": 3,
 		"hybridBAbsoluteMaxHistoricalOutsideCurrentM2": 0.58,
-		"hybridBThinMaxHistoricalOutsideMeanWidthM": 0.05
+		"hybridBThinMaxHistoricalOutsideMeanWidthM": 0.05,
+		"hybridEaveHeightMetric": "median-roof-surface-minimum",
+		"hybridEaveAuditGeneratedAt": "2026-09-23T18:51:35.384Z"
 	},
 	"counts": {
-		"total": 2245,
+		"total": 2271,
 		"directStrong": 1209,
 		"hybridA": 614,
 		"hybridBAbsolute": 72,
@@ -22,9 +24,10 @@
 		"hybridBClip": 7,
 		"hybridCClip": 169,
 		"hybridDClip": 169,
+		"hybridEaveClip": 26,
 		"manualPilotStrong": 1,
 		"manualPilotHybrid": 1,
-		"sourceSheets": 719
+		"sourceSheets": 729
 	},
 	"buildings": [
 		{
@@ -1720,6 +1723,28 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 009531",
+			"historicalCode": "009531",
+			"bwGebId": 5519505,
+			"ksIds": [
+				"wien-fmzk:4001372053",
+				"wien-fmzk:4001372125",
+				"wien-fmzk:4005571950",
+				"wien-fmzk:4005571955"
+			],
+			"sheet": "104076",
+			"lng": 16.3594325,
+			"lat": 48.1840184,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 5.07,
+			"historicalOutsideCurrentM2": 0.01,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 18.95,
+			"auditedHistoricalEaveDifferenceM": 3.27,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 010314",
 			"historicalCode": "010314",
 			"bwGebId": 5326616,
@@ -2630,6 +2655,27 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 46.05
+		},
+		{
+			"name": "Wien LOD2.1 013910",
+			"historicalCode": "013910",
+			"bwGebId": 5412400,
+			"ksIds": [
+				"wien-fmzk:4000913243",
+				"wien-fmzk:4006190579",
+				"wien-fmzk:4006190580"
+			],
+			"sheet": "104086",
+			"lng": 16.3635483,
+			"lat": 48.2269652,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 121.26,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 26.311,
+			"auditedHistoricalEaveDifferenceM": 3.531,
+			"auditedHistoricalEaveToleranceM": 6.834
 		},
 		{
 			"name": "Wien LOD2.1 013916",
@@ -4616,6 +4662,25 @@
 			"auditedHistoricalClip": true
 		},
 		{
+			"name": "Wien LOD2.1 031798",
+			"historicalCode": "031798",
+			"bwGebId": 5340941,
+			"ksIds": [
+				"wien-fmzk:4001273506"
+			],
+			"sheet": "092076",
+			"lng": 16.2786403,
+			"lat": 48.1845961,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 7.754,
+			"auditedHistoricalEaveDifferenceM": 3.364,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 031886",
 			"historicalCode": "031886",
 			"bwGebId": 5298251,
@@ -5011,6 +5076,28 @@
 			"auditedHistoricalClip": true
 		},
 		{
+			"name": "Wien LOD2.1 033408",
+			"historicalCode": "033408",
+			"bwGebId": 5487527,
+			"ksIds": [
+				"wien-fmzk:4001251896",
+				"wien-fmzk:4001251952",
+				"wien-fmzk:4007125053",
+				"wien-fmzk:4007125054"
+			],
+			"sheet": "090075",
+			"lng": 16.2679048,
+			"lat": 48.1797665,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.29,
+			"historicalOutsideCurrentM2": 1.11,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 7.149,
+			"auditedHistoricalEaveDifferenceM": 0.109,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 033580",
 			"historicalCode": "033580",
 			"bwGebId": 5439992,
@@ -5044,6 +5131,32 @@
 			"expectedRemainderM2": 43.09,
 			"historicalOutsideCurrentM2": 1.49,
 			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 033610",
+			"historicalCode": "033610",
+			"bwGebId": 5416941,
+			"ksIds": [
+				"wien-fmzk:4001260717",
+				"wien-fmzk:4001260722",
+				"wien-fmzk:4001260744",
+				"wien-fmzk:4001260785",
+				"wien-fmzk:4001260786",
+				"wien-fmzk:4001260789",
+				"wien-fmzk:4007034920",
+				"wien-fmzk:4007034921"
+			],
+			"sheet": "092075",
+			"lng": 16.280133,
+			"lat": 48.1774128,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 116.18,
+			"historicalOutsideCurrentM2": 0.01,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 9.071,
+			"auditedHistoricalEaveDifferenceM": 1.579,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 034374",
@@ -5113,6 +5226,45 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 51.39,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 034762",
+			"historicalCode": "034762",
+			"bwGebId": 5569144,
+			"ksIds": [
+				"wien-fmzk:4005838556"
+			],
+			"sheet": "089073",
+			"lng": 16.2645856,
+			"lat": 48.1693305,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 32.44,
+			"historicalOutsideCurrentM2": 5.37,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 6.665,
+			"auditedHistoricalEaveDifferenceM": 0.305,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
+			"name": "Wien LOD2.1 034803",
+			"historicalCode": "034803",
+			"bwGebId": 5346357,
+			"ksIds": [
+				"wien-fmzk:4006937320",
+				"wien-fmzk:4006937322"
+			],
+			"sheet": "090072",
+			"lng": 16.2715566,
+			"lat": 48.1627265,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 9.56,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 5.772,
+			"auditedHistoricalEaveDifferenceM": 0.552,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 034916",
@@ -5928,6 +6080,27 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 040502",
+			"historicalCode": "040502",
+			"bwGebId": 5332168,
+			"ksIds": [
+				"wien-fmzk:4001311150",
+				"wien-fmzk:4005677669",
+				"wien-fmzk:4005677670"
+			],
+			"sheet": "091079",
+			"lng": 16.2747739,
+			"lat": 48.1947706,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 20.19,
+			"historicalOutsideCurrentM2": 3.14,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 5.867,
+			"auditedHistoricalEaveDifferenceM": 0.747,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 040723",
 			"historicalCode": "040723",
 			"bwGebId": 5429238,
@@ -5940,6 +6113,29 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 24.07
+		},
+		{
+			"name": "Wien LOD2.1 040735",
+			"historicalCode": "040735",
+			"bwGebId": 5549143,
+			"ksIds": [
+				"wien-fmzk:4001312006",
+				"wien-fmzk:4005675815",
+				"wien-fmzk:4005675817",
+				"wien-fmzk:4006429581",
+				"wien-fmzk:4006429585"
+			],
+			"sheet": "092080",
+			"lng": 16.2786068,
+			"lat": 48.1984152,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 41.13,
+			"historicalOutsideCurrentM2": 0.06,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 9.86,
+			"auditedHistoricalEaveDifferenceM": 0.38,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 040939",
@@ -6149,6 +6345,25 @@
 			"expectedRemainderM2": 25.2,
 			"historicalOutsideCurrentM2": 1.63,
 			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 041765",
+			"historicalCode": "041765",
+			"bwGebId": 5377360,
+			"ksIds": [
+				"wien-fmzk:4005209961"
+			],
+			"sheet": "087082",
+			"lng": 16.2509841,
+			"lat": 48.2086174,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 7.79,
+			"historicalOutsideCurrentM2": 1.71,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 8.006,
+			"auditedHistoricalEaveDifferenceM": 3.366,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 041771",
@@ -6988,6 +7203,46 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 847.63,
 			"historicalOutsideCurrentM2": 0.58
+		},
+		{
+			"name": "Wien LOD2.1 049127",
+			"historicalCode": "049127",
+			"bwGebId": 5298027,
+			"ksIds": [
+				"wien-fmzk:4001925269",
+				"wien-fmzk:4001925333"
+			],
+			"sheet": "096083",
+			"lng": 16.3078952,
+			"lat": 48.2130599,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.01,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 19.822,
+			"auditedHistoricalEaveDifferenceM": 1.462,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
+			"name": "Wien LOD2.1 049313",
+			"historicalCode": "049313",
+			"bwGebId": 5408884,
+			"ksIds": [
+				"wien-fmzk:4006495589",
+				"wien-fmzk:4006496372"
+			],
+			"sheet": "094085",
+			"lng": 16.2977377,
+			"lat": 48.2242518,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 68.53,
+			"historicalOutsideCurrentM2": 0.12,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 9.727,
+			"auditedHistoricalEaveDifferenceM": 2.767,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 049575",
@@ -8055,6 +8310,29 @@
 			"historicalOutsideCurrentM2": 85.24
 		},
 		{
+			"name": "Wien LOD2.1 055289",
+			"historicalCode": "055289",
+			"bwGebId": 5304489,
+			"ksIds": [
+				"wien-fmzk:4006183911",
+				"wien-fmzk:4006183918",
+				"wien-fmzk:4006184724",
+				"wien-fmzk:4006184761",
+				"wien-fmzk:4006184770"
+			],
+			"sheet": "101087",
+			"lng": 16.3446401,
+			"lat": 48.2321361,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 108.53,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 10.217,
+			"auditedHistoricalEaveDifferenceM": 0.287,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 055624",
 			"historicalCode": "055624",
 			"bwGebId": 5557708,
@@ -8372,6 +8650,26 @@
 			"historicalOutsideCurrentM2": 30.32
 		},
 		{
+			"name": "Wien LOD2.1 058944",
+			"historicalCode": "058944",
+			"bwGebId": 5304022,
+			"ksIds": [
+				"wien-fmzk:4007889099",
+				"wien-fmzk:4007889100"
+			],
+			"sheet": "103096",
+			"lng": 16.3586104,
+			"lat": 48.2720755,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 37.24,
+			"historicalOutsideCurrentM2": 4.11,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 6.565,
+			"auditedHistoricalEaveDifferenceM": 3.095,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 059172",
 			"historicalCode": "059172",
 			"bwGebId": 5443728,
@@ -8452,6 +8750,26 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 59.6,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 059935",
+			"historicalCode": "059935",
+			"bwGebId": 5321158,
+			"ksIds": [
+				"wien-fmzk:4003900968",
+				"wien-fmzk:4006583981"
+			],
+			"sheet": "102092",
+			"lng": 16.3465592,
+			"lat": 48.2538313,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 46.9,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 8.447,
+			"auditedHistoricalEaveDifferenceM": 1.567,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 060041",
@@ -8987,6 +9305,25 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 11.61,
 			"historicalOutsideCurrentM2": 11.96
+		},
+		{
+			"name": "Wien LOD2.1 065442",
+			"historicalCode": "065442",
+			"bwGebId": 5461767,
+			"ksIds": [
+				"wien-fmzk:4000646336"
+			],
+			"sheet": "111091",
+			"lng": 16.4068486,
+			"lat": 48.2511033,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.24,
+			"historicalOutsideCurrentM2": 2.35,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 20.009,
+			"auditedHistoricalEaveDifferenceM": 3.469,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 065476",
@@ -10869,6 +11206,26 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 077242",
+			"historicalCode": "077242",
+			"bwGebId": 5516764,
+			"ksIds": [
+				"wien-fmzk:4001199335",
+				"wien-fmzk:4001199357"
+			],
+			"sheet": "120082",
+			"lng": 16.4675483,
+			"lat": 48.2115702,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 4.632,
+			"auditedHistoricalEaveDifferenceM": 0.522,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 077398",
 			"historicalCode": "077398",
 			"bwGebId": 5358556,
@@ -12061,6 +12418,26 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 082526",
+			"historicalCode": "082526",
+			"bwGebId": 5508287,
+			"ksIds": [
+				"wien-fmzk:4004755536",
+				"wien-fmzk:4006560682"
+			],
+			"sheet": "120079",
+			"lng": 16.4726982,
+			"lat": 48.1972531,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 69.63,
+			"historicalOutsideCurrentM2": 0.08,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 4.149,
+			"auditedHistoricalEaveDifferenceM": 0.679,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 082578",
@@ -13712,6 +14089,25 @@
 			"historicalOutsideCurrentM2": 0.22
 		},
 		{
+			"name": "Wien LOD2.1 090896",
+			"historicalCode": "090896",
+			"bwGebId": 5553682,
+			"ksIds": [
+				"wien-fmzk:4004227690"
+			],
+			"sheet": "102068",
+			"lng": 16.346063,
+			"lat": 48.1474688,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 3.989,
+			"auditedHistoricalEaveDifferenceM": 0.029,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 090904",
 			"historicalCode": "090904",
 			"bwGebId": 5435314,
@@ -15041,6 +15437,27 @@
 			"historicalOutsideCurrentM2": 0.2
 		},
 		{
+			"name": "Wien LOD2.1 099805",
+			"historicalCode": "099805",
+			"bwGebId": 5500454,
+			"ksIds": [
+				"wien-fmzk:4003655572",
+				"wien-fmzk:4003655596",
+				"wien-fmzk:4007078446"
+			],
+			"sheet": "107080",
+			"lng": 16.3846385,
+			"lat": 48.1986852,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.02,
+			"historicalOutsideCurrentM2": 42.67,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 21.647,
+			"auditedHistoricalEaveDifferenceM": 0.557,
+			"auditedHistoricalEaveToleranceM": 6.327
+		},
+		{
 			"name": "Wien LOD2.1 100122",
 			"historicalCode": "100122",
 			"bwGebId": 5289652,
@@ -15100,6 +15517,26 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 22.58,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 100573",
+			"historicalCode": "100573",
+			"bwGebId": 5387154,
+			"ksIds": [
+				"wien-fmzk:4000827100",
+				"wien-fmzk:4007182672"
+			],
+			"sheet": "097089",
+			"lng": 16.3131483,
+			"lat": 48.2406827,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 198.03,
+			"historicalOutsideCurrentM2": 0,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 11.725,
+			"auditedHistoricalEaveDifferenceM": 1.645,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 100742",
@@ -15373,6 +15810,25 @@
 			"expectedRemainderM2": 83.65,
 			"historicalOutsideCurrentM2": 6.68,
 			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 101889",
+			"historicalCode": "101889",
+			"bwGebId": 5538518,
+			"ksIds": [
+				"wien-fmzk:4005470270"
+			],
+			"sheet": "101094",
+			"lng": 16.34048,
+			"lat": 48.2613985,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 40.74,
+			"historicalOutsideCurrentM2": 1.82,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 6.976,
+			"auditedHistoricalEaveDifferenceM": 2.546,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 102146",
@@ -25280,6 +25736,28 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 151174",
+			"historicalCode": "151174",
+			"bwGebId": 5548803,
+			"ksIds": [
+				"wien-fmzk:4005256301",
+				"wien-fmzk:4006837664",
+				"wien-fmzk:4006837708",
+				"wien-fmzk:4007365229"
+			],
+			"sheet": "120089",
+			"lng": 16.4726646,
+			"lat": 48.2432532,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 55.49,
+			"historicalOutsideCurrentM2": 0.13,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 6.287,
+			"auditedHistoricalEaveDifferenceM": 0.557,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 151261",
 			"historicalCode": "151261",
 			"bwGebId": 5573603,
@@ -34812,6 +35290,26 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 230083",
+			"historicalCode": "230083",
+			"bwGebId": 5541639,
+			"ksIds": [
+				"wien-fmzk:4004994154",
+				"wien-fmzk:4004994156"
+			],
+			"sheet": "095079",
+			"lng": 16.3038705,
+			"lat": 48.1943084,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.01,
+			"historicalOutsideCurrentM2": 0.02,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 16.977,
+			"auditedHistoricalEaveDifferenceM": 2.337,
+			"auditedHistoricalEaveToleranceM": 6
+		},
+		{
 			"name": "Wien LOD2.1 230103",
 			"historicalCode": "230103",
 			"bwGebId": 5462948,
@@ -34857,6 +35355,25 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 11.28,
 			"historicalOutsideCurrentM2": 24.66
+		},
+		{
+			"name": "Wien LOD2.1 230445",
+			"historicalCode": "230445",
+			"bwGebId": 5442342,
+			"ksIds": [
+				"wien-fmzk:4004393464"
+			],
+			"sheet": "123089",
+			"lng": 16.4910552,
+			"lat": 48.2412803,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.19,
+			"historicalOutsideCurrentM2": 0.15,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 9.8,
+			"auditedHistoricalEaveDifferenceM": 3.1,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 230447",
@@ -34943,6 +35460,28 @@
 			"expectedRemainderM2": 63.81,
 			"historicalOutsideCurrentM2": 5.52,
 			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 231788",
+			"historicalCode": "231788",
+			"bwGebId": 5326368,
+			"ksIds": [
+				"wien-fmzk:4002938917",
+				"wien-fmzk:4002938988",
+				"wien-fmzk:4005257446",
+				"wien-fmzk:4005257469"
+			],
+			"sheet": "089081",
+			"lng": 16.2599681,
+			"lat": 48.2048027,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 56.32,
+			"historicalOutsideCurrentM2": 1.49,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 7.959,
+			"auditedHistoricalEaveDifferenceM": 2.609,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "Wien LOD2.1 500170",
