@@ -1,0 +1,46 @@
+name: Analyze Vienna LOD2.1 hybrid candidates
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-remainder
+    paths:
+      - 'wien-lod21/analyze-hybrid-candidates.mjs'
+      - '.github/workflows/wien-lod21-hybrid-candidates.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Analyze hybrid rollout tiers
+        run: |
+          node wien-lod21/analyze-hybrid-candidates.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --output /tmp/wien-lod21-hybrid-candidates.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-candidate-analysis
+          path: /tmp/wien-lod21-hybrid-candidates.json
+          if-no-files-found: error
+          retention-days: 3
