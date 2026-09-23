@@ -80,8 +80,10 @@ jobs:
           		lng: Number(candidate.lng),
           		lat: Number(candidate.lat),
           		rolloutMode: "hybrid-clip-pilot",
-          		expectedHistoricalOutsideM2:
-          			Number(Number(candidate.outsideOldAreaM2).toFixed(3)),
+          		expectedHistoricalOutsideM2: Number((
+          			Number(candidate.metrics?.oldArea)
+          			- Number(candidate.metrics?.intersectionArea)
+          		).toFixed(3)),
           		sourceMetrics: candidate.metrics
           	};
           });
