@@ -1,0 +1,237 @@
+{
+	"generatedAt": "2026-09-23T19:02:32.221Z",
+	"report": [
+		{
+			"historicalCode": "029048",
+			"currentAreaM2": 512.21,
+			"historicalAreaM2": 427.97,
+			"intersectionAreaM2": 426.36,
+			"currentCoverage": 0.8324,
+			"historicalCoverage": 0.9962,
+			"currentPartMetrics": [
+				{
+					"fmzkId": "4005793328",
+					"heightM": 3.525,
+					"oKote": 57.7,
+					"tKote": 54.175,
+					"hoeheDgm": 54.3,
+					"partAreaM2": 11.462,
+					"historicalOverlapAreaM2": 9.961,
+					"historicalOverlapRatio": 0.869026
+				},
+				{
+					"fmzkId": "4005793338",
+					"heightM": 3.537,
+					"oKote": 57.7,
+					"tKote": 54.163,
+					"hoeheDgm": 54.4,
+					"partAreaM2": 96.599,
+					"historicalOverlapAreaM2": 47.281,
+					"historicalOverlapRatio": 0.48945
+				},
+				{
+					"fmzkId": "4006403822",
+					"heightM": 14.621,
+					"oKote": 68.7,
+					"tKote": 54.079,
+					"hoeheDgm": 54.5,
+					"partAreaM2": 262.882,
+					"historicalOverlapAreaM2": 251.45,
+					"historicalOverlapRatio": 0.956514
+				},
+				{
+					"fmzkId": "4007858369",
+					"heightM": 6.598,
+					"oKote": 61,
+					"tKote": 54.402,
+					"hoeheDgm": 54.6,
+					"partAreaM2": 141.271,
+					"historicalOverlapAreaM2": 117.668,
+					"historicalOverlapRatio": 0.832926
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4005793328",
+					"height": 3.53
+				},
+				{
+					"fmzkId": "4005793338",
+					"height": 3.54
+				},
+				{
+					"fmzkId": "4006403822",
+					"height": 14.62
+				},
+				{
+					"fmzkId": "4007858369",
+					"height": 6.6
+				}
+			]
+		},
+		{
+			"historicalCode": "113842",
+			"currentAreaM2": 719.44,
+			"historicalAreaM2": 478.74,
+			"intersectionAreaM2": 478.74,
+			"currentCoverage": 0.6654,
+			"historicalCoverage": 1,
+			"currentPartMetrics": [
+				{
+					"fmzkId": "4001396001",
+					"heightM": 14.17,
+					"oKote": 33.5,
+					"tKote": 19.33,
+					"hoeheDgm": 19.5,
+					"partAreaM2": 273.917,
+					"historicalOverlapAreaM2": 273.917,
+					"historicalOverlapRatio": 1
+				},
+				{
+					"fmzkId": "4006141761",
+					"heightM": 3.859,
+					"oKote": 23.2,
+					"tKote": 19.341,
+					"hoeheDgm": 19.4,
+					"partAreaM2": 51.32,
+					"historicalOverlapAreaM2": 0,
+					"historicalOverlapRatio": 0
+				},
+				{
+					"fmzkId": "4007229119",
+					"heightM": 21.428,
+					"oKote": 40.9,
+					"tKote": 19.472,
+					"hoeheDgm": 19.7,
+					"partAreaM2": 394.198,
+					"historicalOverlapAreaM2": 204.819,
+					"historicalOverlapRatio": 0.519585
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4001396001",
+					"height": 14.17
+				},
+				{
+					"fmzkId": "4006141761",
+					"height": 3.86
+				},
+				{
+					"fmzkId": "4007229119",
+					"height": 21.43
+				}
+			]
+		},
+		{
+			"historicalCode": "074864",
+			"currentAreaM2": 276.9,
+			"historicalAreaM2": 211.3,
+			"intersectionAreaM2": 203.23,
+			"currentCoverage": 0.7339,
+			"historicalCoverage": 0.9618,
+			"currentPartMetrics": [
+				{
+					"fmzkId": "4005973324",
+					"heightM": 15.119,
+					"oKote": 17.7,
+					"tKote": 2.581,
+					"hoeheDgm": 2.6,
+					"partAreaM2": 12.281,
+					"historicalOverlapAreaM2": 12.18,
+					"historicalOverlapRatio": 0.991798
+				},
+				{
+					"fmzkId": "4005973341",
+					"heightM": 15.059,
+					"oKote": 17.7,
+					"tKote": 2.641,
+					"hoeheDgm": 2.7,
+					"partAreaM2": 12.905,
+					"historicalOverlapAreaM2": 12.203,
+					"historicalOverlapRatio": 0.945624
+				},
+				{
+					"fmzkId": "4005973350",
+					"heightM": 11.791,
+					"oKote": 14.5,
+					"tKote": 2.709,
+					"hoeheDgm": 3,
+					"partAreaM2": 20.904,
+					"historicalOverlapAreaM2": 0,
+					"historicalOverlapRatio": 0
+				},
+				{
+					"fmzkId": "4005973513",
+					"heightM": 19.119,
+					"oKote": 21.7,
+					"tKote": 2.581,
+					"hoeheDgm": 2.6,
+					"partAreaM2": 7.492,
+					"historicalOverlapAreaM2": 7.492,
+					"historicalOverlapRatio": 1
+				},
+				{
+					"fmzkId": "4005973518",
+					"heightM": 11.899,
+					"oKote": 14.5,
+					"tKote": 2.601,
+					"hoeheDgm": 2.8,
+					"partAreaM2": 168.32,
+					"historicalOverlapAreaM2": 116.769,
+					"historicalOverlapRatio": 0.693729
+				},
+				{
+					"fmzkId": "4006453611",
+					"heightM": 12.45,
+					"oKote": 14.9,
+					"tKote": 2.45,
+					"hoeheDgm": 2.6,
+					"partAreaM2": 54.812,
+					"historicalOverlapAreaM2": 54.398,
+					"historicalOverlapRatio": 0.992449
+				},
+				{
+					"fmzkId": "4007481442",
+					"heightM": 12.396,
+					"oKote": 14.9,
+					"tKote": 2.504,
+					"hoeheDgm": 2.5,
+					"partAreaM2": 0.191,
+					"historicalOverlapAreaM2": 0.191,
+					"historicalOverlapRatio": 1
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4005973324",
+					"height": 15.12
+				},
+				{
+					"fmzkId": "4005973341",
+					"height": 15.06
+				},
+				{
+					"fmzkId": "4005973350",
+					"height": 11.79
+				},
+				{
+					"fmzkId": "4005973513",
+					"height": 19.12
+				},
+				{
+					"fmzkId": "4005973518",
+					"height": 11.9
+				},
+				{
+					"fmzkId": "4006453611",
+					"height": 12.45
+				},
+				{
+					"fmzkId": "4007481442",
+					"height": 12.4
+				}
+			]
+		}
+	]
+}
