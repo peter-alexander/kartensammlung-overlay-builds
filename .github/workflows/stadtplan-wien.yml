@@ -89,3 +89,28 @@ jobs:
           .github/scripts/main-ftp-upload-file.sh \
             stadtplan-wien/build/style.json \
             "${MAIN_REMOTE_ROOT%/}/StadtplanWien/style.json"
+ 
+      - name: Verify published snapshot over HTTP
+        if: github.event_name != 'pull_request'
+        env:
+          PUBLIC_BASE_URL: https://fahrrad.lima-city.de
+        run: |
+          release_id="$(tr -d '\r\n' < stadtplan-wien/build/release-id.txt)"
+          release_dir="stadtplan-wien/build/releases/$release_id"
+          test -n "$release_id"
+          test -d "$release_dir"
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            "$PUBLIC_BASE_URL/Maps/StadtplanWien/style.json" \
+            -o /tmp/stadtplan-wien-style.json
+          cmp -s /tmp/stadtplan-wien-style.json stadtplan-wien/build/style.json
+
+          while IFS= read -r -d '' file; do
+            relative="${file#"$release_dir/"}"
+            curl -fsS --retry 5 --retry-delay 2 \
+              "$PUBLIC_BASE_URL/Maps/StadtplanWien/releases/$release_id/$relative" \
+              -o /tmp/stadtplan-wien-release-file
+            cmp -s /tmp/stadtplan-wien-release-file "$file"
+          done < <(find "$release_dir" -type f -print0 | sort -z)
+
+          echo "Published Stadtplan Wien snapshot verified: $release_id"
