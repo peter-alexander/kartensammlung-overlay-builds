@@ -12,7 +12,9 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$SOURCE_DIR" "$OUTPUT_DIR"
 
 node --check "$SCRIPT_DIR/build.mjs"
+node --check "$SCRIPT_DIR/hybrid-geometry.mjs"
 node --check "$SCRIPT_DIR/validate-production.mjs"
+node "$SCRIPT_DIR/test-hybrid-geometry.mjs"
 
 mapfile -t SHEETS < <(
 	node --input-type=module - "$TARGETS_FILE" <<'NODE'
