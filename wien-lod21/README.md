@@ -70,16 +70,16 @@ enthält:
 - 169 vollständig auditierte `hybrid-c-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
 - 26 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
+- 2 höhensensitiv geteilte `hybrid-height-split`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.271 Gebäude.
+- insgesamt 2.273 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-1.060 automatisch freigegeben. **3 bleiben nach der automatischen
-Traufhöhenprüfung zurückgestellt**. Einer davon (`113842`, Straußengasse 14)
-ist bereits als manuell bestätigte Hybrid-Ausnahme produktiv. Nicht produktiv
-bleiben damit nur `029048` und `074864`, bei denen selbst der historische
-First deutlich unter der heutigen Traufe liegt.
+**1.062 automatisch freigegeben**. Der einzige nicht automatisch ausgewählte
+Kandidat ist `113842` (Straußengasse 14), der bereits als manuell bestätigte
+Hybrid-Ausnahme produktiv ist. Damit sind alle 1.063 sicheren
+`legacy-subset`-Kandidaten im Produktionsmodell vertreten.
 
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält nur die für den Client benötigte
@@ -365,6 +365,38 @@ als die heutige Traufe. Eine zusätzliche FMZK-Teilflächenanalyse ist in
   Grundriss teilweise. Dieser Code bleibt ausschließlich wegen der bereits
   manuell bestätigten Straußengasse-Ausnahme produktiv.
 
-`029048` und `074864` bleiben daher bewusst beim aktuellen LOD1-Fallback.
-Eine spätere LOD2.1-Nutzung würde dort ein **höhensensitives
-Teilflächen-Clipping** erfordern, nicht lediglich eine weitere Toleranzregel.
+Für `029048` und `074864` wurde anschließend genau dieses
+**höhensensitive Teilflächen-Clipping** implementiert und isoliert getestet.
+Das historische Dach wird nicht mehr gegen den gesamten aktuellen Grundriss
+geschnitten. Stattdessen wird für jeden heutigen FMZK-Teil die lokal darüber
+liegende maximale historische Dachhöhe bestimmt.
+
+Ein heutiger FMZK-Teil bleibt vollständig als aktuelles LOD1 erhalten, wenn
+seine `O_KOTE` mehr als **25 cm** über dem höchsten historischen Dachpunkt
+in seiner eigenen Überlappungsfläche liegt. Teile ohne historische
+Dachüberdeckung bleiben ebenfalls aktuell. Nur die übrigen kompatiblen
+Teilflächen werden für das historische LOD2.1 freigegeben.
+
+Der Zwei-Gebäude-Pilot ergibt:
+
+- `029048`: 3 kompatible und 1 geschützter aktueller Teil;
+  174,909 m² historisches LOD2.1 bleiben erhalten, 337,305 m² werden als
+  aktuelles LOD1-Restmesh aufgebaut. Der 14,621-m-Baukörper
+  `4006403822` bleibt vollständig aktuell; seine `O_KOTE` liegt lokal
+  **7,04 m** über dem historischen Dach.
+- `074864`: 1 kompatibler und 6 geschützte aktuelle Teile;
+  116,769 m² historisches LOD2.1 bleiben erhalten, 160,136 m² werden als
+  aktuelles LOD1-Restmesh aufgebaut. Unter anderem bleibt der 19,119-m-Teil
+  `4005973513` vollständig aktuell; seine `O_KOTE` liegt lokal
+  **6,68 m** über dem historischen Dach.
+
+Für diese Sonderklasse werden an den internen Schnittkanten sowohl die
+historische Clip-Wand als auch die aktuelle LOD1-Wand erzeugt. Dadurch bleibt
+der zusammengesetzte Baukörper unabhängig davon geschlossen, welches der
+beiden Dächer lokal höher liegt; der doppelte Wandbereich befindet sich im
+Inneren des zusammengesetzten Volumens.
+
+Der isolierte Test erreicht bei beiden Gebäuden **100 % projizierte
+Dachabdeckung, 100 % historische Wandabdeckung und 0,000 m unabgedeckten
+historischen Rand**. Die produktive Klasse `hybrid-height-split` ist
+absichtlich auf genau diese beiden vollständig auditierten Codes begrenzt.
