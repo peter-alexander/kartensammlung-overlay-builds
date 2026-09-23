@@ -433,10 +433,6 @@ function buildBevWorkspace(xml, workspace) {
 		layers[fullName] = title;
 	}
 
-	if (!Object.keys(layers).length) {
-		throw new Error(`BEV ${workspace}: keine benannten Layer.`);
-	}
-
 	return {
 		name: workspace,
 		title: workspace,
