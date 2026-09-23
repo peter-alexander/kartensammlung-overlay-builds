@@ -2,6 +2,11 @@ name: Refresh Vienna LOD2.1 Hybrid-A production targets
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-remainder
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-a-production-targets.yml'
 
 permissions:
   contents: write
