@@ -1,0 +1,361 @@
+{
+	"generatedAt": "2026-09-23T11:02:16.133Z",
+	"count": 7,
+	"alignedFootprintA": [],
+	"report": [
+		{
+			"historicalCode": "011758",
+			"currentAreaM2": 618.52,
+			"historicalAreaM2": 493.55,
+			"intersectionAreaM2": 491.85,
+			"currentCoverage": 0.7952,
+			"historicalCoverage": 0.9966,
+			"alignment": {
+				"dxM": 0,
+				"dyM": 0,
+				"shiftM": 0,
+				"outsideAreaM2": 1.6955,
+				"oldCoverage": 0.996565,
+				"currentCoverage": 0.795207,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4001025007",
+					"height": 21.7
+				},
+				{
+					"fmzkId": "4001025027",
+					"height": 23.72
+				},
+				{
+					"fmzkId": "4001025044",
+					"height": 21.72
+				},
+				{
+					"fmzkId": "4005011188",
+					"height": 21.32
+				},
+				{
+					"fmzkId": "4006149971",
+					"height": 12.31
+				},
+				{
+					"fmzkId": "4006149972",
+					"height": 9.75
+				},
+				{
+					"fmzkId": "4006149973",
+					"height": 9.74
+				},
+				{
+					"fmzkId": "4006150241",
+					"height": 23.6
+				},
+				{
+					"fmzkId": "4006150249",
+					"height": 23.61
+				},
+				{
+					"fmzkId": "4006150252",
+					"height": 8.38
+				},
+				{
+					"fmzkId": "4006150259",
+					"height": 24
+				},
+				{
+					"fmzkId": "4006150260",
+					"height": 24.55
+				},
+				{
+					"fmzkId": "4007017146",
+					"height": 4.12
+				},
+				{
+					"fmzkId": "4007017154",
+					"height": 8.17
+				}
+			]
+		},
+		{
+			"historicalCode": "032459",
+			"currentAreaM2": 602.84,
+			"historicalAreaM2": 477.15,
+			"intersectionAreaM2": 475.42,
+			"currentCoverage": 0.7886,
+			"historicalCoverage": 0.9964,
+			"alignment": {
+				"dxM": 0.16,
+				"dyM": 0.28,
+				"shiftM": 0.322,
+				"outsideAreaM2": 1.4179,
+				"oldCoverage": 0.997028,
+				"currentCoverage": 0.789159,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006386656",
+					"height": 12.85
+				},
+				{
+					"fmzkId": "4006386662",
+					"height": 5.75
+				},
+				{
+					"fmzkId": "4006388235",
+					"height": 9.06
+				},
+				{
+					"fmzkId": "4006388254",
+					"height": 9.36
+				},
+				{
+					"fmzkId": "4006934674",
+					"height": 9.03
+				},
+				{
+					"fmzkId": "4006934677",
+					"height": 9.06
+				},
+				{
+					"fmzkId": "4006934684",
+					"height": 9.29
+				}
+			]
+		},
+		{
+			"historicalCode": "045503",
+			"currentAreaM2": 980.94,
+			"historicalAreaM2": 769.02,
+			"intersectionAreaM2": 765.18,
+			"currentCoverage": 0.78,
+			"historicalCoverage": 0.995,
+			"alignment": {
+				"dxM": 0.02,
+				"dyM": 0,
+				"shiftM": 0.02,
+				"outsideAreaM2": 3.7779,
+				"oldCoverage": 0.995087,
+				"currentCoverage": 0.780108,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006993500",
+					"height": 20.95
+				},
+				{
+					"fmzkId": "4006993513",
+					"height": 4.11
+				},
+				{
+					"fmzkId": "4006993514",
+					"height": 3.41
+				},
+				{
+					"fmzkId": "4006993515",
+					"height": 17.33
+				},
+				{
+					"fmzkId": "4006993516",
+					"height": 14.23
+				},
+				{
+					"fmzkId": "4006993517",
+					"height": 11.31
+				}
+			]
+		},
+		{
+			"historicalCode": "047031",
+			"currentAreaM2": 914.9,
+			"historicalAreaM2": 639.62,
+			"intersectionAreaM2": 636.43,
+			"currentCoverage": 0.6956,
+			"historicalCoverage": 0.995,
+			"alignment": {
+				"dxM": 0.06,
+				"dyM": -0.02,
+				"shiftM": 0.063,
+				"outsideAreaM2": 2.8001,
+				"oldCoverage": 0.995622,
+				"currentCoverage": 0.696061,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006316940",
+					"height": 11.76
+				},
+				{
+					"fmzkId": "4006777507",
+					"height": 11.89
+				},
+				{
+					"fmzkId": "4006777510",
+					"height": 9.3
+				},
+				{
+					"fmzkId": "4006777511",
+					"height": 4.62
+				},
+				{
+					"fmzkId": "4006777512",
+					"height": 8.14
+				}
+			]
+		},
+		{
+			"historicalCode": "061091",
+			"currentAreaM2": 737.09,
+			"historicalAreaM2": 574.28,
+			"intersectionAreaM2": 572.76,
+			"currentCoverage": 0.7771,
+			"historicalCoverage": 0.9973,
+			"alignment": {
+				"dxM": 0,
+				"dyM": 0,
+				"shiftM": 0,
+				"outsideAreaM2": 1.522,
+				"oldCoverage": 0.99735,
+				"currentCoverage": 0.777057,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4003837773",
+					"height": 9.58
+				},
+				{
+					"fmzkId": "4003837799",
+					"height": 3.02
+				},
+				{
+					"fmzkId": "4003837859",
+					"height": 4.16
+				},
+				{
+					"fmzkId": "4006612246",
+					"height": 4.1
+				},
+				{
+					"fmzkId": "4006612247",
+					"height": 6.28
+				},
+				{
+					"fmzkId": "4007367341",
+					"height": 4.82
+				}
+			]
+		},
+		{
+			"historicalCode": "065479",
+			"currentAreaM2": 324.06,
+			"historicalAreaM2": 296.56,
+			"intersectionAreaM2": 295.23,
+			"currentCoverage": 0.911,
+			"historicalCoverage": 0.9955,
+			"alignment": {
+				"dxM": 0,
+				"dyM": 0,
+				"shiftM": 0,
+				"outsideAreaM2": 1.3255,
+				"oldCoverage": 0.99553,
+				"currentCoverage": 0.911039,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006087748",
+					"height": 11.82
+				},
+				{
+					"fmzkId": "4006089515",
+					"height": 12.72
+				},
+				{
+					"fmzkId": "4006813956",
+					"height": 2.75
+				},
+				{
+					"fmzkId": "4006813994",
+					"height": 2.9
+				}
+			]
+		},
+		{
+			"historicalCode": "088729",
+			"currentAreaM2": 822.47,
+			"historicalAreaM2": 532.63,
+			"intersectionAreaM2": 530.89,
+			"currentCoverage": 0.6455,
+			"historicalCoverage": 0.9967,
+			"alignment": {
+				"dxM": 0,
+				"dyM": 0,
+				"shiftM": 0,
+				"outsideAreaM2": 1.7366,
+				"oldCoverage": 0.99674,
+				"currentCoverage": 0.645485,
+				"centroidDistanceM": null,
+				"searchLimitM": 1,
+				"coarseStepM": 0.1,
+				"refineStepM": 0.02
+			},
+			"currentHeightsM": [
+				{
+					"fmzkId": "4004248879",
+					"height": 2.75
+				},
+				{
+					"fmzkId": "4004248990",
+					"height": 7.25
+				},
+				{
+					"fmzkId": "4005874244",
+					"height": 3.93
+				},
+				{
+					"fmzkId": "4005874450",
+					"height": 8.13
+				},
+				{
+					"fmzkId": "4005874452",
+					"height": 3.57
+				},
+				{
+					"fmzkId": "4007232204",
+					"height": 4.07
+				},
+				{
+					"fmzkId": "4007719559",
+					"height": 3.42
+				},
+				{
+					"fmzkId": "4007719561",
+					"height": 2.93
+				}
+			]
+		}
+	]
+}
