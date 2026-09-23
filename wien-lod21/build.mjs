@@ -8,8 +8,11 @@ import proj4 from "proj4";
 import GeoJSONReader from "jsts/org/locationtech/jts/io/GeoJSONReader.js";
 import GeoJSONWriter from "jsts/org/locationtech/jts/io/GeoJSONWriter.js";
 import OverlayOp from "jsts/org/locationtech/jts/operation/overlay/OverlayOp.js";
+import SnapIfNeededOverlayOp from "jsts/org/locationtech/jts/operation/overlay/snap/SnapIfNeededOverlayOp.js";
 import UnionOp from "jsts/org/locationtech/jts/operation/union/UnionOp.js";
 import BufferOp from "jsts/org/locationtech/jts/operation/buffer/BufferOp.js";
+import PrecisionModel from "jsts/org/locationtech/jts/geom/PrecisionModel.js";
+import GeometryPrecisionReducer from "jsts/org/locationtech/jts/precision/GeometryPrecisionReducer.js";
 
 const GML_NS = "http://www.opengis.net/gml";
 const BLDG_NS = "http://www.opengis.net/citygml/building/1.0";
@@ -663,18 +666,45 @@ function unionJstsGeometries(geometries) {
 	return result;
 }
 
-function differenceJstsGeometry(current, historical) {
+function differenceJstsGeometry(current, historical, context = "") {
 	try {
 		return OverlayOp.overlayOp(current, historical, OverlayOp.DIFFERENCE);
-	} catch {
+	} catch (error) {
 		const repairedCurrent = repairJstsGeometry(current);
 		const repairedHistorical = repairJstsGeometry(historical);
 		if (!repairedCurrent || !repairedHistorical) return null;
-		return OverlayOp.overlayOp(
-			repairedCurrent,
-			repairedHistorical,
-			OverlayOp.DIFFERENCE
-		);
+		try {
+			console.warn(
+				"Hybrid difference uses snap overlay"
+				+ (context ? " for " + context : "")
+				+ ": " + (error?.message || error)
+			);
+			return SnapIfNeededOverlayOp.overlayOp(
+				repairedCurrent,
+				repairedHistorical,
+				OverlayOp.DIFFERENCE
+			);
+		} catch (snapError) {
+			const precision = new PrecisionModel(1000);
+			const preciseCurrent = GeometryPrecisionReducer.reduce(
+				repairedCurrent,
+				precision
+			);
+			const preciseHistorical = GeometryPrecisionReducer.reduce(
+				repairedHistorical,
+				precision
+			);
+			console.warn(
+				"Hybrid difference uses 1 mm precision reduction"
+				+ (context ? " for " + context : "")
+				+ ": " + (snapError?.message || snapError)
+			);
+			return SnapIfNeededOverlayOp.overlayOp(
+				preciseCurrent,
+				preciseHistorical,
+				OverlayOp.DIFFERENCE
+			);
+		}
 	}
 }
 
@@ -1067,7 +1097,8 @@ async function main() {
 			if (!currentGeometry) continue;
 			const remainder = differenceJstsGeometry(
 				currentGeometry,
-				bufferedHistorical
+				bufferedHistorical,
+				code + " / " + String(ksId)
 			);
 			if (!remainder || remainder.isEmpty()) continue;
 
