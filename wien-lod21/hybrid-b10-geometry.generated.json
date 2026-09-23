@@ -1,0 +1,1495 @@
+{
+	"generatedAt": "2026-09-23T10:37:15.394Z",
+	"count": 10,
+	"report": [
+		{
+			"historicalCode": "061091",
+			"name": "Wien LOD2.1 061091",
+			"bwGebId": 5521594,
+			"ksIds": [
+				"wien-fmzk:4003837773",
+				"wien-fmzk:4003837799",
+				"wien-fmzk:4003837859",
+				"wien-fmzk:4006612246",
+				"wien-fmzk:4006612247",
+				"wien-fmzk:4007367341"
+			],
+			"currentParts": 6,
+			"currentAreaM2": 737.09,
+			"historicalAreaM2": 574.28,
+			"intersectionAreaM2": 572.76,
+			"currentCoverage": 0.7771,
+			"historicalCoverage": 0.9973,
+			"historicalOutsideAreaM2": 1.522,
+			"historicalOutsideComponents": 11,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.1741,
+					"perimeterM": 4.9096,
+					"meanWidthM": 0.4783
+				},
+				{
+					"areaM2": 0.2773,
+					"perimeterM": 23.8904,
+					"meanWidthM": 0.0232
+				},
+				{
+					"areaM2": 0.0354,
+					"perimeterM": 21.0005,
+					"meanWidthM": 0.0034
+				},
+				{
+					"areaM2": 0.0236,
+					"perimeterM": 48.2957,
+					"meanWidthM": 0.001
+				},
+				{
+					"areaM2": 0.0087,
+					"perimeterM": 9.1854,
+					"meanWidthM": 0.0019
+				},
+				{
+					"areaM2": 0.0015,
+					"perimeterM": 8.127,
+					"meanWidthM": 0.0004
+				},
+				{
+					"areaM2": 0.0007,
+					"perimeterM": 21.7115,
+					"meanWidthM": 0.0001
+				},
+				{
+					"areaM2": 0.0003,
+					"perimeterM": 14.7448,
+					"meanWidthM": 0
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 1.2649,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 2.7806,
+					"meanWidthM": 0.0001
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 6.0515,
+					"meanWidthM": 0
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 164.33,
+			"remainderRatio": 0.2229,
+			"remainderComponents": 8,
+			"meaningfulComponents": 1,
+			"sliverComponents": 7,
+			"sliverAreaM2": 0.011,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 164.3185,
+					"perimeterM": 57.0111,
+					"meanWidthM": 5.7644,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.0087,
+					"perimeterM": 41.3394,
+					"meanWidthM": 0.0004,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0013,
+					"perimeterM": 10.017,
+					"meanWidthM": 0.0003,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0007,
+					"perimeterM": 24.797,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 25.3147,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 1.5922,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.1168,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.0033,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4003837773",
+					"height": 9.58
+				},
+				{
+					"fmzkId": "4003837799",
+					"height": 3.02
+				},
+				{
+					"fmzkId": "4003837859",
+					"height": 4.16
+				},
+				{
+					"fmzkId": "4006612246",
+					"height": 4.1
+				},
+				{
+					"fmzkId": "4006612247",
+					"height": 6.28
+				},
+				{
+					"fmzkId": "4007367341",
+					"height": 4.82
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.4783,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.37335167564725985
+		},
+		{
+			"historicalCode": "032459",
+			"name": "Wien LOD2.1 032459",
+			"bwGebId": 5473498,
+			"ksIds": [
+				"wien-fmzk:4006386656",
+				"wien-fmzk:4006386662",
+				"wien-fmzk:4006388235",
+				"wien-fmzk:4006388254",
+				"wien-fmzk:4006934674",
+				"wien-fmzk:4006934677",
+				"wien-fmzk:4006934684"
+			],
+			"currentParts": 7,
+			"currentAreaM2": 602.84,
+			"historicalAreaM2": 477.15,
+			"intersectionAreaM2": 475.42,
+			"currentCoverage": 0.7886,
+			"historicalCoverage": 0.9964,
+			"historicalOutsideAreaM2": 1.7369,
+			"historicalOutsideComponents": 4,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.5214,
+					"perimeterM": 27.6854,
+					"meanWidthM": 0.1099
+				},
+				{
+					"areaM2": 0.1754,
+					"perimeterM": 20.2281,
+					"meanWidthM": 0.0173
+				},
+				{
+					"areaM2": 0.0401,
+					"perimeterM": 5.4219,
+					"meanWidthM": 0.0148
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.3816,
+					"meanWidthM": 0
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 127.42,
+			"remainderRatio": 0.2114,
+			"remainderComponents": 5,
+			"meaningfulComponents": 2,
+			"sliverComponents": 3,
+			"sliverAreaM2": 0.272,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 114.1399,
+					"perimeterM": 140.1149,
+					"meanWidthM": 1.6292,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 13.0099,
+					"perimeterM": 90.1227,
+					"meanWidthM": 0.2887,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.2675,
+					"perimeterM": 13.4966,
+					"meanWidthM": 0.0396,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0041,
+					"perimeterM": 32.0275,
+					"meanWidthM": 0.0003,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 1.1045,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006386656",
+					"height": 12.85
+				},
+				{
+					"fmzkId": "4006386662",
+					"height": 5.75
+				},
+				{
+					"fmzkId": "4006388235",
+					"height": 9.06
+				},
+				{
+					"fmzkId": "4006388254",
+					"height": 9.36
+				},
+				{
+					"fmzkId": "4006934674",
+					"height": 9.03
+				},
+				{
+					"fmzkId": "4006934677",
+					"height": 9.06
+				},
+				{
+					"fmzkId": "4006934684",
+					"height": 9.29
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.1099,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.09835325004318039
+		},
+		{
+			"historicalCode": "123321",
+			"name": "Wien LOD2.1 123321",
+			"bwGebId": 5392478,
+			"ksIds": [
+				"wien-fmzk:4005679359"
+			],
+			"currentParts": 1,
+			"currentAreaM2": 223.42,
+			"historicalAreaM2": 162.14,
+			"intersectionAreaM2": 161.42,
+			"currentCoverage": 0.7225,
+			"historicalCoverage": 0.9955,
+			"historicalOutsideAreaM2": 0.7256,
+			"historicalOutsideComponents": 2,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 0.6948,
+					"perimeterM": 44.5189,
+					"meanWidthM": 0.0312
+				},
+				{
+					"areaM2": 0.0308,
+					"perimeterM": 18.2137,
+					"meanWidthM": 0.0034
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 62.01,
+			"remainderRatio": 0.2775,
+			"remainderComponents": 2,
+			"meaningfulComponents": 1,
+			"sliverComponents": 1,
+			"sliverAreaM2": 0,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 62.0054,
+					"perimeterM": 41.906,
+					"meanWidthM": 2.9593,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.0004,
+					"perimeterM": 11.7675,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4005679359",
+					"height": 7.04
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.0312,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.030019955898566698
+		},
+		{
+			"historicalCode": "065479",
+			"name": "Wien LOD2.1 065479",
+			"bwGebId": 5358305,
+			"ksIds": [
+				"wien-fmzk:4006087748",
+				"wien-fmzk:4006089515",
+				"wien-fmzk:4006813956",
+				"wien-fmzk:4006813994"
+			],
+			"currentParts": 4,
+			"currentAreaM2": 324.06,
+			"historicalAreaM2": 296.56,
+			"intersectionAreaM2": 295.23,
+			"currentCoverage": 0.911,
+			"historicalCoverage": 0.9955,
+			"historicalOutsideAreaM2": 1.3255,
+			"historicalOutsideComponents": 5,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.1749,
+					"perimeterM": 40.1611,
+					"meanWidthM": 0.0585
+				},
+				{
+					"areaM2": 0.1062,
+					"perimeterM": 1.6458,
+					"meanWidthM": 0.129
+				},
+				{
+					"areaM2": 0.0402,
+					"perimeterM": 20.7851,
+					"meanWidthM": 0.0039
+				},
+				{
+					"areaM2": 0.0039,
+					"perimeterM": 21.054,
+					"meanWidthM": 0.0004
+				},
+				{
+					"areaM2": 0.0003,
+					"perimeterM": 3.6404,
+					"meanWidthM": 0.0001
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 28.83,
+			"remainderRatio": 0.089,
+			"remainderComponents": 5,
+			"meaningfulComponents": 2,
+			"sliverComponents": 3,
+			"sliverAreaM2": 0.158,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 25.8957,
+					"perimeterM": 31.6113,
+					"meanWidthM": 1.6384,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 2.7749,
+					"perimeterM": 9.8429,
+					"meanWidthM": 0.5638,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.1265,
+					"perimeterM": 35.5209,
+					"meanWidthM": 0.0071,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.031,
+					"perimeterM": 24.0301,
+					"meanWidthM": 0.0026,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.001,
+					"perimeterM": 9.7368,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006087748",
+					"height": 11.82
+				},
+				{
+					"fmzkId": "4006089515",
+					"height": 12.72
+				},
+				{
+					"fmzkId": "4006813956",
+					"height": 2.75
+				},
+				{
+					"fmzkId": "4006813994",
+					"height": 2.9
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.129,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.06230842700867596
+		},
+		{
+			"historicalCode": "079387",
+			"name": "Wien LOD2.1 079387",
+			"bwGebId": 5548037,
+			"ksIds": [
+				"wien-fmzk:4001235131",
+				"wien-fmzk:4006105201",
+				"wien-fmzk:4006105241",
+				"wien-fmzk:4006106108",
+				"wien-fmzk:4006106126",
+				"wien-fmzk:4006106157"
+			],
+			"currentParts": 6,
+			"currentAreaM2": 883.33,
+			"historicalAreaM2": 636.4,
+			"intersectionAreaM2": 635.67,
+			"currentCoverage": 0.7196,
+			"historicalCoverage": 0.9988,
+			"historicalOutsideAreaM2": 0.7386,
+			"historicalOutsideComponents": 13,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 0.6097,
+					"perimeterM": 36.9759,
+					"meanWidthM": 0.033
+				},
+				{
+					"areaM2": 0.1219,
+					"perimeterM": 55.2769,
+					"meanWidthM": 0.0044
+				},
+				{
+					"areaM2": 0.0017,
+					"perimeterM": 17.1058,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0015,
+					"perimeterM": 12.815,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0012,
+					"perimeterM": 13.7349,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0011,
+					"perimeterM": 14.715,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0006,
+					"perimeterM": 7.4502,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0006,
+					"perimeterM": 23.5296,
+					"meanWidthM": 0.0001
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 1.4285,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 1.6682,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 5.0278,
+					"meanWidthM": 0
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 1.7696,
+					"meanWidthM": 0
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.0176,
+					"meanWidthM": 0
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 247.67,
+			"remainderRatio": 0.2804,
+			"remainderComponents": 13,
+			"meaningfulComponents": 3,
+			"sliverComponents": 10,
+			"sliverAreaM2": 0.011,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 237.633,
+					"perimeterM": 101.9314,
+					"meanWidthM": 4.6626,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 6.3037,
+					"perimeterM": 80.4482,
+					"meanWidthM": 0.1567,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 3.7191,
+					"perimeterM": 19.0094,
+					"meanWidthM": 0.3913,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.0061,
+					"perimeterM": 2.6405,
+					"meanWidthM": 0.0046,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0012,
+					"perimeterM": 12.5298,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0012,
+					"perimeterM": 10.8865,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.001,
+					"perimeterM": 9.4084,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0008,
+					"perimeterM": 7.3747,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0004,
+					"perimeterM": 2.3336,
+					"meanWidthM": 0.0004,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0002,
+					"perimeterM": 1.9777,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0002,
+					"perimeterM": 3.8524,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.5882,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.0586,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4001235131",
+					"height": 3.07
+				},
+				{
+					"fmzkId": "4006105201",
+					"height": 3.67
+				},
+				{
+					"fmzkId": "4006105241",
+					"height": 2.93
+				},
+				{
+					"fmzkId": "4006106108",
+					"height": 3.85
+				},
+				{
+					"fmzkId": "4006106126",
+					"height": 3.83
+				},
+				{
+					"fmzkId": "4006106157",
+					"height": 2.74
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.033,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.027972620176032498
+		},
+		{
+			"historicalCode": "045503",
+			"name": "Wien LOD2.1 045503",
+			"bwGebId": 5528391,
+			"ksIds": [
+				"wien-fmzk:4006993500",
+				"wien-fmzk:4006993513",
+				"wien-fmzk:4006993514",
+				"wien-fmzk:4006993515",
+				"wien-fmzk:4006993516",
+				"wien-fmzk:4006993517"
+			],
+			"currentParts": 6,
+			"currentAreaM2": 980.94,
+			"historicalAreaM2": 769.02,
+			"intersectionAreaM2": 765.18,
+			"currentCoverage": 0.78,
+			"historicalCoverage": 0.995,
+			"historicalOutsideAreaM2": 3.8384,
+			"historicalOutsideComponents": 6,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.9441,
+					"perimeterM": 5.8512,
+					"meanWidthM": 0.6645
+				},
+				{
+					"areaM2": 1.7485,
+					"perimeterM": 5.6585,
+					"meanWidthM": 0.618
+				},
+				{
+					"areaM2": 0.143,
+					"perimeterM": 21.4509,
+					"meanWidthM": 0.0133
+				},
+				{
+					"areaM2": 0.0027,
+					"perimeterM": 12.8078,
+					"meanWidthM": 0.0004
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 1.1713,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 5.0571,
+					"meanWidthM": 0
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 215.76,
+			"remainderRatio": 0.22,
+			"remainderComponents": 7,
+			"meaningfulComponents": 3,
+			"sliverComponents": 4,
+			"sliverAreaM2": 1.593,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 118.1401,
+					"perimeterM": 64.3705,
+					"meanWidthM": 3.6706,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 93.1212,
+					"perimeterM": 41.3725,
+					"meanWidthM": 4.5016,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 2.9068,
+					"perimeterM": 73.7343,
+					"meanWidthM": 0.0788,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 1.123,
+					"perimeterM": 22.8173,
+					"meanWidthM": 0.0984,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.4695,
+					"perimeterM": 45.8967,
+					"meanWidthM": 0.0205,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0004,
+					"perimeterM": 5.3161,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 1.8419,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006993500",
+					"height": 20.95
+				},
+				{
+					"fmzkId": "4006993513",
+					"height": 4.11
+				},
+				{
+					"fmzkId": "4006993514",
+					"height": 3.41
+				},
+				{
+					"fmzkId": "4006993515",
+					"height": 17.33
+				},
+				{
+					"fmzkId": "4006993516",
+					"height": 14.23
+				},
+				{
+					"fmzkId": "4006993517",
+					"height": 11.31
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.6645,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.6185729600875365
+		},
+		{
+			"historicalCode": "088729",
+			"name": "Wien LOD2.1 088729",
+			"bwGebId": 5503747,
+			"ksIds": [
+				"wien-fmzk:4004248879",
+				"wien-fmzk:4004248990",
+				"wien-fmzk:4005874244",
+				"wien-fmzk:4005874450",
+				"wien-fmzk:4005874452",
+				"wien-fmzk:4007232204",
+				"wien-fmzk:4007719559",
+				"wien-fmzk:4007719561"
+			],
+			"currentParts": 8,
+			"currentAreaM2": 822.47,
+			"historicalAreaM2": 532.63,
+			"intersectionAreaM2": 530.89,
+			"currentCoverage": 0.6455,
+			"historicalCoverage": 0.9967,
+			"historicalOutsideAreaM2": 1.7366,
+			"historicalOutsideComponents": 9,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.7274,
+					"perimeterM": 19.5058,
+					"meanWidthM": 0.1771
+				},
+				{
+					"areaM2": 0.0048,
+					"perimeterM": 1.7949,
+					"meanWidthM": 0.0054
+				},
+				{
+					"areaM2": 0.0015,
+					"perimeterM": 17.9882,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0012,
+					"perimeterM": 18.5981,
+					"meanWidthM": 0.0001
+				},
+				{
+					"areaM2": 0.0008,
+					"perimeterM": 7.1094,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0007,
+					"perimeterM": 7.8154,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0002,
+					"perimeterM": 3.0612,
+					"meanWidthM": 0.0001
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 4.102,
+					"meanWidthM": 0
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 1.5765,
+					"meanWidthM": 0
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 291.58,
+			"remainderRatio": 0.3545,
+			"remainderComponents": 11,
+			"meaningfulComponents": 4,
+			"sliverComponents": 7,
+			"sliverAreaM2": 0.003,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 218.9559,
+					"perimeterM": 73.405,
+					"meanWidthM": 5.9657,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 33.3548,
+					"perimeterM": 41.418,
+					"meanWidthM": 1.6106,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 24.5191,
+					"perimeterM": 46.0144,
+					"meanWidthM": 1.0657,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 14.7465,
+					"perimeterM": 15.3698,
+					"meanWidthM": 1.9189,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.0013,
+					"perimeterM": 11.1018,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0007,
+					"perimeterM": 6.8749,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0006,
+					"perimeterM": 5.497,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0004,
+					"perimeterM": 6.8761,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0002,
+					"perimeterM": 7.2069,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 24.3253,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 1.2482,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4004248879",
+					"height": 2.75
+				},
+				{
+					"fmzkId": "4004248990",
+					"height": 7.25
+				},
+				{
+					"fmzkId": "4005874244",
+					"height": 3.93
+				},
+				{
+					"fmzkId": "4005874450",
+					"height": 8.13
+				},
+				{
+					"fmzkId": "4005874452",
+					"height": 3.57
+				},
+				{
+					"fmzkId": "4007232204",
+					"height": 4.07
+				},
+				{
+					"fmzkId": "4007719559",
+					"height": 3.42
+				},
+				{
+					"fmzkId": "4007719561",
+					"height": 2.93
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.1771,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.17616698335924458
+		},
+		{
+			"historicalCode": "047031",
+			"name": "Wien LOD2.1 047031",
+			"bwGebId": 5557760,
+			"ksIds": [
+				"wien-fmzk:4006316940",
+				"wien-fmzk:4006777507",
+				"wien-fmzk:4006777510",
+				"wien-fmzk:4006777511",
+				"wien-fmzk:4006777512"
+			],
+			"currentParts": 5,
+			"currentAreaM2": 914.9,
+			"historicalAreaM2": 639.62,
+			"intersectionAreaM2": 636.43,
+			"currentCoverage": 0.6956,
+			"historicalCoverage": 0.995,
+			"historicalOutsideAreaM2": 3.1976,
+			"historicalOutsideComponents": 8,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.2729,
+					"perimeterM": 32.9411,
+					"meanWidthM": 0.0773
+				},
+				{
+					"areaM2": 1.0476,
+					"perimeterM": 26.6336,
+					"meanWidthM": 0.0787
+				},
+				{
+					"areaM2": 0.2731,
+					"perimeterM": 3.9002,
+					"meanWidthM": 0.1401
+				},
+				{
+					"areaM2": 0.2474,
+					"perimeterM": 4.8758,
+					"meanWidthM": 0.1015
+				},
+				{
+					"areaM2": 0.2206,
+					"perimeterM": 11.6762,
+					"meanWidthM": 0.0378
+				},
+				{
+					"areaM2": 0.1013,
+					"perimeterM": 2.6097,
+					"meanWidthM": 0.0776
+				},
+				{
+					"areaM2": 0.0336,
+					"perimeterM": 23.5204,
+					"meanWidthM": 0.0029
+				},
+				{
+					"areaM2": 0.0012,
+					"perimeterM": 1.1671,
+					"meanWidthM": 0.002
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 278.47,
+			"remainderRatio": 0.3044,
+			"remainderComponents": 9,
+			"meaningfulComponents": 4,
+			"sliverComponents": 5,
+			"sliverAreaM2": 1.127,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 253.0523,
+					"perimeterM": 144.8042,
+					"meanWidthM": 3.4951,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 16.727,
+					"perimeterM": 96.7145,
+					"meanWidthM": 0.3459,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 4.5982,
+					"perimeterM": 39.0857,
+					"meanWidthM": 0.2353,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 2.9659,
+					"perimeterM": 27.6568,
+					"meanWidthM": 0.2145,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.5855,
+					"perimeterM": 8.8875,
+					"meanWidthM": 0.1317,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.526,
+					"perimeterM": 8.4673,
+					"meanWidthM": 0.1242,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0139,
+					"perimeterM": 8.1564,
+					"meanWidthM": 0.0034,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.002,
+					"perimeterM": 42.5325,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 11.9821,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4006316940",
+					"height": 11.76
+				},
+				{
+					"fmzkId": "4006777507",
+					"height": 11.89
+				},
+				{
+					"fmzkId": "4006777510",
+					"height": 9.3
+				},
+				{
+					"fmzkId": "4006777511",
+					"height": 4.62
+				},
+				{
+					"fmzkId": "4006777512",
+					"height": 8.14
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.1401,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.08146889952153111
+		},
+		{
+			"historicalCode": "088019",
+			"name": "Wien LOD2.1 088019",
+			"bwGebId": 5407500,
+			"ksIds": [
+				"wien-fmzk:4005376688",
+				"wien-fmzk:4005377451",
+				"wien-fmzk:4005853447",
+				"wien-fmzk:4006460658"
+			],
+			"currentParts": 4,
+			"currentAreaM2": 1144.77,
+			"historicalAreaM2": 777.96,
+			"intersectionAreaM2": 776.94,
+			"currentCoverage": 0.6787,
+			"historicalCoverage": 0.9987,
+			"historicalOutsideAreaM2": 1.0273,
+			"historicalOutsideComponents": 10,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 0.5155,
+					"perimeterM": 62.4623,
+					"meanWidthM": 0.0165
+				},
+				{
+					"areaM2": 0.2026,
+					"perimeterM": 13.2443,
+					"meanWidthM": 0.0306
+				},
+				{
+					"areaM2": 0.0995,
+					"perimeterM": 8.8264,
+					"meanWidthM": 0.0225
+				},
+				{
+					"areaM2": 0.0746,
+					"perimeterM": 35.7808,
+					"meanWidthM": 0.0042
+				},
+				{
+					"areaM2": 0.068,
+					"perimeterM": 33.7533,
+					"meanWidthM": 0.004
+				},
+				{
+					"areaM2": 0.0422,
+					"perimeterM": 17.5539,
+					"meanWidthM": 0.0048
+				},
+				{
+					"areaM2": 0.014,
+					"perimeterM": 7.6042,
+					"meanWidthM": 0.0037
+				},
+				{
+					"areaM2": 0.0089,
+					"perimeterM": 4.8791,
+					"meanWidthM": 0.0036
+				},
+				{
+					"areaM2": 0.0013,
+					"perimeterM": 1.4095,
+					"meanWidthM": 0.0019
+				},
+				{
+					"areaM2": 0.0007,
+					"perimeterM": 0.6798,
+					"meanWidthM": 0.002
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 367.83,
+			"remainderRatio": 0.3213,
+			"remainderComponents": 10,
+			"meaningfulComponents": 2,
+			"sliverComponents": 8,
+			"sliverAreaM2": 0.014,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 188.032,
+					"perimeterM": 71.8681,
+					"meanWidthM": 5.2327,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 179.7881,
+					"perimeterM": 90.5601,
+					"meanWidthM": 3.9706,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.0038,
+					"perimeterM": 1.8023,
+					"meanWidthM": 0.0042,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0033,
+					"perimeterM": 0.9738,
+					"meanWidthM": 0.0068,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0032,
+					"perimeterM": 0.8469,
+					"meanWidthM": 0.0076,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0013,
+					"perimeterM": 0.8104,
+					"meanWidthM": 0.0033,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.001,
+					"perimeterM": 1.0233,
+					"meanWidthM": 0.002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0008,
+					"perimeterM": 21.8516,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 0.4989,
+					"meanWidthM": 0.0003,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.1124,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4005376688",
+					"height": 9.41
+				},
+				{
+					"fmzkId": "4005377451",
+					"height": 13.86
+				},
+				{
+					"fmzkId": "4005853447",
+					"height": 13.03
+				},
+				{
+					"fmzkId": "4006460658",
+					"height": 15.61
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.0306,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.017346101430935467
+		},
+		{
+			"historicalCode": "011758",
+			"name": "Wien LOD2.1 011758",
+			"bwGebId": 5347454,
+			"ksIds": [
+				"wien-fmzk:4001025007",
+				"wien-fmzk:4001025027",
+				"wien-fmzk:4001025044",
+				"wien-fmzk:4005011188",
+				"wien-fmzk:4006149971",
+				"wien-fmzk:4006149972",
+				"wien-fmzk:4006149973",
+				"wien-fmzk:4006150241",
+				"wien-fmzk:4006150249",
+				"wien-fmzk:4006150252",
+				"wien-fmzk:4006150259",
+				"wien-fmzk:4006150260",
+				"wien-fmzk:4007017146",
+				"wien-fmzk:4007017154"
+			],
+			"currentParts": 14,
+			"currentAreaM2": 618.52,
+			"historicalAreaM2": 493.55,
+			"intersectionAreaM2": 491.85,
+			"currentCoverage": 0.7952,
+			"historicalCoverage": 0.9966,
+			"historicalOutsideAreaM2": 1.6955,
+			"historicalOutsideComponents": 8,
+			"historicalOutsideComponentMetrics": [
+				{
+					"areaM2": 1.6898,
+					"perimeterM": 12.8515,
+					"meanWidthM": 0.263
+				},
+				{
+					"areaM2": 0.002,
+					"perimeterM": 13.0224,
+					"meanWidthM": 0.0003
+				},
+				{
+					"areaM2": 0.0016,
+					"perimeterM": 5.0106,
+					"meanWidthM": 0.0006
+				},
+				{
+					"areaM2": 0.001,
+					"perimeterM": 8.2441,
+					"meanWidthM": 0.0002
+				},
+				{
+					"areaM2": 0.0009,
+					"perimeterM": 6.6848,
+					"meanWidthM": 0.0003
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 1.6521,
+					"meanWidthM": 0.0001
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 7.2302,
+					"meanWidthM": 0
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.0183,
+					"meanWidthM": 0.0001
+				}
+			],
+			"bufferM": 0,
+			"remainderAreaM2": 126.67,
+			"remainderRatio": 0.2048,
+			"remainderComponents": 14,
+			"meaningfulComponents": 4,
+			"sliverComponents": 10,
+			"sliverAreaM2": 0.006,
+			"remainderComponentMetrics": [
+				{
+					"areaM2": 35.4006,
+					"perimeterM": 29.4761,
+					"meanWidthM": 2.402,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 33.9491,
+					"perimeterM": 33.9985,
+					"meanWidthM": 1.9971,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 28.7439,
+					"perimeterM": 21.587,
+					"meanWidthM": 2.6631,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 28.5689,
+					"perimeterM": 21.3957,
+					"meanWidthM": 2.6705,
+					"keptAt2m2": true
+				},
+				{
+					"areaM2": 0.0016,
+					"perimeterM": 10.6445,
+					"meanWidthM": 0.0003,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0011,
+					"perimeterM": 14.494,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.001,
+					"perimeterM": 12.2786,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.001,
+					"perimeterM": 16.7908,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0009,
+					"perimeterM": 24.631,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0006,
+					"perimeterM": 6.143,
+					"meanWidthM": 0.0002,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0.0001,
+					"perimeterM": 2.728,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.8036,
+					"meanWidthM": 0.0001,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 1.9171,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				},
+				{
+					"areaM2": 0,
+					"perimeterM": 0.5602,
+					"meanWidthM": 0,
+					"keptAt2m2": false
+				}
+			],
+			"currentHeightsM": [
+				{
+					"fmzkId": "4001025007",
+					"height": 21.7
+				},
+				{
+					"fmzkId": "4001025027",
+					"height": 23.72
+				},
+				{
+					"fmzkId": "4001025044",
+					"height": 21.72
+				},
+				{
+					"fmzkId": "4005011188",
+					"height": 21.32
+				},
+				{
+					"fmzkId": "4006149971",
+					"height": 12.31
+				},
+				{
+					"fmzkId": "4006149972",
+					"height": 9.75
+				},
+				{
+					"fmzkId": "4006149973",
+					"height": 9.74
+				},
+				{
+					"fmzkId": "4006150241",
+					"height": 23.6
+				},
+				{
+					"fmzkId": "4006150249",
+					"height": 23.61
+				},
+				{
+					"fmzkId": "4006150252",
+					"height": 8.38
+				},
+				{
+					"fmzkId": "4006150259",
+					"height": 24
+				},
+				{
+					"fmzkId": "4006150260",
+					"height": 24.55
+				},
+				{
+					"fmzkId": "4007017146",
+					"height": 4.12
+				},
+				{
+					"fmzkId": "4007017154",
+					"height": 8.17
+				}
+			],
+			"historicalOutsideMaxMeanWidthM": 0.263,
+			"historicalOutsideAreaWeightedMeanWidthM": 0.2621170392214687
+		}
+	]
+}
