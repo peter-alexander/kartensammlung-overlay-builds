@@ -1112,6 +1112,7 @@ function isHistoricalClipTarget(target) {
 		|| mode === "hybrid-c-clip"
 		|| mode === "hybrid-d-clip"
 		|| mode === "hybrid-eave-clip"
+		|| mode === "hybrid-height-split"
 		|| mode === "hybrid-height-split-pilot"
 	);
 }
@@ -1619,7 +1620,10 @@ async function main() {
 			throw new Error("Hybrid clip target " + code + " has no historical footprint.");
 		}
 
-		const heightSplit = String(target.rolloutMode || "") === "hybrid-height-split-pilot";
+		const heightSplit = (
+			String(target.rolloutMode || "") === "hybrid-height-split"
+			|| String(target.rolloutMode || "") === "hybrid-height-split-pilot"
+		);
 		let clipCurrentGeometry = currentGeometry;
 		let heightSplitAudit = null;
 		if (heightSplit) {
@@ -1916,10 +1920,13 @@ async function main() {
 						levels,
 						{
 							seamBoundaryIndex:
-								String(target.rolloutMode || "")
-								=== "hybrid-height-split-pilot"
-									? null
-									: historicalBoundaryIndex
+								(
+								String(target.rolloutMode || "") === "hybrid-height-split"
+								|| String(target.rolloutMode || "")
+									=== "hybrid-height-split-pilot"
+							)
+								? null
+								: historicalBoundaryIndex
 						}
 					);
 					if (!surfaces.length) continue;
@@ -2029,6 +2036,9 @@ async function main() {
 			).length,
 			hybridEaveClip: targets.filter(
 				(target) => target.rolloutMode === "hybrid-eave-clip"
+			).length,
+			hybridHeightSplit: targets.filter(
+				(target) => target.rolloutMode === "hybrid-height-split"
 			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
@@ -2140,6 +2150,7 @@ async function main() {
 			hybridCClip: targetManifest.counts.hybridCClip,
 			hybridDClip: targetManifest.counts.hybridDClip,
 			hybridEaveClip: targetManifest.counts.hybridEaveClip,
+			hybridHeightSplit: targetManifest.counts.hybridHeightSplit,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
