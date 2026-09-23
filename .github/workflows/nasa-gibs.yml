@@ -9,7 +9,7 @@ on:
       - 'nasa-gibs/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/scripts/lftp-upload.sh'
+      - '.github/scripts/main-ftp-upload-file.sh'
       - '.github/workflows/nasa-gibs.yml'
   schedule:
     - cron: '43 4 * * *'
@@ -26,9 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
-      FTP_USER: ${{ secrets.MAIN_FTP_USER }}
-      FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
       MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
       CURRENT_CATALOG_URL: https://fahrrad.lima-city.de/Maps/NasaGibs/NasaGibsLayerCatalog.min.json
 
@@ -62,7 +62,7 @@ jobs:
         if: steps.changed.outputs.changed == 'true'
         run: |
           test -n "$MAIN_REMOTE_ROOT"
-          chmod +x .github/scripts/lftp-upload.sh
-          .github/scripts/lftp-upload.sh \
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
             nasa-gibs/build/NasaGibsLayerCatalog.min.json \
             "${MAIN_REMOTE_ROOT%/}/NasaGibs/NasaGibsLayerCatalog.min.json"
