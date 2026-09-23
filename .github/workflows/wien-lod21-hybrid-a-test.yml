@@ -2,11 +2,6 @@ name: Test Vienna LOD2.1 Hybrid-A
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/wien-lod21-hybrid-remainder
-    paths:
-      - '.github/workflows/wien-lod21-hybrid-a-test.yml'
 
 permissions:
   contents: read
