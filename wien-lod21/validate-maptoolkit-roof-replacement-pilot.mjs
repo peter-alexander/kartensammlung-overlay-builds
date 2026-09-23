@@ -17,15 +17,32 @@ const REPLACEMENT_MODES = new Set([
 ]);
 
 function parseArgs(argv) {
-	const result = { root: "" };
+	const result = {
+		root: "",
+		output: "",
+		requireSafe: false,
+		expectedCount: null
+	};
 	for (let index = 2; index < argv.length; index += 1) {
 		if (argv[index] === "--root") {
 			result.root = path.resolve(argv[++index]);
+		} else if (argv[index] === "--output") {
+			result.output = path.resolve(argv[++index]);
+		} else if (argv[index] === "--require-safe") {
+			result.requireSafe = true;
+		} else if (argv[index] === "--expected-count") {
+			result.expectedCount = Number(argv[++index]);
 		} else {
 			throw new Error("Unknown argument: " + argv[index]);
 		}
 	}
 	if (!result.root) throw new Error("--root is required.");
+	if (
+		result.expectedCount !== null
+		&& (!Number.isInteger(result.expectedCount) || result.expectedCount < 1)
+	) {
+		throw new Error("--expected-count must be a positive integer.");
+	}
 	return result;
 }
 
@@ -304,10 +321,7 @@ async function main() {
 
 	for (const target of manifest.targets || []) {
 		const code = String(target.historicalCode || "");
-		if (
-			String(target.rolloutMode || "")
-			!== "maptoolkit-roof-replacement-pilot"
-		) continue;
+		if (!REPLACEMENT_MODES.has(String(target.rolloutMode || ""))) continue;
 		const tileKey = String(target.matches?.[0]?.tile || "");
 		const parts = tileKey.split("/").map(Number);
 		if (parts.length !== 3 || parts.some((value) => !Number.isFinite(value))) {
@@ -323,9 +337,6 @@ async function main() {
 		);
 		const tileData = parseBin(await fs.readFile(binPath));
 		const replacementPoints = replacementPointsForBuilding(tileData, code);
-		if (!replacementPoints.length) {
-			throw new Error(code + ": no pitched replacement points");
-		}
 
 		const mtkBuffer = await fetchMtkTile(tile);
 		const vectorTile = new VectorTile(new PbfReader(mtkBuffer));
@@ -383,38 +394,85 @@ async function main() {
 			});
 		}
 
-		if (!flatHitPoints.size && !pitchedHitPoints.size) {
-			throw new Error(code + ": replacement point matches no Maptoolkit roof");
-		}
-		if (pitchedHitPoints.size) {
-			throw new Error(
-				code + ": "
-				+ pitchedHitPoints.size
-				+ " historical pitched-roof sample(s) already hit pitched Maptoolkit surfaces"
-			);
-		}
-		if (!flatHitPoints.size) {
-			throw new Error(code + ": no historical pitched-roof sample hits a flat Maptoolkit roof");
-		}
+		const unmatchedReplacementPoints = Math.max(
+			0,
+			replacementPoints.length
+				- new Set([...flatHitPoints, ...pitchedHitPoints]).size
+		);
+		const safe = (
+			replacementPoints.length > 0
+			&& flatHitPoints.size > 0
+			&& pitchedHitPoints.size === 0
+		);
+		const reasons = [];
+		if (!replacementPoints.length) reasons.push("no-historical-pitched-samples");
+		if (!flatHitPoints.size) reasons.push("no-flat-maptoolkit-hit");
+		if (pitchedHitPoints.size) reasons.push("pitched-maptoolkit-hit");
 
 		reports.push({
 			historicalCode: code,
+			bwGebId: target.bwGebId ?? null,
 			tile: tileKey,
+			roofType: String(target.matches?.[0]?.roofType || ""),
+			safe,
+			reasons,
 			replacementPoints: replacementPoints.length,
 			flatHitPoints: flatHitPoints.size,
 			pitchedHitPoints: pitchedHitPoints.size,
-			unmatchedReplacementPoints:
-				replacementPoints.length - flatHitPoints.size - pitchedHitPoints.size,
+			unmatchedReplacementPoints,
+			flatHitPercent: replacementPoints.length
+				? Number((flatHitPoints.size / replacementPoints.length * 100).toFixed(3))
+				: 0,
+			pitchedHitPercent: replacementPoints.length
+				? Number((pitchedHitPoints.size / replacementPoints.length * 100).toFixed(3))
+				: 0,
 			currentOgdParts: Array.isArray(target.ksIds) ? target.ksIds.length : 0,
 			maptoolkitMatchedFeatures: matchedFeatures.length,
 			maptoolkitFeatures: matchedFeatures
 		});
 	}
 
-	if (reports.length !== 5) {
-		throw new Error("Expected 5 pilot reports, got " + reports.length);
+	const summary = {
+		targets: reports.length,
+		safe: reports.filter((report) => report.safe).length,
+		unsafe: reports.filter((report) => !report.safe).length,
+		withFlatHits: reports.filter((report) => report.flatHitPoints > 0).length,
+		withPitchedHits: reports.filter((report) => report.pitchedHitPoints > 0).length,
+		withoutMaptoolkitRoofHit: reports.filter(
+			(report) => (
+				report.flatHitPoints === 0
+				&& report.pitchedHitPoints === 0
+			)
+		).length
+	};
+	const output = {
+		generatedAt: new Date().toISOString(),
+		summary,
+		reports
+	};
+	console.log(JSON.stringify(output, null, 2));
+	if (args.output) {
+		await fs.mkdir(path.dirname(args.output), { recursive: true });
+		await fs.writeFile(
+			args.output,
+			JSON.stringify(output, null, "\t") + "\n",
+			"utf8"
+		);
 	}
-	console.log(JSON.stringify(reports, null, 2));
+	if (
+		args.expectedCount !== null
+		&& reports.length !== args.expectedCount
+	) {
+		throw new Error(
+			"Expected " + args.expectedCount + " reports, got " + reports.length
+		);
+	}
+	if (args.requireSafe && summary.unsafe > 0) {
+		throw new Error(
+			summary.unsafe + " of " + summary.targets
+			+ " Maptoolkit roof-replacement target(s) are not surface-safe"
+		);
+	}
 }
 
 main().catch((error) => {
