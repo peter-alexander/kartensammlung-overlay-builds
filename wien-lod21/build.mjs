@@ -789,14 +789,36 @@ function normalizeOpen2DRing(ring, ccw) {
 	return points;
 }
 
-function boundarySegmentsFromGeometry(geometry, writer) {
+function boundarySegmentIndexFromGeometry(
+	geometry,
+	writer,
+	cellSizeM = 5
+) {
 	const segments = [];
+	const cells = new Map();
 	const geojson = writer.write(geometry);
 	const polygons = geojson?.type === "Polygon"
 		? [geojson.coordinates]
 		: geojson?.type === "MultiPolygon"
 			? geojson.coordinates
 			: [];
+
+	const cellKey = (x, y) => x + ":" + y;
+	const addSegment = (a, b) => {
+		const segmentIndex = segments.length;
+		segments.push([a, b]);
+		const minCellX = Math.floor(Math.min(a[0], b[0]) / cellSizeM);
+		const maxCellX = Math.floor(Math.max(a[0], b[0]) / cellSizeM);
+		const minCellY = Math.floor(Math.min(a[1], b[1]) / cellSizeM);
+		const maxCellY = Math.floor(Math.max(a[1], b[1]) / cellSizeM);
+		for (let x = minCellX; x <= maxCellX; x += 1) {
+			for (let y = minCellY; y <= maxCellY; y += 1) {
+				const key = cellKey(x, y);
+				if (!cells.has(key)) cells.set(key, []);
+				cells.get(key).push(segmentIndex);
+			}
+		}
+	};
 
 	for (const polygon of polygons) {
 		for (const ring of polygon || []) {
@@ -809,14 +831,14 @@ function boundarySegmentsFromGeometry(geometry, writer) {
 					|| !Number.isFinite(Number(b?.[0]))
 					|| !Number.isFinite(Number(b?.[1]))
 				) continue;
-				segments.push([
+				addSegment(
 					[Number(a[0]), Number(a[1])],
 					[Number(b[0]), Number(b[1])]
-				]);
+				);
 			}
 		}
 	}
-	return segments;
+	return { segments, cells, cellSizeM };
 }
 
 function pointToSegmentDistance(point, a, b) {
@@ -837,14 +859,32 @@ function pointToSegmentDistance(point, a, b) {
 	);
 }
 
-function edgeLiesOnBoundary(a, b, segments, toleranceM = 0.01) {
-	if (!segments?.length) return false;
+function nearbyBoundarySegments(point, index) {
+	if (!index?.segments?.length) return [];
+	const cellX = Math.floor(point[0] / index.cellSizeM);
+	const cellY = Math.floor(point[1] / index.cellSizeM);
+	const indices = new Set();
+	for (let dx = -1; dx <= 1; dx += 1) {
+		for (let dy = -1; dy <= 1; dy += 1) {
+			for (
+				const segmentIndex
+				of index.cells.get((cellX + dx) + ":" + (cellY + dy)) || []
+			) {
+				indices.add(segmentIndex);
+			}
+		}
+	}
+	return [...indices].map((segmentIndex) => index.segments[segmentIndex]);
+}
+
+function edgeLiesOnBoundary(a, b, boundaryIndex, toleranceM = 0.01) {
+	if (!boundaryIndex?.segments?.length) return false;
 	const samples = [0.25, 0.5, 0.75].map((t) => [
 		a[0] + (b[0] - a[0]) * t,
 		a[1] + (b[1] - a[1]) * t
 	]);
 	return samples.every((point) => (
-		segments.some(([start, end]) => (
+		nearbyBoundarySegments(point, boundaryIndex).some(([start, end]) => (
 			pointToSegmentDistance(point, start, end) <= toleranceM
 		))
 	));
@@ -871,7 +911,7 @@ function currentFeatureLevels(properties = {}) {
 function extrusionSurfacesFromPolygon(
 	coordinates,
 	levels,
-	{ seamSegments = [] } = {}
+	{ seamBoundaryIndex = null } = {}
 ) {
 	const rings2D = (coordinates || [])
 		.map((ring, index) => normalizeOpen2DRing(ring, index === 0))
@@ -891,7 +931,7 @@ function extrusionSurfacesFromPolygon(
 		for (let index = 0; index < ring.length; index += 1) {
 			const a = ring[index];
 			const b = ring[(index + 1) % ring.length];
-			if (edgeLiesOnBoundary(a, b, seamSegments)) continue;
+			if (edgeLiesOnBoundary(a, b, seamBoundaryIndex)) continue;
 			surfaces.push({
 				semantic: "wall",
 				rings: [[
@@ -1144,7 +1184,7 @@ async function main() {
 			historicalGround,
 			HYBRID_HISTORY_BUFFER_M
 		);
-		const historicalBoundarySegments = boundarySegmentsFromGeometry(
+		const historicalBoundaryIndex = boundarySegmentIndexFromGeometry(
 			historicalGround,
 			geoWriter
 		);
@@ -1204,7 +1244,7 @@ async function main() {
 					const surfaces = extrusionSurfacesFromPolygon(
 						coordinates,
 						levels,
-						{ seamSegments: historicalBoundarySegments }
+						{ seamBoundaryIndex: historicalBoundaryIndex }
 					);
 					if (!surfaces.length) continue;
 					const added = addBuildingToTile(tileData, {
