@@ -708,6 +708,42 @@ function differenceJstsGeometry(current, historical, context = "") {
 	}
 }
 
+function intersectionJstsGeometry(a, b, context = "") {
+	try {
+		return OverlayOp.overlayOp(a, b, OverlayOp.INTERSECTION);
+	} catch (error) {
+		const repairedA = repairJstsGeometry(a);
+		const repairedB = repairJstsGeometry(b);
+		if (!repairedA || !repairedB) return null;
+		try {
+			console.warn(
+				"Hybrid intersection uses snap overlay"
+				+ (context ? " for " + context : "")
+				+ ": " + (error?.message || error)
+			);
+			return SnapIfNeededOverlayOp.overlayOp(
+				repairedA,
+				repairedB,
+				OverlayOp.INTERSECTION
+			);
+		} catch (snapError) {
+			const precision = new PrecisionModel(1000);
+			const preciseA = GeometryPrecisionReducer.reduce(repairedA, precision);
+			const preciseB = GeometryPrecisionReducer.reduce(repairedB, precision);
+			console.warn(
+				"Hybrid intersection uses 1 mm precision reduction"
+				+ (context ? " for " + context : "")
+				+ ": " + (snapError?.message || snapError)
+			);
+			return SnapIfNeededOverlayOp.overlayOp(
+				preciseA,
+				preciseB,
+				OverlayOp.INTERSECTION
+			);
+		}
+	}
+}
+
 function groundGeometryFromSurfaces(surfaces, reader) {
 	const geometries = [];
 	for (const surface of surfaces || []) {
@@ -946,6 +982,187 @@ function extrusionSurfacesFromPolygon(
 	return surfaces;
 }
 
+function sourceSurfaceGeometry(surface, reader) {
+	const coordinates = (surface?.rings || [])
+		.map(closeSourceRing)
+		.filter((ring) => ring.length >= 4);
+	if (!coordinates.length) return null;
+	try {
+		return repairJstsGeometry(reader.read({
+			type: "Polygon",
+			coordinates
+		}));
+	} catch {
+		return null;
+	}
+}
+
+function surfacePlane(surface) {
+	const ring = surface?.rings?.[0] || [];
+	const normal = newellNormal(ring);
+	if (!normal || Math.abs(normal.z) <= 1e-8 || !ring.length) return null;
+	const origin = ring[0];
+	return { normal, origin };
+}
+
+function planeZ(plane, x, y) {
+	const { normal, origin } = plane;
+	return origin.z - (
+		normal.x * (x - origin.x)
+		+ normal.y * (y - origin.y)
+	) / normal.z;
+}
+
+function openGeoJsonRing3D(ring, plane, zFallback) {
+	const points = (ring || [])
+		.map((coordinate) => {
+			const x = Number(coordinate?.[0]);
+			const y = Number(coordinate?.[1]);
+			if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+			const z = plane ? planeZ(plane, x, y) : zFallback;
+			return Number.isFinite(z) ? { x, y, z } : null;
+		})
+		.filter(Boolean);
+	if (
+		points.length > 1
+		&& points[0].x === points[points.length - 1].x
+		&& points[0].y === points[points.length - 1].y
+	) {
+		points.pop();
+	}
+	return points;
+}
+
+function sourceEdgeKey(a, b, precision = 1000) {
+	const pointKey = (point) => (
+		Math.round(point.x * precision)
+		+ ":"
+		+ Math.round(point.y * precision)
+		+ ":"
+		+ Math.round(point.z * precision)
+	);
+	const ka = pointKey(a);
+	const kb = pointKey(b);
+	return ka < kb ? ka + "|" + kb : kb + "|" + ka;
+}
+
+function clipHistoricalSurfacesToFootprint(
+	surfaces,
+	clipFootprint,
+	reader,
+	writer,
+	context = ""
+) {
+	if (!clipFootprint || clipFootprint.isEmpty()) return null;
+
+	const groundPoints = (surfaces || [])
+		.filter((surface) => surface.semantic === "ground")
+		.flatMap((surface) => surface.rings?.flat?.() || []);
+	const allPoints = groundPoints.length ? groundPoints : getSurfacePoints(surfaces || []);
+	if (!allPoints.length) return null;
+	const baseZ = Math.min(...allPoints.map((point) => Number(point.z)).filter(Number.isFinite));
+	if (!Number.isFinite(baseZ)) return null;
+
+	const clipped = [];
+	const footprintPolygons = polygonGeoJsonParts(clipFootprint, writer);
+	for (const coordinates of footprintPolygons) {
+		const rings = (coordinates || [])
+			.map((ring) => openGeoJsonRing3D(ring, null, baseZ))
+			.filter((ring) => ring.length >= 3);
+		if (rings.length) clipped.push({ semantic: "ground", rings });
+	}
+
+	const boundaryIndex = boundarySegmentIndexFromGeometry(clipFootprint, writer);
+	const roofGeometries = [];
+	const boundaryWalls = [];
+	const wallKeys = new Set();
+	let sourceRoofSurfaces = 0;
+	let clippedRoofSurfaces = 0;
+
+	for (const surface of surfaces || []) {
+		if (surface.semantic !== "roof") continue;
+		sourceRoofSurfaces += 1;
+		const plane = surfacePlane(surface);
+		const geometry = sourceSurfaceGeometry(surface, reader);
+		if (!plane || !geometry) continue;
+
+		const intersection = intersectionJstsGeometry(
+			geometry,
+			clipFootprint,
+			context + " roof"
+		);
+		if (!intersection || intersection.isEmpty()) continue;
+		roofGeometries.push(intersection);
+
+		for (const coordinates of polygonGeoJsonParts(intersection, writer)) {
+			const rings = (coordinates || [])
+				.map((ring) => openGeoJsonRing3D(ring, plane, baseZ))
+				.filter((ring) => ring.length >= 3);
+			if (!rings.length) continue;
+			clipped.push({ semantic: "roof", rings });
+			clippedRoofSurfaces += 1;
+
+			for (const ring of rings) {
+				for (let index = 0; index < ring.length; index += 1) {
+					const a = ring[index];
+					const b = ring[(index + 1) % ring.length];
+					if (!edgeLiesOnBoundary(
+						[a.x, a.y],
+						[b.x, b.y],
+						boundaryIndex,
+						0.02
+					)) continue;
+					const key = sourceEdgeKey(a, b);
+					if (wallKeys.has(key)) continue;
+					wallKeys.add(key);
+					boundaryWalls.push({
+						semantic: "wall",
+						rings: [[
+							{ x: a.x, y: a.y, z: baseZ },
+							{ x: b.x, y: b.y, z: baseZ },
+							{ x: b.x, y: b.y, z: b.z },
+							{ x: a.x, y: a.y, z: a.z }
+						]]
+					});
+				}
+			}
+		}
+	}
+	clipped.push(...boundaryWalls);
+
+	const roofUnion = unionJstsGeometries(roofGeometries);
+	const footprintAreaM2 = Number(clipFootprint.getArea?.() || 0);
+	const roofAreaM2 = Number(roofUnion?.getArea?.() || 0);
+	const boundaryLengthM = Number(clipFootprint.getBoundary?.()?.getLength?.() || 0);
+	const generatedWallBoundaryLengthM = boundaryWalls.reduce((sum, wall) => {
+		const ring = wall.rings[0];
+		return sum + Math.hypot(
+			ring[1].x - ring[0].x,
+			ring[1].y - ring[0].y
+		);
+	}, 0);
+
+	return {
+		surfaces: clipped,
+		stats: {
+			footprintAreaM2: Number(footprintAreaM2.toFixed(3)),
+			roofProjectedAreaM2: Number(roofAreaM2.toFixed(3)),
+			roofCoverageRatio: footprintAreaM2 > 0
+				? Number((roofAreaM2 / footprintAreaM2).toFixed(6))
+				: null,
+			boundaryLengthM: Number(boundaryLengthM.toFixed(3)),
+			generatedWallBoundaryLengthM:
+				Number(generatedWallBoundaryLengthM.toFixed(3)),
+			wallBoundaryCoverageRatio: boundaryLengthM > 0
+				? Number((generatedWallBoundaryLengthM / boundaryLengthM).toFixed(6))
+				: null,
+			sourceRoofSurfaces,
+			clippedRoofSurfaces,
+			generatedWallSurfaces: boundaryWalls.length
+		}
+	};
+}
+
 function addBuildingToTile(tileData, {
 	building,
 	surfaces,
@@ -1088,7 +1305,25 @@ async function main() {
 
 	const geoReader = new GeoJSONReader();
 	const geoWriter = new GeoJSONWriter();
+
+	const currentGeometryByCode = new Map();
+	for (const target of hybridTargets) {
+		const geometries = [];
+		for (const ksId of target.ksIds || []) {
+			const feature = hybridCurrentByKsId.get(String(ksId));
+			if (!feature?.geometry) continue;
+			try {
+				geometries.push(geoReader.read(feature.geometry));
+			} catch {}
+		}
+		const currentGeometry = unionJstsGeometries(geometries);
+		if (currentGeometry) {
+			currentGeometryByCode.set(String(target.historicalCode), currentGeometry);
+		}
+	}
+
 	const historicalGroundByCode = new Map();
+	const clipStatsByCode = new Map();
 
 	const files = await listFilesRecursive(args.input);
 	if (!files.length) throw new Error(`No CityGML files found below ${args.input}`);
@@ -1129,18 +1364,85 @@ async function main() {
 			if (!surfaces.length) {
 				throw new Error(`Target ${code} has no semantic LOD2.1 boundary surfaces.`);
 			}
+
+			let renderSurfaces = surfaces;
+			let hybridGroundGeometry = null;
 			if (String(target.rolloutMode || "").includes("hybrid")) {
 				const groundGeometry = groundGeometryFromSurfaces(surfaces, geoReader);
-				if (groundGeometry) {
+				hybridGroundGeometry = groundGeometry;
+				if (target.rolloutMode === "hybrid-clip-pilot") {
+					const currentGeometry = currentGeometryByCode.get(code);
+					if (!groundGeometry || !currentGeometry) {
+						throw new Error(
+							"Hybrid clip target " + code
+							+ " is missing historical/current footprint geometry."
+						);
+					}
+					const clipFootprint = intersectionJstsGeometry(
+						groundGeometry,
+						currentGeometry,
+						code + " footprint clip"
+					);
+					if (!clipFootprint || clipFootprint.isEmpty()) {
+						throw new Error("Hybrid clip target " + code + " has empty clipped footprint.");
+					}
+					const clipped = clipHistoricalSurfacesToFootprint(
+						surfaces,
+						clipFootprint,
+						geoReader,
+						geoWriter,
+						code
+					);
+					if (!clipped?.surfaces?.length) {
+						throw new Error("Hybrid clip target " + code + " produced no clipped surfaces.");
+					}
+					renderSurfaces = clipped.surfaces;
+					hybridGroundGeometry = clipFootprint;
+
+					const originalAreaM2 = Number(groundGeometry.getArea?.() || 0);
+					const clippedAreaM2 = Number(clipFootprint.getArea?.() || 0);
+					const stats = clipStatsByCode.get(code) || {
+						objects: 0,
+						originalHistoricalAreaM2: 0,
+						clippedHistoricalAreaM2: 0,
+						removedHistoricalAreaM2: 0,
+						minRoofCoverageRatio: 1,
+						minWallBoundaryCoverageRatio: 1,
+						sourceRoofSurfaces: 0,
+						clippedRoofSurfaces: 0,
+						generatedWallSurfaces: 0
+					};
+					stats.objects += 1;
+					stats.originalHistoricalAreaM2 += originalAreaM2;
+					stats.clippedHistoricalAreaM2 += clippedAreaM2;
+					stats.removedHistoricalAreaM2 += Math.max(
+						0,
+						originalAreaM2 - clippedAreaM2
+					);
+					stats.minRoofCoverageRatio = Math.min(
+						stats.minRoofCoverageRatio,
+						Number(clipped.stats.roofCoverageRatio || 0)
+					);
+					stats.minWallBoundaryCoverageRatio = Math.min(
+						stats.minWallBoundaryCoverageRatio,
+						Number(clipped.stats.wallBoundaryCoverageRatio || 0)
+					);
+					stats.sourceRoofSurfaces += clipped.stats.sourceRoofSurfaces;
+					stats.clippedRoofSurfaces += clipped.stats.clippedRoofSurfaces;
+					stats.generatedWallSurfaces += clipped.stats.generatedWallSurfaces;
+					clipStatsByCode.set(code, stats);
+				}
+
+				if (hybridGroundGeometry) {
 					if (!historicalGroundByCode.has(code)) {
 						historicalGroundByCode.set(code, []);
 					}
-					historicalGroundByCode.get(code).push(groundGeometry);
+					historicalGroundByCode.get(code).push(hybridGroundGeometry);
 				}
 			}
 			const added = addBuildingToTile(tileData, {
 				building,
-				surfaces,
+				surfaces: renderSurfaces,
 				target,
 				sourceSheet,
 				extent,
@@ -1357,6 +1659,23 @@ async function main() {
 			hybridRemainder: hybridStats.find(
 				(item) => item.historicalCode === String(target.historicalCode)
 			) || null,
+			historicalClip: (() => {
+				const stats = clipStatsByCode.get(String(target.historicalCode));
+				if (!stats) return null;
+				return {
+					...stats,
+					originalHistoricalAreaM2:
+						Number(stats.originalHistoricalAreaM2.toFixed(3)),
+					clippedHistoricalAreaM2:
+						Number(stats.clippedHistoricalAreaM2.toFixed(3)),
+					removedHistoricalAreaM2:
+						Number(stats.removedHistoricalAreaM2.toFixed(3)),
+					minRoofCoverageRatio:
+						Number(stats.minRoofCoverageRatio.toFixed(6)),
+					minWallBoundaryCoverageRatio:
+						Number(stats.minWallBoundaryCoverageRatio.toFixed(6))
+				};
+			})(),
 			matches: found.get(String(target.historicalCode)).map((match) => ({
 				tile: tileKey(match.tile),
 				cityGmlId: match.record.cityGmlId,
