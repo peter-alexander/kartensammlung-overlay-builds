@@ -1,0 +1,63 @@
+{
+	"generatedAt": "2026-09-23T11:07:22.635Z",
+	"historicalCode": "032459",
+	"releaseCounts": {
+		"sourceGmlFiles": 1,
+		"parsedBuildings": 205,
+		"targets": 1,
+		"directStrong": 0,
+		"hybridA": 0,
+		"hybridBAbsolute": 0,
+		"hybridBThin": 0,
+		"manualPilotStrong": 0,
+		"manualPilotHybrid": 0,
+		"hybridRemainderTargets": 1,
+		"cityGmlBuildingObjects": 11,
+		"vertices": 574,
+		"triangles": 329,
+		"tiles": 1
+	},
+	"historicalClip": {
+		"objects": 2,
+		"originalHistoricalAreaM2": 477.152,
+		"clippedHistoricalAreaM2": 475.415,
+		"removedHistoricalAreaM2": 1.737,
+		"minRoofCoverageRatio": 1,
+		"minWallBoundaryCoverageRatio": 1,
+		"sourceRoofSurfaces": 7,
+		"clippedRoofSurfaces": 7,
+		"generatedWallSurfaces": 47
+	},
+	"hybridRemainder": {
+		"historicalCode": "032459",
+		"rawRemainderAreaM2": 127.421,
+		"remainderAreaM2": 126.645,
+		"remainderParts": 9,
+		"syntheticObjects": 9,
+		"discardedSliverAreaM2": 0.777,
+		"discardedSliverParts": 4,
+		"maxDiscardedSliverWidthM": 0.0396
+	},
+	"matches": [
+		{
+			"tile": "15/17865/11364",
+			"cityGmlId": "UUID_LOD2_032459-2bd29e19-1898-4637-a40a",
+			"roofType": "FLACHDACH",
+			"creationDate": "2016-09-29",
+			"distanceToExpectedM": 19.55,
+			"roofSurfaces": 3,
+			"wallSurfaces": 21,
+			"groundSurfaces": 1
+		},
+		{
+			"tile": "15/17865/11364",
+			"cityGmlId": "UUID_LOD2_032459-a0158f66-fb01-404c-9bb8",
+			"roofType": "FLACHDACH",
+			"creationDate": "2016-09-29",
+			"distanceToExpectedM": 17.29,
+			"roofSurfaces": 4,
+			"wallSurfaces": 25,
+			"groundSurfaces": 1
+		}
+	]
+}
