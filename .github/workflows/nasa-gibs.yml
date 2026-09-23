@@ -2,6 +2,13 @@ name: Build NASA GIBS catalog
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'nasa-gibs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/nasa-gibs.yml'
   push:
     branches:
       - main
@@ -59,7 +66,7 @@ jobs:
           fi
 
       - name: Deploy catalog to Lima
-        if: steps.changed.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
         run: |
           test -n "$MAIN_REMOTE_ROOT"
           chmod +x .github/scripts/main-ftp-upload-file.sh
