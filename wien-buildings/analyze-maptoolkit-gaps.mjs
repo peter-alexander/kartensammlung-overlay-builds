@@ -14,6 +14,7 @@ const ZOOM = 15;
 const GRID_SIZE = 64;
 const CONCURRENCY = 12;
 const EARTH_CIRCUMFERENCE_METERS = 40_075_016.68557849;
+const FLAT_ROOF_MIN_UP_NORMAL = 0.985;
 let ogdReleaseVersion = "";
 const VIENNA_CRS = "EPSG:31256";
 const VIENNA_CRS_DEF = "+proj=tmerc +lat_0=0 +lon_0=16.3333333333333 +k=1 +x_0=0 +y_0=-5000000 +ellps=bessel +towgs84=577.326,90.129,463.919,5.137,1.474,5.297,2.4232 +units=m +no_defs +type=crs";
@@ -326,7 +327,9 @@ function extractLod2Surfaces(buffer, tile) {
 		const groups = decodeGeometry3D(feature);
 		for (const surface of getSurfaceGroups(groups)) {
 			const contour = surface?.[0];
-			if (!contour || newellUpFraction(contour, xyMetersPerUnit) < 0.12) continue;
+			if (!contour) continue;
+			const upFraction = newellUpFraction(contour, xyMetersPerUnit);
+			if (upFraction < 0.12) continue;
 			const polygon = normalizeSurfacePolygon(surface, extent);
 			if (!polygon) continue;
 			const point = interiorPolygonPoint(polygon);
@@ -334,7 +337,9 @@ function extractLod2Surfaces(buffer, tile) {
 			surfaces.push({
 				point,
 				polygon,
-				bounds: polygonBounds([polygon])
+				bounds: polygonBounds([polygon]),
+				upFraction,
+				pitched: upFraction < FLAT_ROOF_MIN_UP_NORMAL
 			});
 		}
 	}
@@ -412,16 +417,20 @@ async function processTile(tile) {
 		addFeatureToGrid(ogdGrid, i, ogdFeatures[i].bounds);
 	}
 	const matched = new Set();
+	const pitchedMatched = new Set();
 
 	// Richtung 1: Ein sicherer LOD2-Dachpunkt liegt in einem aktuellen
 	// OGD-Baukoerper. Das ist praezise fuer fein geteilte LOD2-Daecher.
+	// Fuer die Dachverlustanalyse wird getrennt festgehalten, ob zumindest
+	// eine deutlich geneigte Dachflaeche denselben Baukoerper trifft.
 	for (const surface of lod2Surfaces) {
 		for (const featureIndex of gridCandidates(ogdGrid, surface.point)) {
-			if (matched.has(featureIndex)) continue;
 			const feature = ogdFeatures[featureIndex];
-			if (feature.polygons.some((polygon) => polygonContainsPoint(polygon, surface.point))) {
-				matched.add(featureIndex);
-			}
+			if (!feature.polygons.some(
+				(polygon) => polygonContainsPoint(polygon, surface.point)
+			)) continue;
+			matched.add(featureIndex);
+			if (surface.pitched) pitchedMatched.add(featureIndex);
 		}
 	}
 
@@ -434,21 +443,17 @@ async function processTile(tile) {
 		addFeatureToGrid(lod2Grid, i, lod2Surfaces[i].bounds);
 	}
 	for (let featureIndex = 0; featureIndex < ogdFeatures.length; featureIndex += 1) {
-		if (matched.has(featureIndex)) continue;
 		const feature = ogdFeatures[featureIndex];
-		let reverseMatched = false;
 		for (const polygon of feature.polygons) {
 			const point = interiorPolygonPoint(polygon);
 			if (!point) continue;
 			for (const surfaceIndex of gridCandidates(lod2Grid, point)) {
-				if (polygonContainsPoint(lod2Surfaces[surfaceIndex].polygon, point)) {
-					reverseMatched = true;
-					break;
-				}
+				const surface = lod2Surfaces[surfaceIndex];
+				if (!polygonContainsPoint(surface.polygon, point)) continue;
+				matched.add(featureIndex);
+				if (surface.pitched) pitchedMatched.add(featureIndex);
 			}
-			if (reverseMatched) break;
 		}
-		if (reverseMatched) matched.add(featureIndex);
 	}
 
 	const known = {};
@@ -474,7 +479,9 @@ async function processTile(tile) {
 		tile,
 		ogdFeatures,
 		matched,
+		pitchedMatched,
 		lod2PointCount: lod2Surfaces.length,
+		lod2PitchedPointCount: lod2Surfaces.filter((surface) => surface.pitched).length,
 		known
 	};
 }
@@ -525,6 +532,7 @@ async function main() {
 	const resultById = new Map();
 	const knownIds = new Map(KNOWN_TARGETS.map((target) => [target.name, new Set()]));
 	let lod2PointTotal = 0;
+	let lod2PitchedPointTotal = 0;
 	let tilesDone = 0;
 
 	const tileResults = await mapLimit(tiles, CONCURRENCY, async (tile) => {
@@ -538,6 +546,7 @@ async function main() {
 
 	for (const result of tileResults) {
 		lod2PointTotal += result.lod2PointCount;
+		lod2PitchedPointTotal += result.lod2PitchedPointCount;
 		for (const [name, ids] of Object.entries(result.known)) {
 			const targetSet = knownIds.get(name);
 			for (const id of ids) targetSet.add(id);
@@ -550,6 +559,7 @@ async function main() {
 				record = {
 					id: feature.id,
 					matched: false,
+					pitchedMatched: false,
 					tilesSeen: 0,
 					properties: feature.properties,
 					point: representativePoint(result.tile, feature)
@@ -558,6 +568,7 @@ async function main() {
 			}
 			record.tilesSeen += 1;
 			if (result.matched.has(index)) record.matched = true;
+			if (result.pitchedMatched.has(index)) record.pitchedMatched = true;
 		}
 	}
 
@@ -580,12 +591,14 @@ async function main() {
 				BW_GEB_ID: bwGebId,
 				total: 0,
 				missing: 0,
+				pitchedMatched: 0,
 				records: []
 			};
 			buildingGroups.set(bwGebId, group);
 		}
 		group.total += 1;
 		if (!record.matched) group.missing += 1;
+		if (record.pitchedMatched) group.pitchedMatched += 1;
 		group.records.push(record);
 	}
 
@@ -627,6 +640,54 @@ async function main() {
 		}
 	}
 	const fullyMissingBuildings = fullyMissingGroups.length;
+
+	const flatOnlyGroups = [];
+	const flatOnlyBuildingIds = new Set();
+	for (const group of buildingGroups.values()) {
+		if (
+			group.total <= 0
+			|| group.missing !== 0
+			|| group.pitchedMatched !== 0
+		) continue;
+		const classes = [...new Set(
+			group.records.map((record) => Number(record.properties.F_KLASSE))
+				.filter(Number.isFinite)
+		)].sort((a, b) => a - b);
+		if (!classes.includes(11)) continue;
+		const class11 = group.records.filter(
+			(record) => Number(record.properties.F_KLASSE) === 11
+		);
+		const representative = class11[0] || group.records[0];
+		const historicalCodes = [...new Set(
+			group.records
+				.map((record) => String(record.properties.BEZUG ?? "").trim())
+				.filter(Boolean)
+		)].sort();
+		const numericHistoricalCodes = historicalCodes.filter(
+			(code) => /^\d{6}$/.test(code)
+		);
+		const heights = group.records
+			.map((record) => Number(record.properties.render_height))
+			.filter(Number.isFinite);
+		flatOnlyBuildingIds.add(group.BW_GEB_ID);
+		flatOnlyGroups.push({
+			BW_GEB_ID: group.BW_GEB_ID,
+			partCount: group.total,
+			classes,
+			historicalCodes,
+			numericHistoricalCodes,
+			maxHeight: heights.length
+				? Number(Math.max(...heights).toFixed(3))
+				: null,
+			lng: Number(representative.point.lng.toFixed(7)),
+			lat: Number(representative.point.lat.toFixed(7)),
+			lod21Sheet: lod21SheetForPoint(representative.point),
+			ksIds: group.records.map((record) => record.id).sort()
+		});
+	}
+	flatOnlyGroups.sort((a, b) => (
+		String(a.BW_GEB_ID).localeCompare(String(b.BW_GEB_ID))
+	));
 
 	// LOD2.1 stammt aus einer aelteren Gebaeudegeneration. Der historische
 	// Adresscode BEZUG ist der primaere Join, aber er ist nicht zwingend 1:1 mit
@@ -701,7 +762,66 @@ async function main() {
 	}
 	lod21CodeCandidates.sort((a, b) => a.historicalCode.localeCompare(b.historicalCode));
 
-	// Fuer Baukoerper ohne brauchbaren historischen Code bleibt ein raeumlicher
+	const roofLossCodeGroups = new Map();
+	for (const record of records) {
+		if (
+			!record.matched
+			|| record.pitchedMatched
+			|| Number(record.properties.F_KLASSE) !== 11
+		) continue;
+		const owner = String(record.properties.BW_GEB_ID ?? "").trim();
+		if (!owner || !flatOnlyBuildingIds.has(owner)) continue;
+		const code = String(record.properties.BEZUG ?? "").trim();
+		if (!/^\d{6}$/.test(code)) continue;
+		let group = roofLossCodeGroups.get(code);
+		if (!group) {
+			group = {
+				historicalCode: code,
+				records: [],
+				ownerBwGebIds: new Set()
+			};
+			roofLossCodeGroups.set(code, group);
+		}
+		group.records.push(record);
+		group.ownerBwGebIds.add(owner);
+	}
+
+	const roofLossLod21CodeCandidates = [];
+	for (const group of roofLossCodeGroups.values()) {
+		if (!group.records.length) continue;
+		const representative = group.records[0];
+		const heights = group.records
+			.map((record) => Number(record.properties.render_height))
+			.filter(Number.isFinite);
+		const sheets = [...new Set(
+			group.records
+				.map((record) => lod21SheetForPoint(record.point))
+				.filter(Boolean)
+		)].sort();
+		if (!sheets.length) continue;
+		const stats = historicalCodeStats.get(group.historicalCode);
+		roofLossLod21CodeCandidates.push({
+			historicalCode: group.historicalCode,
+			partCount: group.records.length,
+			ownerBwGebIds: [...group.ownerBwGebIds].sort(),
+			maxHeight: heights.length
+				? Number(Math.max(...heights).toFixed(3))
+				: null,
+			lng: Number(representative.point.lng.toFixed(7)),
+			lat: Number(representative.point.lat.toFixed(7)),
+			lod21Sheet: sheets[0],
+			lod21Sheets: sheets,
+			ksIds: group.records.map((record) => record.id).sort(),
+			sameCodeTotalParts: Number(stats?.total || group.records.length),
+			sameCodeMatchedParts: Number(stats?.matched || 0),
+			sameCodeOwnerBwGebIds: [...(stats?.ownerBwGebIds || [])].sort()
+		});
+	}
+	roofLossLod21CodeCandidates.sort(
+		(a, b) => a.historicalCode.localeCompare(b.historicalCode)
+	);
+
+		// Fuer Baukoerper ohne brauchbaren historischen Code bleibt ein raeumlicher
 	// Fallback moeglich. Diese Liste wird getrennt gehalten, weil ein raeumlicher
 	// Treffer spaeter nur konkrete KS_IDs ersetzen darf, nie pauschal die ganze
 	// heutige BW_GEB_ID.
@@ -724,6 +844,7 @@ async function main() {
 			status: ids.map((id) => ({
 				id,
 				matched: resultById.get(id)?.matched ?? null,
+				pitchedMatched: resultById.get(id)?.pitchedMatched ?? null,
 				properties: resultById.get(id)?.properties ?? null
 			}))
 		};
@@ -743,6 +864,7 @@ async function main() {
 			missingOgdFeatures: missing.length,
 			matchPercent: Number((matched / Math.max(1, records.length) * 100).toFixed(3)),
 			lod2SurfaceInteriorPoints: lod2PointTotal,
+			lod2PitchedSurfaceInteriorPoints: lod2PitchedPointTotal,
 			uniqueBwGebId: buildingGroups.size,
 			fullyMissingBuildings,
 			fullyMissingClass11Buildings: fullyMissingGroups.filter(
@@ -760,6 +882,13 @@ async function main() {
 			).length,
 			lod21SpatialCandidates: lod21SpatialCandidates.length,
 			lod21CandidateSheets: candidateSheets.length,
+			flatOnlyMaptoolkitBuildings: flatOnlyGroups.length,
+			roofLossLod21CodeCandidates: roofLossLod21CodeCandidates.length,
+			roofLossLod21CandidateSheets: new Set(
+				roofLossLod21CodeCandidates.flatMap(
+					(candidate) => candidate.lod21Sheets || []
+				)
+			).size,
 			partiallyMissingBuildings,
 			missingByClass: byClass
 		},
@@ -767,6 +896,8 @@ async function main() {
 		candidateSheets,
 		lod21CodeCandidates,
 		lod21SpatialCandidates,
+		roofLossLod21CodeCandidates,
+		flatOnlyMaptoolkitBuildingGroups: flatOnlyGroups,
 		fullyMissingBuildingGroups: fullyMissingGroups,
 		missing: missing.map((record) => ({
 			KS_ID: record.id,
