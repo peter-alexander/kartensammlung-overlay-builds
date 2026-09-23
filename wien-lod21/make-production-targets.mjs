@@ -98,6 +98,14 @@ function targetFromCandidate(candidate, {
 	if (!ksIds.length) {
 		throw new Error("No exact OGD KS_IDs for " + code);
 	}
+	const currentArea = Number(candidate?.metrics?.currentArea);
+	const intersectionArea = Number(candidate?.metrics?.intersectionArea);
+	const expectedRemainderM2 = (
+		Number.isFinite(currentArea)
+		&& Number.isFinite(intersectionArea)
+	)
+		? Math.max(0, currentArea - intersectionArea)
+		: null;
 	return {
 		name: name || ("Wien LOD2.1 " + code),
 		historicalCode: code,
@@ -106,7 +114,10 @@ function targetFromCandidate(candidate, {
 		sheet,
 		lng: Number(candidate.lng),
 		lat: Number(candidate.lat),
-		rolloutMode
+		rolloutMode,
+		expectedRemainderM2: Number.isFinite(expectedRemainderM2)
+			? Number(expectedRemainderM2.toFixed(3))
+			: null
 	};
 }
 
