@@ -1,0 +1,255 @@
+name: Test Vienna Hybrid-D clipping
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-d-clip-test
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-d-clip-test.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 6
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Prepare Hybrid-D clip targets
+        run: |
+          node wien-lod21/analyze-hybrid-candidates.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --output /tmp/hybrid-candidates.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const input = JSON.parse(
+          	fs.readFileSync("/tmp/hybrid-candidates.json", "utf8")
+          );
+
+          const heightOk = (candidate) => {
+          	const metrics = candidate.metrics || {};
+          	const difference = metrics.heightDifferenceM === null
+          		? null
+          		: Number(metrics.heightDifferenceM);
+          	const currentHeight = metrics.currentHeightM === null
+          		? null
+          		: Number(metrics.currentHeightM);
+          	const tolerance = currentHeight === null
+          		? 6
+          		: Math.max(6, currentHeight * 0.30);
+          	return difference === null || difference <= tolerance;
+          };
+
+          const candidates = (input.candidates || []).filter((candidate) => {
+          	const metrics = candidate.metrics || {};
+          	return (
+          		Number(metrics.oldCoverage) >= 0.95
+          		&& Number(metrics.oldCoverage) < 0.98
+          		&& Number(metrics.currentCoverage) >= 0.60
+          		&& Number(metrics.centroidDistanceM) <= 8
+          		&& heightOk(candidate)
+          	);
+          });
+
+          if (candidates.length !== 169) {
+          	throw new Error(
+          		"Expected 169 Hybrid-D candidates, got " + candidates.length
+          	);
+          }
+
+          const buildings = candidates.map((candidate) => {
+          	const owners = candidate.ownerBwGebIds || [];
+          	if (owners.length !== 1) {
+          		throw new Error(
+          			candidate.historicalCode + ": expected one owner"
+          		);
+          	}
+          	return {
+          		name: "Wien LOD2.1 " + candidate.historicalCode,
+          		historicalCode: String(candidate.historicalCode),
+          		bwGebId: Number(owners[0]),
+          		ksIds: candidate.ksIds,
+          		sheet: String(candidate.sheet || candidate.lod21Sheet),
+          		lng: Number(candidate.lng),
+          		lat: Number(candidate.lat),
+          		rolloutMode: "hybrid-clip-pilot",
+          		expectedHistoricalOutsideM2:
+          			Number(Number(candidate.outsideOldAreaM2).toFixed(3)),
+          		sourceMetrics: candidate.metrics
+          	};
+          });
+
+          fs.writeFileSync("/tmp/hybrid-d.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "hybrid-d-clip-test",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings
+          }, null, "\t") + "\n");
+
+          const outside = buildings.map(
+          	(item) => item.expectedHistoricalOutsideM2
+          );
+          console.log(JSON.stringify({
+          	targets: buildings.length,
+          	sourceSheets: new Set(buildings.map((item) => item.sheet)).size,
+          	outsideHistoricalM2: {
+          		min: Math.min(...outside),
+          		max: Math.max(...outside)
+          	}
+          }, null, 2));
+          NODE
+
+      - name: Build all Hybrid-D clipping targets
+        env:
+          WIEN_LOD21_TARGETS: /tmp/hybrid-d.json
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Audit Hybrid-D clipped meshes
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const release = JSON.parse(fs.readFileSync(root + "/release.json", "utf8"));
+          const manifest = JSON.parse(fs.readFileSync(root + "/targets.json", "utf8"));
+          const items = manifest.targets || [];
+          if (items.length !== 169 || release.counts.targets !== 169) {
+          	throw new Error("Expected 169 built Hybrid-D targets.");
+          }
+
+          const failures = [];
+          const summary = [];
+          for (const target of items) {
+          	const clip = target.historicalClip;
+          	const remainder = target.hybridRemainder;
+          	const expectedRemoved = Number(target.expectedHistoricalOutsideM2);
+          	const removed = Number(clip?.removedHistoricalAreaM2);
+          	const roofCoverage = Number(clip?.minRoofCoverageRatio);
+          	const wallCoverage = Number(
+          		clip?.geometricWallBoundaryCoverageRatio
+          	);
+          	const uncoveredBoundaryM = Number(
+          		clip?.uncoveredWallBoundaryLengthM
+          	);
+          	const maxSliverHoleWidthM = Number(
+          		clip?.maxRemovedInteriorSliverHoleMeanWidthM || 0
+          	);
+          	const rawRemainder = Number(remainder?.rawRemainderAreaM2 || 0);
+          	const discardedRemainder = Number(
+          		remainder?.discardedSliverAreaM2 || 0
+          	);
+          	const syntheticObjects = Number(remainder?.syntheticObjects || 0);
+          	const meaningfulUnbuiltRemainder = syntheticObjects > 0
+          		? 0
+          		: Math.max(0, rawRemainder - discardedRemainder);
+
+          	const reasons = [];
+          	if (
+          		!Number.isFinite(expectedRemoved)
+          		|| !Number.isFinite(removed)
+          		|| Math.abs(removed - expectedRemoved) > 0.05
+          	) reasons.push("removed-area");
+          	if (!Number.isFinite(roofCoverage) || roofCoverage < 0.995) {
+          		reasons.push("roof-coverage");
+          	}
+          	if (!Number.isFinite(wallCoverage) || wallCoverage < 0.999) {
+          		reasons.push("wall-coverage");
+          	}
+          	if (
+          		!Number.isFinite(uncoveredBoundaryM)
+          		|| uncoveredBoundaryM > 0.01
+          	) reasons.push("uncovered-boundary");
+          	if (
+          		!Number.isFinite(maxSliverHoleWidthM)
+          		|| maxSliverHoleWidthM > 0.0501
+          	) reasons.push("sliver-hole");
+          	if (meaningfulUnbuiltRemainder > 0.01) {
+          		reasons.push("remainder");
+          	}
+
+          	const row = {
+          		historicalCode: target.historicalCode,
+          		sourceMetrics: target.sourceMetrics,
+          		historicalClip: clip,
+          		hybridRemainder: remainder,
+          		historicalObjects: target.matches?.length || 0,
+          		reasons
+          	};
+          	summary.push(row);
+          	if (reasons.length) failures.push(row);
+          }
+
+          summary.sort((a, b) => a.historicalCode.localeCompare(b.historicalCode));
+          failures.sort((a, b) => a.historicalCode.localeCompare(b.historicalCode));
+          const result = {
+          	releaseCounts: release.counts,
+          	total: items.length,
+          	passed: items.length - failures.length,
+          	failed: failures.length,
+          	failures,
+          	summary
+          };
+          fs.writeFileSync(
+          	"/tmp/hybrid-d-clip-summary.json",
+          	JSON.stringify(result, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify({
+          	total: result.total,
+          	passed: result.passed,
+          	failed: result.failed,
+          	failures: failures.map((item) => ({
+          		code: item.historicalCode,
+          		reasons: item.reasons,
+          		oldCoverage: item.sourceMetrics?.oldCoverage,
+          		outsideHistoricalM2:
+          			item.historicalClip?.removedHistoricalAreaM2,
+          		roofCoverage:
+          			item.historicalClip?.minRoofCoverageRatio,
+          		wallCoverage:
+          			item.historicalClip?.geometricWallBoundaryCoverageRatio,
+          		uncoveredBoundaryM:
+          			item.historicalClip?.uncoveredWallBoundaryLengthM
+          	}))
+          }, null, 2));
+          if (failures.length) {
+          	throw new Error(
+          		"Hybrid-D audit failed for " + failures.length + " target(s)."
+          	);
+          }
+          NODE
+
+      - name: Upload Hybrid-D audit
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-d-clip-test
+          path: /tmp/hybrid-d-clip-summary.json
+          if-no-files-found: warn
+          retention-days: 5
