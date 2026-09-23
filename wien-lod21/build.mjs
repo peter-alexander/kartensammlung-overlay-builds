@@ -1110,7 +1110,7 @@ function clipHistoricalSurfacesToFootprint(
 						[a.x, a.y],
 						[b.x, b.y],
 						boundaryIndex,
-						0.02
+						HYBRID_MAX_SLIVER_MEAN_WIDTH_M
 					)) continue;
 					const key = sourceEdgeKey(a, b);
 					if (wallKeys.has(key)) continue;
