@@ -6,9 +6,9 @@ if [ "$#" -ne 2 ]; then
 	exit 1
 fi
 
-FTP_HOST="${FTP_HOST:-${FTP_HOST:-}}"
-FTP_USER="${FTP_USER:-${FTP_USER:-}}"
-FTP_PASSWORD="${FTP_PASSWORD:-${FTP_PASSWORD:-}}"
+FTP_HOST="${FTP_HOST:-${EASYNAME_FTP_HOST:-}}"
+FTP_USER="${FTP_USER:-${EASYNAME_FTP_USER:-}}"
+FTP_PASSWORD="${FTP_PASSWORD:-${EASYNAME_FTP_PASSWORD:-}}"
 
 : "${FTP_HOST:?FTP_HOST is required}"
 : "${FTP_USER:?FTP_USER is required}"
