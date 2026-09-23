@@ -6,6 +6,7 @@ on:
       - feature/wien-lod21-hybrid-c-clip-test
     paths:
       - '.github/workflows/wien-lod21-hybrid-c-clip-test.yml'
+      - 'wien-lod21/build.mjs'
 
 permissions:
   contents: read
