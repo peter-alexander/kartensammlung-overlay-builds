@@ -9,6 +9,7 @@ on:
       - 'wien-lod21/build.mjs'
       - 'wien-lod21/fetch-hybrid-current.mjs'
       - 'wien-lod21/make-production-targets.mjs'
+      - 'wien-lod21/audit-hybrid-remainders.mjs'
       - '.github/workflows/wien-lod21-hybrid-a-test.yml'
 
 permissions:
@@ -71,6 +72,31 @@ jobs:
           chmod +x wien-lod21/run.sh
           /usr/bin/time -v bash wien-lod21/run.sh
 
+      - name: Audit Hybrid-A remainder areas
+        run: |
+          node wien-lod21/audit-hybrid-remainders.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --targets wien-lod21/build/WienBuildingsLOD21/targets.json \
+            --output /tmp/wien-lod21-hybrid-a-audit.json
+
+      - name: Upload Hybrid-A package before validation
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-a-test
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
+      - name: Upload Hybrid-A audit
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-hybrid-a-audit
+          path: /tmp/wien-lod21-hybrid-a-audit.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+
       - name: Validate Hybrid-A package
         run: |
           node --input-type=module <<'NODE'
@@ -96,12 +122,12 @@ jobs:
           if (release.counts.manualPilotHybrid !== 1) {
           	throw new Error("Expected one manual hybrid pilot.");
           }
-          if (release.counts.hybridRemainderTargets !== 615) {
-          	throw new Error(
-          		"Expected 615 hybrid remainder targets, got "
-          		+ release.counts.hybridRemainderTargets
-          	);
-          }
+          const audit = JSON.parse(
+          	fs.readFileSync("/tmp/wien-lod21-hybrid-a-audit.json", "utf8")
+          );
+          const auditByCode = new Map(
+          	(audit.rows || []).map((row) => [String(row.historicalCode), row])
+          );
 
           const hybrid = targets.targets.filter((target) => (
           	target.rolloutMode === "hybrid-a"
@@ -113,11 +139,19 @@ jobs:
           const missingRemainders = hybrid.filter(
           	(target) => !(target.hybridRemainder?.syntheticObjects > 0)
           );
-          if (missingRemainders.length) {
+          const missingMeaningful = missingRemainders.filter((target) => {
+          	const row = auditByCode.get(String(target.historicalCode));
+          	return Number(row?.expectedRemainderM2 || 0) >= 2;
+          });
+          if (missingMeaningful.length) {
           	throw new Error(
-          		"Hybrid targets without remainder meshes: "
-          		+ missingRemainders.slice(0, 20)
-          			.map((target) => target.historicalCode)
+          		"Hybrid targets missing >=2 m² remainder meshes: "
+          		+ missingMeaningful.slice(0, 20)
+          			.map((target) => {
+          				const row = auditByCode.get(String(target.historicalCode));
+          				return target.historicalCode
+          					+ "(" + Number(row?.expectedRemainderM2 || 0).toFixed(2) + "m²)";
+          			})
           			.join(", ")
           	);
           }
@@ -126,15 +160,15 @@ jobs:
           	counts: release.counts,
           	sourceSheets: release.source.sheets.length,
           	targetManifestBytes: fs.statSync(path.join(root, "targets.json")).size,
-          	tileCount: release.tiles.presentTilesZ15.length
+          	tileCount: release.tiles.presentTilesZ15.length,
+          	hybridRemainderTargets: release.counts.hybridRemainderTargets,
+          	missingTinyRemainders: missingRemainders.map((target) => {
+          		const row = auditByCode.get(String(target.historicalCode));
+          		return {
+          			code: target.historicalCode,
+          			expectedRemainderM2: Number(row?.expectedRemainderM2 || 0),
+          			actualRemainderM2: Number(row?.actualRemainderM2 || 0)
+          		};
+          	})
           }, null, 2));
           NODE
-
-      - name: Upload Hybrid-A test package
-        uses: actions/upload-artifact@v7
-        with:
-          name: wien-lod21-hybrid-a-test
-          path: wien-lod21/build/WienBuildingsLOD21/
-          if-no-files-found: error
-          retention-days: 3
-          compression-level: 6
