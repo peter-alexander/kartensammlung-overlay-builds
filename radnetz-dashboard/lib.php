@@ -6,7 +6,7 @@ const RADNETZ_DASHBOARD_CACHE_FILE = RADNETZ_DASHBOARD_CACHE_DIR . '/projects.ge
 const RADNETZ_DASHBOARD_RETRY_FILE = RADNETZ_DASHBOARD_CACHE_DIR . '/refresh.failed';
 const RADNETZ_DASHBOARD_CACHE_TTL = 1800;
 const RADNETZ_DASHBOARD_RETRY_TTL = 1800;
-const RADNETZ_DASHBOARD_HTTP_TIMEOUT = 12;
+const RADNETZ_DASHBOARD_HTTP_TIMEOUT = 45;
 const RADNETZ_DASHBOARD_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const RADNETZ_DASHBOARD_USER_AGENT = 'Kartensammlung Radnetz-Dashboard Proxy/1.0 (+https://www.kartensammlung.at/)';
 const RADNETZ_DASHBOARD_BASE_URL = 'https://radnetz-dashboard.radlobby.at/';
@@ -189,31 +189,51 @@ function radnetzDashboardFetchAll(array $urls): array
 
 function radnetzDashboardHttp(string $url, string $accept): string
 {
-	$body = '';
-	$ch = curl_init($url);
-	if ($ch === false) throw new RuntimeException('HTTP-Anfrage konnte nicht initialisiert werden.');
-	curl_setopt_array($ch, [
-		CURLOPT_RETURNTRANSFER => false,
-		CURLOPT_FOLLOWLOCATION => false,
-		CURLOPT_CONNECTTIMEOUT => 8,
-		CURLOPT_TIMEOUT => RADNETZ_DASHBOARD_HTTP_TIMEOUT,
-		CURLOPT_ENCODING => '',
-		CURLOPT_USERAGENT => RADNETZ_DASHBOARD_USER_AGENT,
-		CURLOPT_HTTPHEADER => ['Accept: ' . $accept],
-		CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body): int {
-			if (strlen($body) + strlen($chunk) > RADNETZ_DASHBOARD_MAX_RESPONSE_BYTES) return 0;
-			$body .= $chunk;
-			return strlen($chunk);
-		},
-	]);
-	curl_exec($ch);
-	$status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-	$error = curl_error($ch);
-	curl_close($ch);
-	if ($error !== '' || $status < 200 || $status >= 300 || $body === '') {
-		throw new RuntimeException($error !== '' ? $error : 'HTTP ' . $status);
+	$lastError = 'Unbekannter HTTP-Fehler.';
+
+	for ($attempt = 1; $attempt <= 3; $attempt++) {
+		$body = '';
+		$ch = curl_init($url);
+		if ($ch === false) {
+			throw new RuntimeException('HTTP-Anfrage konnte nicht initialisiert werden.');
+		}
+
+		curl_setopt_array($ch, [
+			CURLOPT_RETURNTRANSFER => false,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_MAXREDIRS => 5,
+			CURLOPT_CONNECTTIMEOUT => 12,
+			CURLOPT_TIMEOUT => RADNETZ_DASHBOARD_HTTP_TIMEOUT,
+			CURLOPT_ENCODING => '',
+			CURLOPT_USERAGENT => RADNETZ_DASHBOARD_USER_AGENT,
+			CURLOPT_HTTPHEADER => ['Accept: ' . $accept],
+			CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body): int {
+				if (strlen($body) + strlen($chunk) > RADNETZ_DASHBOARD_MAX_RESPONSE_BYTES) {
+					return 0;
+				}
+
+				$body .= $chunk;
+				return strlen($chunk);
+			},
+		]);
+
+		curl_exec($ch);
+		$status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+		$error = curl_error($ch);
+		curl_close($ch);
+
+		if ($error === '' && $status >= 200 && $status < 300 && $body !== '') {
+			return $body;
+		}
+
+		$lastError = $error !== '' ? $error : 'HTTP ' . $status;
+
+		if ($attempt < 3) {
+			sleep($attempt * 3);
+		}
 	}
-	return $body;
+
+	throw new RuntimeException($lastError);
 }
 
 function radnetzDashboardStatuses(string $json): array
