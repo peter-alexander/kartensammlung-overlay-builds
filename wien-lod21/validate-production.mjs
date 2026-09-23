@@ -36,6 +36,7 @@ const countMode = (mode) => items.filter(
 const directStrong = countMode("direct-strong");
 const hybridA = countMode("hybrid-a");
 const hybridBAbsolute = countMode("hybrid-b-absolute");
+const hybridBThin = countMode("hybrid-b-thin");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -67,8 +68,18 @@ if (
 		+ Number(release.counts.hybridBAbsolute || 0)
 	);
 }
-if (items.length !== 1897) {
-	throw new Error("Expected 1897 production targets, got " + items.length);
+if (
+	hybridBThin !== 3
+	|| Number(release.counts.hybridBThin || 0) !== hybridBThin
+) {
+	throw new Error(
+		"Expected 3 audited thin Hybrid-B targets, got "
+		+ hybridBThin + " / release "
+		+ Number(release.counts.hybridBThin || 0)
+	);
+}
+if (items.length !== 1900) {
+	throw new Error("Expected 1900 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -81,6 +92,7 @@ if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 const hybrid = items.filter((target) => (
 	target.rolloutMode === "hybrid-a"
 	|| target.rolloutMode === "hybrid-b-absolute"
+	|| target.rolloutMode === "hybrid-b-thin"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -112,6 +124,17 @@ for (const target of items) {
 			throw new Error(
 				"Hybrid-B absolute footprint mismatch exceeds 0.58 m² for "
 				+ target.historicalCode + ": " + outsideM2
+			);
+		}
+	}
+	if (target.rolloutMode === "hybrid-b-thin") {
+		const maxWidthM = Number(
+			target.auditedHistoricalOutsideMaxMeanWidthM
+		);
+		if (!Number.isFinite(maxWidthM) || maxWidthM > 0.0501) {
+			throw new Error(
+				"Hybrid-B thin overhang exceeds 5 cm for "
+				+ target.historicalCode + ": " + maxWidthM
 			);
 		}
 	}
@@ -193,6 +216,7 @@ console.log(JSON.stringify({
 		directStrong,
 		hybridA,
 		hybridBAbsolute,
+		hybridBThin,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
