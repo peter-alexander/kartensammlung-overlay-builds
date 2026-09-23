@@ -85,6 +85,51 @@ jobs:
           			ksIdCount: item.ksIdCount
           		}))
           ]));
+          const heightOk = (item) => {
+          	const metrics = item.metrics || {};
+          	if (metrics.heightDifferenceM === null) return true;
+          	const currentHeight = metrics.currentHeightM === null
+          		? null
+          		: Number(metrics.currentHeightM);
+          	const tolerance = currentHeight === null
+          		? 6
+          		: Math.max(6, currentHeight * 0.30);
+          	return Number(metrics.heightDifferenceM) <= tolerance;
+          };
+          const absoluteExtensionCounts = Object.fromEntries(
+          	[0.25, 0.5, 0.58, 0.75, 1, 2].map((limit) => [
+          		String(limit),
+          		candidates.filter((item) => (
+          			item.hybridTier !== "hybrid-a"
+          			&& Number(item.metrics?.oldCoverage) >= 0.995
+          			&& Number(item.metrics?.currentCoverage) >= 0.60
+          			&& Number(item.metrics?.centroidDistanceM) <= 6
+          			&& heightOk(item)
+          			&& Number(item.outsideOldAreaM2) <= limit
+          		)).length
+          	])
+          );
+          const absoluteExtensionCandidates = candidates
+          	.filter((item) => (
+          		item.hybridTier !== "hybrid-a"
+          		&& Number(item.metrics?.oldCoverage) >= 0.995
+          		&& Number(item.metrics?.currentCoverage) >= 0.60
+          		&& Number(item.metrics?.centroidDistanceM) <= 6
+          		&& heightOk(item)
+          		&& Number(item.outsideOldAreaM2) <= 0.58
+          	))
+          	.sort((a, b) => Number(b.outsideOldAreaM2) - Number(a.outsideOldAreaM2))
+          	.map((item) => ({
+          		historicalCode: item.historicalCode,
+          		sheet: item.sheet,
+          		oldCoverage: item.metrics?.oldCoverage,
+          		currentCoverage: item.metrics?.currentCoverage,
+          		centroidDistanceM: item.metrics?.centroidDistanceM,
+          		heightDifferenceM: item.metrics?.heightDifferenceM,
+          		currentHeightM: item.metrics?.currentHeightM,
+          		outsideOldAreaM2: item.outsideOldAreaM2,
+          		ksIdCount: item.ksIdCount
+          	}));
           const summary = {
           	generatedAt: input.generatedAt,
           	sourceGeneratedAt: input.sourceGeneratedAt,
@@ -94,6 +139,8 @@ jobs:
           	distribution: input.distribution,
           	pilots: input.pilots,
           	hybridAExclusionReasons: reasonCounts,
+          	absoluteExtensionCounts,
+          	absoluteExtensionCandidatesAt058m2: absoluteExtensionCandidates,
           	lowestOldCoverageSamples: sample
           };
           fs.writeFileSync(
