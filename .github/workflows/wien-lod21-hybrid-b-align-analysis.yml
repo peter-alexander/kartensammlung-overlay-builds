@@ -1,0 +1,132 @@
+name: Analyze remaining Vienna Hybrid-B alignment
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-b-align-analysis
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-b-align-analysis.yml'
+      - 'wien-lod21/analyze-hybrid-remainders.mjs'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Prepare seven remaining Hybrid-B targets
+        run: |
+          node wien-lod21/analyze-hybrid-candidates.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --output /tmp/hybrid-candidates.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const wanted = new Set([
+          	"011758", "032459", "045503", "047031",
+          	"061091", "065479", "088729"
+          ]);
+          const input = JSON.parse(
+          	fs.readFileSync("/tmp/hybrid-candidates.json", "utf8")
+          );
+          const candidates = (input.candidates || []).filter(
+          	(item) => wanted.has(String(item.historicalCode))
+          );
+          if (candidates.length !== 7) {
+          	throw new Error("Expected seven candidates, got " + candidates.length);
+          }
+          const buildings = candidates.map((item) => ({
+          	name: "Wien LOD2.1 " + item.historicalCode,
+          	historicalCode: String(item.historicalCode),
+          	bwGebId: Number(item.ownerBwGebIds?.[0]),
+          	ksIds: item.ksIds,
+          	sheet: String(item.sheet || item.lod21Sheet),
+          	lng: Number(item.lng),
+          	lat: Number(item.lat),
+          	rolloutMode: "hybrid-b-align-probe"
+          }));
+          fs.writeFileSync("/tmp/hybrid-b7-targets.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "analysis",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings
+          }, null, "\t") + "\n");
+          fs.writeFileSync(
+          	"/tmp/hybrid-b7-codes.txt",
+          	buildings.map((item) => item.historicalCode).join(",")
+          );
+          NODE
+
+      - name: Search submeter XY alignment
+        run: |
+          CODES="$(cat /tmp/hybrid-b7-codes.txt)"
+          node wien-lod21/analyze-hybrid-remainders.mjs \
+            /tmp/hybrid-b7-targets.json \
+            /tmp/hybrid-b7-alignment-full.json \
+            "$CODES"
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const full = JSON.parse(
+          	fs.readFileSync("/tmp/hybrid-b7-alignment-full.json", "utf8")
+          );
+          const report = (full.report || []).map((item) => ({
+          	historicalCode: item.historicalCode,
+          	currentAreaM2: item.currentAreaM2,
+          	historicalAreaM2: item.historicalAreaM2,
+          	intersectionAreaM2: item.intersectionAreaM2,
+          	currentCoverage: item.currentCoverage,
+          	historicalCoverage: item.historicalCoverage,
+          	alignment: item.alignment,
+          	currentHeightsM: item.currentHeightsM
+          })).sort((a,b) => a.historicalCode.localeCompare(b.historicalCode));
+          const alignedA = report.filter((item) => (
+          	Number(item.alignment?.oldCoverage) >= 0.999
+          	&& Number(item.alignment?.currentCoverage) >= 0.60
+          	&& Number(item.alignment?.centroidDistanceM) <= 6
+          	&& Number(item.alignment?.shiftM) <= 1.001
+          ));
+          const summary = {
+          	generatedAt: full.generatedAt,
+          	count: report.length,
+          	alignedFootprintA: alignedA.map((item) => item.historicalCode),
+          	report
+          };
+          fs.writeFileSync(
+          	"wien-lod21/hybrid-b7-alignment.generated.json",
+          	JSON.stringify(summary, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - name: Commit alignment summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/hybrid-b7-alignment.generated.json
+          git commit -m "Record Vienna Hybrid-B alignment audit"
+          git push
