@@ -1,0 +1,186 @@
+name: Select Vienna roof replacement production pilot
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-overrides-select.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: /tmp/roof-loss
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35913353237
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-surface-audit
+          path: /tmp/surface-audit
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35920353326
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-override-pilot
+          path: /tmp/feature-audit
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35922214547
+
+      - name: Select 19 fail-safe single-tile overrides
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const summary = JSON.parse(
+          	fs.readFileSync("/tmp/roof-loss/wien-roof-loss-summary.json", "utf8")
+          );
+          const surfaces = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/surface-audit/wien-roof-loss-surface-audit.json",
+          		"utf8"
+          	)
+          );
+          const features = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/feature-audit/wien-maptoolkit-roof-override-pilot.json",
+          		"utf8"
+          	)
+          );
+
+          const candidateByCode = new Map(
+          	(summary.strongCandidates || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+          const surfaceByCode = new Map(
+          	(surfaces.reports || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+
+          const selected = [];
+          for (const featureAudit of features.rows || []) {
+          	const code = String(featureAudit.historicalCode);
+          	const candidate = candidateByCode.get(code);
+          	const surface = surfaceByCode.get(code);
+          	if (!candidate || !surface) continue;
+          	const featureTiles = [...new Set(
+          		(featureAudit.features || []).map((item) => String(item.tile))
+          	)].sort();
+          	const signatures = [...new Set(
+          		(featureAudit.features || []).map(
+          			(item) => String(item.signature || "").toLowerCase()
+          		)
+          	)].sort();
+
+          	const heightSafe = (
+          		Number(surface.maptoolkitFlatVsHistoricalEaveM) >= -0.25
+          		&& Number(surface.maptoolkitFlatVsHistoricalRidgeM) <= 0.25
+          	);
+          	const safe = (
+          		surface.safe === true
+          		&& Number(surface.flatHitPercent) === 100
+          		&& heightSafe
+          		&& Number(featureAudit.sharedFeatureCount) === 0
+          		&& featureTiles.length === 1
+          		&& featureTiles[0] === String(surface.tile)
+          		&& signatures.length === Number(featureAudit.featureCount)
+          		&& signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+          	);
+          	if (!safe) continue;
+
+          	selected.push({
+          		name: "Maptoolkit roof replacement " + code,
+          		historicalCode: code,
+          		bwGebId: Number(featureAudit.bwGebId),
+          		ksIds: candidate.ksIds || featureAudit.ksIds || [],
+          		sheet: String(candidate.sheet || ""),
+          		lng: Number(candidate.lng),
+          		lat: Number(candidate.lat),
+          		rolloutMode: "maptoolkit-roof-replacement",
+          		auditedMaptoolkitOverride: {
+          			tile: featureTiles[0],
+          			featureSignatures: signatures,
+          			featureCount: Number(featureAudit.featureCount),
+          			flatHitPercent: Number(surface.flatHitPercent),
+          			historicalRoofMinM:
+          				Number(surface.historicalPitchedRoof?.minM),
+          			historicalRoofMaxM:
+          				Number(surface.historicalPitchedRoof?.maxM),
+          			maptoolkitFlatMedianM:
+          				Number(surface.maptoolkitFlatMedianM),
+          			flatVsHistoricalEaveM:
+          				Number(surface.maptoolkitFlatVsHistoricalEaveM),
+          			flatVsHistoricalRidgeM:
+          				Number(surface.maptoolkitFlatVsHistoricalRidgeM)
+          		}
+          	});
+          }
+
+          selected.sort(
+          	(a, b) => a.historicalCode.localeCompare(b.historicalCode)
+          );
+          if (selected.length !== 19) {
+          	throw new Error(
+          		"Expected 19 single-tile roof replacements, got "
+          		+ selected.length
+          	);
+          }
+
+          const output = {
+          	schemaVersion: 1,
+          	status: "audited-production-pilot",
+          	generatedAt: new Date().toISOString(),
+          	audit: {
+          		roofLossMatchRunId: 35913353237,
+          		surfaceAuditRunId: 35920353326,
+          		featureAuditRunId: 35922214547,
+          		requireSurfaceSafe: true,
+          		requireFlatHitPercent: 100,
+          		heightEnvelopeToleranceM: 0.25,
+          		requireExclusiveMaptoolkitFeatures: true,
+          		requireSingleMaptoolkitTile: true
+          	},
+          	count: selected.length,
+          	buildings: selected
+          };
+          fs.writeFileSync(
+          	"wien-lod21/maptoolkit-roof-overrides.production.json",
+          	JSON.stringify(output, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify({
+          	count: selected.length,
+          	codes: selected.map((item) => item.historicalCode),
+          	featureCount: selected.reduce(
+          		(sum, item) => sum + item.auditedMaptoolkitOverride.featureCount,
+          		0
+          	)
+          }, null, 2));
+          NODE
+
+      - name: Commit audited production pilot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/maptoolkit-roof-overrides.production.json
+          git commit -m "Record audited Vienna Maptoolkit roof replacements"
+          git push
