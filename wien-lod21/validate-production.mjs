@@ -35,6 +35,7 @@ const countMode = (mode) => items.filter(
 ).length;
 const directStrong = countMode("direct-strong");
 const hybridA = countMode("hybrid-a");
+const hybridBAbsolute = countMode("hybrid-b-absolute");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -50,11 +51,24 @@ if (manualPilotStrong !== 1 || release.counts.manualPilotStrong !== 1) {
 		+ manualPilotStrong + " / release " + release.counts.manualPilotStrong
 	);
 }
-if (Number(release.counts.hybridA || 0) !== hybridA) {
+if (hybridA !== 614 || Number(release.counts.hybridA || 0) !== hybridA) {
 	throw new Error(
-		"Hybrid-A count mismatch: "
-		+ hybridA + " vs release " + Number(release.counts.hybridA || 0)
+		"Expected 614 Hybrid-A targets, got "
+		+ hybridA + " / release " + Number(release.counts.hybridA || 0)
 	);
+}
+if (
+	hybridBAbsolute !== 72
+	|| Number(release.counts.hybridBAbsolute || 0) !== hybridBAbsolute
+) {
+	throw new Error(
+		"Expected 72 absolute-safe Hybrid-B targets, got "
+		+ hybridBAbsolute + " / release "
+		+ Number(release.counts.hybridBAbsolute || 0)
+	);
+}
+if (items.length !== 1897) {
+	throw new Error("Expected 1897 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -66,6 +80,7 @@ if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 
 const hybrid = items.filter((target) => (
 	target.rolloutMode === "hybrid-a"
+	|| target.rolloutMode === "hybrid-b-absolute"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -87,6 +102,16 @@ for (const target of items) {
 			throw new Error(
 				"Invalid OGD KS_ID " + id
 				+ " for " + target.historicalCode
+			);
+		}
+	}
+
+	if (target.rolloutMode === "hybrid-b-absolute") {
+		const outsideM2 = Number(target.historicalOutsideCurrentM2);
+		if (!Number.isFinite(outsideM2) || outsideM2 > 0.5801) {
+			throw new Error(
+				"Hybrid-B absolute footprint mismatch exceeds 0.58 m² for "
+				+ target.historicalCode + ": " + outsideM2
 			);
 		}
 	}
@@ -167,6 +192,7 @@ console.log(JSON.stringify({
 	rolloutModes: {
 		directStrong,
 		hybridA,
+		hybridBAbsolute,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
