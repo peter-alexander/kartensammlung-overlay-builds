@@ -10,6 +10,7 @@ on:
       - 'wien-lod21/build.mjs'
       - 'wien-lod21/run.sh'
       - 'wien-lod21/fetch-hybrid-current.mjs'
+      - 'wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs'
 
 permissions:
   contents: read
