@@ -1,0 +1,93 @@
+name: Refresh Vienna Hybrid-B thin production targets
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-b-thin
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-b-thin-targets.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate production target snapshot
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --output wien-lod21/targets.production.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute \
+            --include-hybrid-b-thin
+
+      - name: Verify target snapshot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          if (data.counts.total !== 1900) throw new Error("Expected 1900 targets.");
+          if (data.counts.directStrong !== 1209) throw new Error("Expected 1209 direct.");
+          if (data.counts.hybridA !== 614) throw new Error("Expected 614 Hybrid-A.");
+          if (data.counts.hybridBAbsolute !== 72) throw new Error("Expected 72 Hybrid-B absolute.");
+          if (data.counts.hybridBThin !== 3) throw new Error("Expected 3 Hybrid-B thin.");
+          if (data.counts.manualPilotStrong !== 1) throw new Error("Expected 1 manual strong.");
+          if (data.counts.manualPilotHybrid !== 1) throw new Error("Expected 1 manual hybrid.");
+          if (data.sourceAnalysis.hybridCandidatesDeferred !== 374) {
+          	throw new Error(
+          		"Expected 374 deferred hybrids, got "
+          		+ data.sourceAnalysis.hybridCandidatesDeferred
+          	);
+          }
+          const thin = data.buildings.filter(
+          	(item) => item.rolloutMode === "hybrid-b-thin"
+          );
+          const expected = new Set(["079387", "088019", "123321"]);
+          for (const item of thin) {
+          	expected.delete(String(item.historicalCode));
+          	if (Number(item.auditedHistoricalOutsideMaxMeanWidthM) > 0.0501) {
+          		throw new Error(item.historicalCode + ": thin limit exceeded");
+          	}
+          }
+          if (expected.size) throw new Error("Missing thin targets: " + [...expected].join(", "));
+          console.log(JSON.stringify({
+          	counts: data.counts,
+          	deferred: data.sourceAnalysis.hybridCandidatesDeferred,
+          	thin: thin.map((item) => ({
+          		code: item.historicalCode,
+          		outsideAreaM2: item.historicalOutsideCurrentM2,
+          		maxMeanWidthM: item.auditedHistoricalOutsideMaxMeanWidthM
+          	}))
+          }, null, 2));
+          NODE
+
+      - name: Commit production target snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/targets.production.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote audited thin Vienna Hybrid-B targets"
+          git push
