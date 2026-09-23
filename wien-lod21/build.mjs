@@ -1167,6 +1167,9 @@ async function main() {
 			directStrong: targets.filter(
 				(target) => target.rolloutMode === "direct-strong"
 			).length,
+			hybridA: targets.filter(
+				(target) => target.rolloutMode === "hybrid-a"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -1229,6 +1232,7 @@ async function main() {
 			parsedBuildings,
 			targets: targets.length,
 			directStrong: targetManifest.counts.directStrong,
+			hybridA: targetManifest.counts.hybridA,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
