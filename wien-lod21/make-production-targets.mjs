@@ -5,6 +5,7 @@ import path from "node:path";
 
 const HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2 = 0.58;
 const HYBRID_B_THIN_MAX_MEAN_WIDTH_M = 0.05;
+const HYBRID_HEIGHT_SPLIT_TOLERANCE_M = 0.25;
 const EAVE_AUDIT_PATH = new URL(
 	"./eave-height-analysis.generated.json",
 	import.meta.url
@@ -22,6 +23,38 @@ const AUDITED_HYBRID_B_CLIP = new Set([
 	"061091",
 	"065479",
 	"088729"
+]);
+
+const AUDITED_HYBRID_HEIGHT_SPLIT = new Map([
+	["029048", {
+		protectedKsIds: [
+			"wien-fmzk:4006403822"
+		],
+		compatibleKsIds: [
+			"wien-fmzk:4005793328",
+			"wien-fmzk:4005793338",
+			"wien-fmzk:4007858369"
+		],
+		clippedHistoricalAreaM2: 174.909,
+		removedHistoricalAreaM2: 253.064,
+		remainderAreaM2: 337.305
+	}],
+	["074864", {
+		protectedKsIds: [
+			"wien-fmzk:4005973324",
+			"wien-fmzk:4005973341",
+			"wien-fmzk:4005973350",
+			"wien-fmzk:4005973513",
+			"wien-fmzk:4006453611",
+			"wien-fmzk:4007481442"
+		],
+		compatibleKsIds: [
+			"wien-fmzk:4005973518"
+		],
+		clippedHistoricalAreaM2: 116.769,
+		removedHistoricalAreaM2: 94.527,
+		remainderAreaM2: 160.136
+	}]
 ]);
 
 const MANUAL_PILOT_BANDS = new Map([
@@ -42,7 +75,8 @@ function parseArgs(argv) {
 		includeHybridBClip: false,
 		includeHybridCClip: false,
 		includeHybridDClip: false,
-		includeHybridEaveClip: false
+		includeHybridEaveClip: false,
+		includeHybridHeightSplit: false
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -66,6 +100,8 @@ function parseArgs(argv) {
 			result.includeHybridDClip = true;
 		} else if (arg === "--include-hybrid-eave-clip") {
 			result.includeHybridEaveClip = true;
+		} else if (arg === "--include-hybrid-height-split") {
+			result.includeHybridHeightSplit = true;
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
@@ -99,6 +135,11 @@ function parseArgs(argv) {
 	if (result.includeHybridEaveClip && !result.includeHybridDClip) {
 		throw new Error(
 			"--include-hybrid-eave-clip requires --include-hybrid-d-clip."
+		);
+	}
+	if (result.includeHybridHeightSplit && !result.includeHybridEaveClip) {
+		throw new Error(
+			"--include-hybrid-height-split requires --include-hybrid-eave-clip."
 		);
 	}
 	return result;
@@ -233,6 +274,26 @@ function isHybridEaveClip(candidate, eaveAuditByCode) {
 	const metrics = candidate?.metrics || {};
 	return (
 		audit?.surfaceMinMedianHeightMPass === true
+		&& Number(metrics.oldCoverage) >= 0.95
+		&& Number(metrics.currentCoverage) >= 0.60
+		&& Number(metrics.centroidDistanceM) <= 8
+	);
+}
+
+function isHybridHeightSplit(candidate, eaveAuditByCode) {
+	if (
+		isHybridA(candidate)
+		|| isHybridBAbsolute(candidate)
+		|| isHybridBThin(candidate)
+		|| isHybridBClip(candidate)
+		|| isHybridCClip(candidate)
+		|| isHybridDClip(candidate)
+		|| isHybridEaveClip(candidate, eaveAuditByCode)
+	) return false;
+	const code = String(candidate?.historicalCode || "");
+	const metrics = candidate?.metrics || {};
+	return (
+		AUDITED_HYBRID_HEIGHT_SPLIT.has(code)
 		&& Number(metrics.oldCoverage) >= 0.95
 		&& Number(metrics.currentCoverage) >= 0.60
 		&& Number(metrics.centroidDistanceM) <= 8
@@ -442,6 +503,31 @@ async function main() {
 		});
 	}
 
+	const hybridHeightSplit = args.includeHybridHeightSplit
+		? (report.hybridCandidates || []).filter((candidate) => (
+			isHybridHeightSplit(candidate, eaveAuditByCode)
+		))
+		: [];
+	for (const candidate of hybridHeightSplit) {
+		const code = String(candidate.historicalCode);
+		const pilotTarget = pilotByCode.get(code);
+		const audit = AUDITED_HYBRID_HEIGHT_SPLIT.get(code);
+		targets.push({
+			...targetFromCandidate(candidate, {
+				name: pilotTarget?.name || "",
+				rolloutMode: "hybrid-height-split"
+			}),
+			auditedHistoricalClip: true,
+			auditedHeightSplit: true,
+			auditedHeightSplitToleranceM: HYBRID_HEIGHT_SPLIT_TOLERANCE_M,
+			auditedProtectedKsIds: [...audit.protectedKsIds].sort(),
+			auditedCompatibleKsIds: [...audit.compatibleKsIds].sort(),
+			auditedClippedHistoricalAreaM2: audit.clippedHistoricalAreaM2,
+			auditedRemovedHistoricalAreaM2: audit.removedHistoricalAreaM2,
+			auditedRemainderAreaM2: audit.remainderAreaM2
+		});
+	}
+
 	const resultsByCode = new Map(
 		(report.results || [])
 			.filter((item) => item.candidateType === "historical-code")
@@ -503,6 +589,9 @@ async function main() {
 	const hybridEaveClipCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-eave-clip"
 	).length;
+	const hybridHeightSplitCount = targets.filter(
+		(target) => target.rolloutMode === "hybrid-height-split"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -527,7 +616,8 @@ async function main() {
 				+ hybridBClipCount
 				+ hybridCClipCount
 				+ hybridDClipCount
-				+ hybridEaveClipCount,
+				+ hybridEaveClipCount
+				+ hybridHeightSplitCount,
 			hybridCandidatesDeferred:
 				Number(report?.counts?.hybridCandidates || 0)
 				- hybridACount
@@ -536,13 +626,15 @@ async function main() {
 				- hybridBClipCount
 				- hybridCClipCount
 				- hybridDClipCount
-				- hybridEaveClipCount,
+				- hybridEaveClipCount
+				- hybridHeightSplitCount,
 			hybridBAbsoluteMaxHistoricalOutsideCurrentM2:
 				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2,
 			hybridBThinMaxHistoricalOutsideMeanWidthM:
 				HYBRID_B_THIN_MAX_MEAN_WIDTH_M,
 			hybridEaveHeightMetric: "median-roof-surface-minimum",
-			hybridEaveAuditGeneratedAt: eaveAudit.generatedAt || null
+			hybridEaveAuditGeneratedAt: eaveAudit.generatedAt || null,
+			hybridHeightSplitToleranceM: HYBRID_HEIGHT_SPLIT_TOLERANCE_M
 		},
 		counts: {
 			total: targets.length,
@@ -554,6 +646,7 @@ async function main() {
 			hybridCClip: hybridCClipCount,
 			hybridDClip: hybridDClipCount,
 			hybridEaveClip: hybridEaveClipCount,
+			hybridHeightSplit: hybridHeightSplitCount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -606,6 +699,12 @@ async function main() {
 			+ " hybrid-eave-clip targets, got " + hybridEaveClipCount
 		);
 	}
+	if (hybridHeightSplitCount !== (args.includeHybridHeightSplit ? 2 : 0)) {
+		throw new Error(
+			"Expected " + (args.includeHybridHeightSplit ? 2 : 0)
+			+ " hybrid-height-split targets, got " + hybridHeightSplitCount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
@@ -616,9 +715,11 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeHybridEaveClip
-		? 2271
-		: args.includeHybridDClip
+	const expectedTargets = args.includeHybridHeightSplit
+		? 2273
+		: args.includeHybridEaveClip
+			? 2271
+			: args.includeHybridDClip
 			? 2245
 			: args.includeHybridCClip
 			? 2076

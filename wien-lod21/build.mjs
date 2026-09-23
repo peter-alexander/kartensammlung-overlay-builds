@@ -27,6 +27,7 @@ const ROOF_MIN_UP_NORMAL = 0.2;
 const FLAT_ROOF_MIN_UP_NORMAL = 0.985;
 const HYBRID_HISTORY_BUFFER_M = 0;
 const HYBRID_MAX_SLIVER_MEAN_WIDTH_M = 0.05;
+const HYBRID_HEIGHT_SPLIT_TOLERANCE_M = 0.25;
 
 proj4.defs(
 	SOURCE_CRS,
@@ -1019,6 +1020,49 @@ function surfacePlane(surface) {
 	return { normal, origin };
 }
 
+function maxHistoricalRoofZOverGeometry(
+	entries,
+	currentGeometry,
+	reader,
+	writer,
+	context = ""
+) {
+	if (!currentGeometry || currentGeometry.isEmpty()) return null;
+	let maxZ = null;
+	for (const entry of entries || []) {
+		for (const surface of entry.surfaces || []) {
+			if (surface.semantic !== "roof") continue;
+			const plane = surfacePlane(surface);
+			const roofGeometry = sourceSurfaceGeometry(surface, reader);
+			if (!plane || !roofGeometry) continue;
+			let intersection = intersectionJstsGeometry(
+				roofGeometry,
+				currentGeometry,
+				context + " roof/part"
+			);
+			intersection = polygonalJstsGeometry(
+				intersection,
+				reader,
+				writer
+			);
+			if (!intersection || intersection.isEmpty()) continue;
+			for (const coordinates of polygonGeoJsonParts(intersection, writer)) {
+				for (const ring of coordinates || []) {
+					for (const point of ring || []) {
+						const x = Number(point?.[0]);
+						const y = Number(point?.[1]);
+						if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+						const z = planeZ(plane, x, y);
+						if (!Number.isFinite(z)) continue;
+						maxZ = maxZ === null ? z : Math.max(maxZ, z);
+					}
+				}
+			}
+		}
+	}
+	return maxZ;
+}
+
 function planeZ(plane, x, y) {
 	const { normal, origin } = plane;
 	return origin.z - (
@@ -1068,6 +1112,8 @@ function isHistoricalClipTarget(target) {
 		|| mode === "hybrid-c-clip"
 		|| mode === "hybrid-d-clip"
 		|| mode === "hybrid-eave-clip"
+		|| mode === "hybrid-height-split"
+		|| mode === "hybrid-height-split-pilot"
 	);
 }
 
@@ -1573,9 +1619,81 @@ async function main() {
 		if (!historicalGround) {
 			throw new Error("Hybrid clip target " + code + " has no historical footprint.");
 		}
+
+		const heightSplit = (
+			String(target.rolloutMode || "") === "hybrid-height-split"
+			|| String(target.rolloutMode || "") === "hybrid-height-split-pilot"
+		);
+		let clipCurrentGeometry = currentGeometry;
+		let heightSplitAudit = null;
+		if (heightSplit) {
+			const compatibleGeometries = [];
+			const parts = [];
+			for (const ksId of target.ksIds || []) {
+				const feature = hybridCurrentByKsId.get(String(ksId));
+				if (!feature?.geometry) {
+					throw new Error(
+						"Height-split target " + code
+						+ " is missing current " + ksId
+					);
+				}
+				const levels = currentFeatureLevels(feature.properties || {});
+				if (!levels) {
+					throw new Error(
+						"Height-split target " + code
+						+ " has invalid current height levels for " + ksId
+					);
+				}
+				const geometry = repairJstsGeometry(
+					geoReader.read(feature.geometry)
+				);
+				if (!geometry) continue;
+				const historicalMaxRoofZ = maxHistoricalRoofZOverGeometry(
+					entries,
+					geometry,
+					geoReader,
+					geoWriter,
+					code + " / " + String(ksId)
+				);
+				const roofDeltaM = historicalMaxRoofZ === null
+					? null
+					: levels.roofZ - historicalMaxRoofZ;
+				const protectedCurrent = (
+					historicalMaxRoofZ === null
+					|| roofDeltaM > HYBRID_HEIGHT_SPLIT_TOLERANCE_M
+				);
+				if (!protectedCurrent) compatibleGeometries.push(geometry);
+				parts.push({
+					ksId: String(ksId),
+					fmzkId: String(feature.properties?.FMZK_ID || ""),
+					currentRoofZ: Number(levels.roofZ.toFixed(3)),
+					historicalMaxRoofZ: historicalMaxRoofZ === null
+						? null
+						: Number(historicalMaxRoofZ.toFixed(3)),
+					roofDeltaM: roofDeltaM === null
+						? null
+						: Number(roofDeltaM.toFixed(3)),
+					protectedCurrent
+				});
+			}
+			clipCurrentGeometry = unionJstsGeometries(compatibleGeometries);
+			if (!clipCurrentGeometry || clipCurrentGeometry.isEmpty()) {
+				throw new Error(
+					"Height-split target " + code
+					+ " has no height-compatible current geometry."
+				);
+			}
+			heightSplitAudit = {
+				toleranceM: HYBRID_HEIGHT_SPLIT_TOLERANCE_M,
+				compatibleParts: parts.filter((part) => !part.protectedCurrent).length,
+				protectedParts: parts.filter((part) => part.protectedCurrent).length,
+				parts
+			};
+		}
+
 		let clippedHistoricalGround = intersectionJstsGeometry(
 			historicalGround,
-			currentGeometry,
+			clipCurrentGeometry,
 			code + " target footprint clip"
 		);
 		clippedHistoricalGround = polygonalJstsGeometry(
@@ -1634,7 +1752,7 @@ async function main() {
 			if (!objectGround) continue;
 			let objectClip = intersectionJstsGeometry(
 				objectGround,
-				currentGeometry,
+				clipCurrentGeometry,
 				code + " object footprint clip"
 			);
 			objectClip = polygonalJstsGeometry(
@@ -1723,6 +1841,7 @@ async function main() {
 			);
 		}
 		delete stats.wallLineGeometries;
+		if (heightSplitAudit) stats.heightSplit = heightSplitAudit;
 		clipStatsByCode.set(code, stats);
 	}
 
@@ -1799,7 +1918,16 @@ async function main() {
 					const surfaces = extrusionSurfacesFromPolygon(
 						coordinates,
 						levels,
-						{ seamBoundaryIndex: historicalBoundaryIndex }
+						{
+							seamBoundaryIndex:
+								(
+								String(target.rolloutMode || "") === "hybrid-height-split"
+								|| String(target.rolloutMode || "")
+									=== "hybrid-height-split-pilot"
+							)
+								? null
+								: historicalBoundaryIndex
+						}
 					);
 					if (!surfaces.length) continue;
 					const added = addBuildingToTile(tileData, {
@@ -1908,6 +2036,9 @@ async function main() {
 			).length,
 			hybridEaveClip: targets.filter(
 				(target) => target.rolloutMode === "hybrid-eave-clip"
+			).length,
+			hybridHeightSplit: targets.filter(
+				(target) => target.rolloutMode === "hybrid-height-split"
 			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
@@ -2019,6 +2150,7 @@ async function main() {
 			hybridCClip: targetManifest.counts.hybridCClip,
 			hybridDClip: targetManifest.counts.hybridDClip,
 			hybridEaveClip: targetManifest.counts.hybridEaveClip,
+			hybridHeightSplit: targetManifest.counts.hybridHeightSplit,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,

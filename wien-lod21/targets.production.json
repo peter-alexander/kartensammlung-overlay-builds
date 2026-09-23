@@ -8,15 +8,16 @@
 		"sheets": 1419,
 		"candidates": 33432,
 		"directProductionEligible": 1209,
-		"hybridCandidatesSelected": 1060,
-		"hybridCandidatesDeferred": 3,
+		"hybridCandidatesSelected": 1062,
+		"hybridCandidatesDeferred": 1,
 		"hybridBAbsoluteMaxHistoricalOutsideCurrentM2": 0.58,
 		"hybridBThinMaxHistoricalOutsideMeanWidthM": 0.05,
 		"hybridEaveHeightMetric": "median-roof-surface-minimum",
-		"hybridEaveAuditGeneratedAt": "2026-09-23T18:51:35.384Z"
+		"hybridEaveAuditGeneratedAt": "2026-09-23T18:51:35.384Z",
+		"hybridHeightSplitToleranceM": 0.25
 	},
 	"counts": {
-		"total": 2271,
+		"total": 2273,
 		"directStrong": 1209,
 		"hybridA": 614,
 		"hybridBAbsolute": 72,
@@ -25,9 +26,10 @@
 		"hybridCClip": 169,
 		"hybridDClip": 169,
 		"hybridEaveClip": 26,
+		"hybridHeightSplit": 2,
 		"manualPilotStrong": 1,
 		"manualPilotHybrid": 1,
-		"sourceSheets": 729
+		"sourceSheets": 730
 	},
 	"buildings": [
 		{
@@ -4361,6 +4363,37 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 029048",
+			"historicalCode": "029048",
+			"bwGebId": 5480917,
+			"ksIds": [
+				"wien-fmzk:4005793328",
+				"wien-fmzk:4005793338",
+				"wien-fmzk:4006403822",
+				"wien-fmzk:4007858369"
+			],
+			"sheet": "098073",
+			"lng": 16.3193013,
+			"lat": 48.167521,
+			"rolloutMode": "hybrid-height-split",
+			"expectedRemainderM2": 85.85,
+			"historicalOutsideCurrentM2": 1.61,
+			"auditedHistoricalClip": true,
+			"auditedHeightSplit": true,
+			"auditedHeightSplitToleranceM": 0.25,
+			"auditedProtectedKsIds": [
+				"wien-fmzk:4006403822"
+			],
+			"auditedCompatibleKsIds": [
+				"wien-fmzk:4005793328",
+				"wien-fmzk:4005793338",
+				"wien-fmzk:4007858369"
+			],
+			"auditedClippedHistoricalAreaM2": 174.909,
+			"auditedRemovedHistoricalAreaM2": 253.064,
+			"auditedRemainderAreaM2": 337.305
 		},
 		{
 			"name": "Wien LOD2.1 029189",
@@ -10750,6 +10783,43 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 4.08,
 			"historicalOutsideCurrentM2": 1.19
+		},
+		{
+			"name": "Wien LOD2.1 074864",
+			"historicalCode": "074864",
+			"bwGebId": 5356483,
+			"ksIds": [
+				"wien-fmzk:4005973324",
+				"wien-fmzk:4005973341",
+				"wien-fmzk:4005973350",
+				"wien-fmzk:4005973513",
+				"wien-fmzk:4005973518",
+				"wien-fmzk:4006453611",
+				"wien-fmzk:4007481442"
+			],
+			"sheet": "118086",
+			"lng": 16.4535405,
+			"lat": 48.2254625,
+			"rolloutMode": "hybrid-height-split",
+			"expectedRemainderM2": 73.67,
+			"historicalOutsideCurrentM2": 8.07,
+			"auditedHistoricalClip": true,
+			"auditedHeightSplit": true,
+			"auditedHeightSplitToleranceM": 0.25,
+			"auditedProtectedKsIds": [
+				"wien-fmzk:4005973324",
+				"wien-fmzk:4005973341",
+				"wien-fmzk:4005973350",
+				"wien-fmzk:4005973513",
+				"wien-fmzk:4006453611",
+				"wien-fmzk:4007481442"
+			],
+			"auditedCompatibleKsIds": [
+				"wien-fmzk:4005973518"
+			],
+			"auditedClippedHistoricalAreaM2": 116.769,
+			"auditedRemovedHistoricalAreaM2": 94.527,
+			"auditedRemainderAreaM2": 160.136
 		},
 		{
 			"name": "Wien LOD2.1 074865",
