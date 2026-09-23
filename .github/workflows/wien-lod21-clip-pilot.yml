@@ -1,0 +1,140 @@
+name: Test Vienna LOD2.1 clipping pilot
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-clip-pilot
+    paths:
+      - '.github/workflows/wien-lod21-clip-pilot.yml'
+      - 'wien-lod21/build.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Prepare clipping pilot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(
+          	fs.readFileSync("/tmp/lod21-analysis/wien-lod21-citywide-final.json", "utf8")
+          );
+          const code = "032459";
+          const candidate = (report.hybridCandidates || []).find(
+          	(item) => String(item.historicalCode) === code
+          );
+          if (!candidate) throw new Error("Candidate 032459 not found.");
+          const owners = candidate.ownerBwGebIds || [];
+          if (owners.length !== 1) throw new Error("Pilot must have one owner.");
+          const target = {
+          	name: "Wien LOD2.1 clip pilot 032459",
+          	historicalCode: code,
+          	bwGebId: Number(owners[0]),
+          	ksIds: candidate.ksIds,
+          	sheet: String(candidate.sheet || candidate.lod21Sheet),
+          	lng: Number(candidate.lng),
+          	lat: Number(candidate.lat),
+          	rolloutMode: "hybrid-clip-pilot"
+          };
+          fs.writeFileSync("/tmp/clip-pilot.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "clip-pilot",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings: [target]
+          }, null, "\t") + "\n");
+          console.log(JSON.stringify({
+          	target,
+          	metrics: candidate.metrics
+          }, null, 2));
+          NODE
+
+      - name: Build clipping pilot
+        env:
+          WIEN_LOD21_TARGETS: /tmp/clip-pilot.json
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate clipped closed mesh
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const release = JSON.parse(fs.readFileSync(root + "/release.json", "utf8"));
+          const manifest = JSON.parse(fs.readFileSync(root + "/targets.json", "utf8"));
+          const target = manifest.targets?.[0];
+          if (!target || manifest.targets.length !== 1) {
+          	throw new Error("Expected one clipping target.");
+          }
+          if (target.rolloutMode !== "hybrid-clip-pilot") {
+          	throw new Error("Unexpected rollout mode.");
+          }
+          const clip = target.historicalClip;
+          if (!clip) throw new Error("No historical clipping statistics.");
+          if (!(clip.removedHistoricalAreaM2 > 1.5 && clip.removedHistoricalAreaM2 < 2.0)) {
+          	throw new Error(
+          		"Unexpected removed historical area: " + clip.removedHistoricalAreaM2
+          	);
+          }
+          if (!(clip.minRoofCoverageRatio >= 0.995)) {
+          	throw new Error(
+          		"Clipped roof does not cover footprint: " + clip.minRoofCoverageRatio
+          	);
+          }
+          if (!(clip.minWallBoundaryCoverageRatio >= 0.98)) {
+          	throw new Error(
+          		"Generated walls do not cover footprint boundary: "
+          		+ clip.minWallBoundaryCoverageRatio
+          	);
+          }
+          if (!(clip.generatedWallSurfaces > 0 && clip.clippedRoofSurfaces > 0)) {
+          	throw new Error("Clipped pilot produced no roof/wall surfaces.");
+          }
+          if (!target.hybridRemainder) {
+          	throw new Error("Current OGD remainder is missing.");
+          }
+          console.log(JSON.stringify({
+          	releaseCounts: release.counts,
+          	clip,
+          	remainder: target.hybridRemainder,
+          	matches: target.matches
+          }, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wien-lod21-clip-pilot
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: warn
+          retention-days: 3
