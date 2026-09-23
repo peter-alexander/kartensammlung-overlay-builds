@@ -41,6 +41,7 @@ const hybridBClip = countMode("hybrid-b-clip");
 const hybridCClip = countMode("hybrid-c-clip");
 const hybridDClip = countMode("hybrid-d-clip");
 const hybridEaveClip = countMode("hybrid-eave-clip");
+const hybridHeightSplit = countMode("hybrid-height-split");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -122,8 +123,18 @@ if (
 		+ Number(release.counts.hybridEaveClip || 0)
 	);
 }
-if (items.length !== 2271) {
-	throw new Error("Expected 2271 production targets, got " + items.length);
+if (
+	hybridHeightSplit !== 2
+	|| Number(release.counts.hybridHeightSplit || 0) !== hybridHeightSplit
+) {
+	throw new Error(
+		"Expected 2 audited height-split targets, got "
+		+ hybridHeightSplit + " / release "
+		+ Number(release.counts.hybridHeightSplit || 0)
+	);
+}
+if (items.length !== 2273) {
+	throw new Error("Expected 2273 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -141,6 +152,7 @@ const hybrid = items.filter((target) => (
 	|| target.rolloutMode === "hybrid-c-clip"
 	|| target.rolloutMode === "hybrid-d-clip"
 	|| target.rolloutMode === "hybrid-eave-clip"
+	|| target.rolloutMode === "hybrid-height-split"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -191,6 +203,7 @@ for (const target of items) {
 		|| target.rolloutMode === "hybrid-c-clip"
 		|| target.rolloutMode === "hybrid-d-clip"
 		|| target.rolloutMode === "hybrid-eave-clip"
+		|| target.rolloutMode === "hybrid-height-split"
 	) {
 		if (target.auditedHistoricalClip !== true) {
 			throw new Error(
@@ -199,7 +212,9 @@ for (const target of items) {
 			);
 		}
 		const expectedRemovedM2 = Number(
-			target.historicalOutsideCurrentM2
+			target.rolloutMode === "hybrid-height-split"
+				? target.auditedRemovedHistoricalAreaM2
+				: target.historicalOutsideCurrentM2
 		);
 		const clip = target.historicalClip;
 		const removedM2 = Number(clip?.removedHistoricalAreaM2);
@@ -280,6 +295,104 @@ for (const target of items) {
 		) {
 			throw new Error(
 				"Invalid audited eave height for "
+				+ target.historicalCode
+			);
+		}
+	}
+
+	if (target.rolloutMode === "hybrid-height-split") {
+		if (
+			target.auditedHeightSplit !== true
+			|| Number(target.auditedHeightSplitToleranceM) !== 0.25
+		) {
+			throw new Error(
+				"Invalid audited height split metadata for "
+				+ target.historicalCode
+			);
+		}
+		const split = target.historicalClip?.heightSplit;
+		if (
+			!split
+			|| Number(split.toleranceM) !== 0.25
+			|| Number(split.protectedParts) < 1
+			|| Number(split.compatibleParts) < 1
+		) {
+			throw new Error(
+				"Missing or invalid runtime height split for "
+				+ target.historicalCode
+			);
+		}
+		const actualProtected = (split.parts || [])
+			.filter((part) => part.protectedCurrent)
+			.map((part) => String(part.ksId))
+			.sort();
+		const expectedProtected = [
+			...(target.auditedProtectedKsIds || [])
+		].map(String).sort();
+		const actualCompatible = (split.parts || [])
+			.filter((part) => !part.protectedCurrent)
+			.map((part) => String(part.ksId))
+			.sort();
+		const expectedCompatible = [
+			...(target.auditedCompatibleKsIds || [])
+		].map(String).sort();
+		if (
+			JSON.stringify(actualProtected) !== JSON.stringify(expectedProtected)
+			|| JSON.stringify(actualCompatible)
+				!== JSON.stringify(expectedCompatible)
+		) {
+			throw new Error(
+				"Height split KS_ID partition changed for "
+				+ target.historicalCode
+			);
+		}
+		for (const part of split.parts || []) {
+			const delta = part.roofDeltaM === null
+				? null
+				: Number(part.roofDeltaM);
+			if (
+				part.protectedCurrent
+				&& part.historicalMaxRoofZ !== null
+				&& !(delta > 0.25)
+			) {
+				throw new Error(
+					"Protected height-split part is below threshold for "
+					+ target.historicalCode + ": " + part.ksId
+				);
+			}
+			if (
+				!part.protectedCurrent
+				&& part.historicalMaxRoofZ !== null
+				&& delta > 0.2501
+			) {
+				throw new Error(
+					"Compatible height-split part exceeds threshold for "
+					+ target.historicalCode + ": " + part.ksId
+				);
+			}
+		}
+		const clippedAreaM2 = Number(
+			target.historicalClip?.clippedHistoricalAreaM2
+		);
+		const expectedClippedAreaM2 = Number(
+			target.auditedClippedHistoricalAreaM2
+		);
+		const remainderAreaM2 = Number(
+			target.hybridRemainder?.remainderAreaM2
+		);
+		const expectedRemainderAreaM2 = Number(
+			target.auditedRemainderAreaM2
+		);
+		if (
+			!Number.isFinite(clippedAreaM2)
+			|| !Number.isFinite(expectedClippedAreaM2)
+			|| Math.abs(clippedAreaM2 - expectedClippedAreaM2) > 0.05
+			|| !Number.isFinite(remainderAreaM2)
+			|| !Number.isFinite(expectedRemainderAreaM2)
+			|| Math.abs(remainderAreaM2 - expectedRemainderAreaM2) > 0.05
+		) {
+			throw new Error(
+				"Height split audited area changed for "
 				+ target.historicalCode
 			);
 		}
@@ -367,6 +480,7 @@ console.log(JSON.stringify({
 		hybridCClip,
 		hybridDClip,
 		hybridEaveClip,
+		hybridHeightSplit,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
