@@ -18,8 +18,8 @@ const GML_NS = "http://www.opengis.net/gml";
 const BLDG_NS = "http://www.opengis.net/citygml/building/1.0";
 const WFS_URL = "https://data.wien.gv.at/daten/geo";
 const DOWNLOAD_BASE = "https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml";
-const PILOT_CODES = new Set(["009238", "113842", "212535"]);
-const HISTORICAL_BUFFER_M = 0.25;
+const DEFAULT_CODES = new Set(["009238", "113842", "212535"]);
+const HISTORICAL_BUFFER_M = 0;
 const SLIVER_AREA_M2 = 2;
 
 function localName(node) {
@@ -240,7 +240,7 @@ async function fetchCurrentFeatures(ids) {
 	return result;
 }
 
-async function loadHistoricalBuildings(sheet) {
+async function loadHistoricalBuildings(sheet, selectedCodes) {
 	const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wien-lod21-hybrid-"));
 	const zipPath = path.join(tempRoot, sheet + ".zip");
 	const extractRoot = path.join(tempRoot, "source");
@@ -273,7 +273,7 @@ async function loadHistoricalBuildings(sheet) {
 			for (let index = 0; index < buildings.length; index += 1) {
 				const building = buildings[index];
 				const name = textContent(descendantByName(building, GML_NS, "name"));
-				if (!PILOT_CODES.has(name)) continue;
+				if (!selectedCodes.has(name)) continue;
 				const polygons = parseGroundPolygons(building);
 				if (!polygons.length) continue;
 				if (!byCode.has(name)) byCode.set(name, []);
@@ -293,26 +293,43 @@ async function main() {
 	const outputPath = path.resolve(
 		process.argv[3] || "wien-lod21/build/hybrid-pilot-analysis.json"
 	);
+	const selectedCodes = process.argv[4]
+		? new Set(
+			String(process.argv[4])
+				.split(",")
+				.map((value) => value.trim())
+				.filter(Boolean)
+		)
+		: DEFAULT_CODES;
 	const targetsJson = JSON.parse(await fs.readFile(targetsPath, "utf8"));
 	const targets = (targetsJson.buildings || []).filter(
-		(target) => PILOT_CODES.has(String(target.historicalCode))
+		(target) => selectedCodes.has(String(target.historicalCode))
 	);
-	if (targets.length !== 3) {
-		throw new Error("Expected exactly three Straußengasse hybrid pilot targets.");
+	if (targets.length !== selectedCodes.size) {
+		throw new Error(
+			"Expected " + selectedCodes.size
+			+ " selected hybrid targets, got " + targets.length
+		);
 	}
 	const sheets = [...new Set(targets.map((target) => String(target.sheet)))];
-	if (sheets.length !== 1) {
-		throw new Error("Hybrid pilot unexpectedly spans more than one LOD2.1 sheet.");
-	}
 
 	const fmzkIds = [...new Set(
 		targets.flatMap((target) => target.ksIds || [])
 			.map((value) => String(value).replace(/^wien-fmzk:/, ""))
 	)];
-	const [features, historicalByCode] = await Promise.all([
+	const [features, historicalMaps] = await Promise.all([
 		fetchCurrentFeatures(fmzkIds),
-		loadHistoricalBuildings(sheets[0])
+		Promise.all(
+			sheets.map((sheet) => loadHistoricalBuildings(sheet, selectedCodes))
+		)
 	]);
+	const historicalByCode = new Map();
+	for (const map of historicalMaps) {
+		for (const [code, polygons] of map) {
+			if (!historicalByCode.has(code)) historicalByCode.set(code, []);
+			historicalByCode.get(code).push(...polygons);
+		}
+	}
 
 	const reader = new GeoJSONReader();
 	const writer = new GeoJSONWriter();
@@ -354,10 +371,18 @@ async function main() {
 		const oldArea = old.getArea();
 		const intersectionArea = intersection.getArea();
 		const remainderParts = geometryParts(remainder)
-			.map((geometry) => ({
-				geometry,
-				area: geometry.getArea()
-			}))
+			.map((geometry) => {
+				const area = Number(geometry.getArea?.() || 0);
+				const perimeter = Number(geometry.getLength?.() || 0);
+				return {
+					geometry,
+					area,
+					perimeter,
+					meanWidthM: perimeter > 0
+						? (2 * area) / perimeter
+						: null
+				};
+			})
 			.sort((a, b) => b.area - a.area);
 		const meaningful = remainderParts.filter((part) => part.area >= SLIVER_AREA_M2);
 
@@ -382,8 +407,16 @@ async function main() {
 				remainderParts
 					.filter((part) => part.area < SLIVER_AREA_M2)
 					.reduce((sum, part) => sum + part.area, 0)
-					.toFixed(2)
+					.toFixed(3)
 			),
+			remainderComponentMetrics: remainderParts.map((part) => ({
+				areaM2: Number(part.area.toFixed(4)),
+				perimeterM: Number(part.perimeter.toFixed(4)),
+				meanWidthM: part.meanWidthM === null
+					? null
+					: Number(part.meanWidthM.toFixed(4)),
+				keptAt2m2: part.area >= SLIVER_AREA_M2
+			})),
 			currentHeightsM: currentParts.map((entry) => ({
 				fmzkId: String(entry.feature.properties.FMZK_ID),
 				height: Number((deriveHeight(entry.feature.properties) ?? 0).toFixed(2))
