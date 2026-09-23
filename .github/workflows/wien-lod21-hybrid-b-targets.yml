@@ -1,0 +1,79 @@
+name: Refresh Vienna Hybrid-B production targets
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-b-absolute
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-b-targets.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate production target snapshot
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --output wien-lod21/targets.production.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute
+
+      - name: Verify target snapshot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          if (data.counts.total !== 1897) throw new Error("Expected 1897 targets.");
+          if (data.counts.directStrong !== 1209) throw new Error("Expected 1209 direct.");
+          if (data.counts.hybridA !== 614) throw new Error("Expected 614 Hybrid-A.");
+          if (data.counts.hybridBAbsolute !== 72) throw new Error("Expected 72 Hybrid-B absolute.");
+          if (data.counts.manualPilotStrong !== 1) throw new Error("Expected 1 manual strong.");
+          if (data.counts.manualPilotHybrid !== 1) throw new Error("Expected 1 manual hybrid.");
+          const b = data.buildings.filter(
+          	(item) => item.rolloutMode === "hybrid-b-absolute"
+          );
+          const maxOutside = Math.max(
+          	...b.map((item) => Number(item.historicalOutsideCurrentM2))
+          );
+          if (maxOutside > 0.5801) {
+          	throw new Error("Hybrid-B absolute limit exceeded: " + maxOutside);
+          }
+          console.log(JSON.stringify({
+          	counts: data.counts,
+          	deferred: data.sourceAnalysis.hybridCandidatesDeferred,
+          	maxHistoricalOutsideCurrentM2: maxOutside
+          }, null, 2));
+          NODE
+
+      - name: Commit production target snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/targets.production.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote absolute-safe Vienna Hybrid-B targets"
+          git push
