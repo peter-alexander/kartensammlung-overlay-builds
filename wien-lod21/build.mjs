@@ -790,6 +790,20 @@ function polygonGeoJsonParts(geometry, writer) {
 	return [];
 }
 
+function polygonalJstsGeometry(geometry, reader, writer) {
+	const polygons = [];
+	for (const coordinates of polygonGeoJsonParts(geometry, writer)) {
+		try {
+			const polygon = reader.read({
+				type: "Polygon",
+				coordinates
+			});
+			if (polygon && !polygon.isEmpty()) polygons.push(polygon);
+		} catch {}
+	}
+	return unionJstsGeometries(polygons);
+}
+
 function signedArea2D(ring) {
 	let area = 0;
 	for (let index = 0; index + 1 < ring.length; index += 1) {
@@ -1562,6 +1576,11 @@ async function main() {
 			currentGeometry,
 			code + " target footprint clip"
 		);
+		clippedHistoricalGround = polygonalJstsGeometry(
+			clippedHistoricalGround,
+			geoReader,
+			geoWriter
+		);
 		if (!clippedHistoricalGround || clippedHistoricalGround.isEmpty()) {
 			throw new Error("Hybrid clip target " + code + " has empty target footprint.");
 		}
@@ -1611,10 +1630,15 @@ async function main() {
 			const entry = entries[index];
 			const objectGround = objectGrounds[index];
 			if (!objectGround) continue;
-			const objectClip = intersectionJstsGeometry(
+			let objectClip = intersectionJstsGeometry(
 				objectGround,
 				currentGeometry,
 				code + " object footprint clip"
+			);
+			objectClip = polygonalJstsGeometry(
+				objectClip,
+				geoReader,
+				geoWriter
 			);
 			if (
 				!objectClip
