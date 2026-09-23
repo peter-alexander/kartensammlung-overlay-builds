@@ -2,6 +2,11 @@ name: Build Vienna LOD2.1
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-remainder
+    paths:
+      - 'wien-lod21/targets.production.json'
 
 permissions:
   contents: read
