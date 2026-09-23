@@ -1046,6 +1046,59 @@ function sourceEdgeKey(a, b, precision = 1000) {
 	return ka < kb ? ka + "|" + kb : kb + "|" + ka;
 }
 
+function projectedWallSegment(surface, toleranceM = 0.02) {
+	const unique = new Map();
+	for (const point of surface?.rings?.flat?.() || []) {
+		const x = Number(point?.x);
+		const y = Number(point?.y);
+		if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+		const key = Math.round(x * 1000) + ":" + Math.round(y * 1000);
+		if (!unique.has(key)) unique.set(key, [x, y]);
+	}
+	const points = [...unique.values()];
+	if (points.length < 2) return null;
+
+	let best = null;
+	let bestLength = -1;
+	for (let i = 0; i < points.length; i += 1) {
+		for (let j = i + 1; j < points.length; j += 1) {
+			const length = Math.hypot(
+				points[j][0] - points[i][0],
+				points[j][1] - points[i][1]
+			);
+			if (length > bestLength) {
+				bestLength = length;
+				best = [points[i], points[j]];
+			}
+		}
+	}
+	if (!best || !(bestLength > 0)) return null;
+	if (points.some((point) => (
+		pointToSegmentDistance(point, best[0], best[1]) > toleranceM
+	))) {
+		return null;
+	}
+	return best;
+}
+
+function segmentCoverageFraction(a, b, segments, toleranceM = 0.02) {
+	const samples = 9;
+	let covered = 0;
+	for (let index = 1; index <= samples; index += 1) {
+		const t = index / (samples + 1);
+		const point = [
+			a[0] + (b[0] - a[0]) * t,
+			a[1] + (b[1] - a[1]) * t
+		];
+		if (segments.some(([start, end]) => (
+			pointToSegmentDistance(point, start, end) <= toleranceM
+		))) {
+			covered += 1;
+		}
+	}
+	return covered / samples;
+}
+
 function clipHistoricalSurfacesToFootprint(
 	surfaces,
 	clipFootprint,
@@ -1075,6 +1128,8 @@ function clipHistoricalSurfacesToFootprint(
 	const boundaryIndex = boundarySegmentIndexFromGeometry(clipFootprint, writer);
 	const roofGeometries = [];
 	const boundaryWalls = [];
+	const sourceBoundaryWalls = [];
+	const boundaryWallSegments = [];
 	const wallKeys = new Set();
 	let sourceRoofSurfaces = 0;
 	let clippedRoofSurfaces = 0;
@@ -1124,23 +1179,46 @@ function clipHistoricalSurfacesToFootprint(
 							{ x: a.x, y: a.y, z: a.z }
 						]]
 					});
+					boundaryWallSegments.push([
+						[a.x, a.y],
+						[b.x, b.y]
+					]);
 				}
 			}
 		}
 	}
-	clipped.push(...boundaryWalls);
+
+	for (const surface of surfaces || []) {
+		if (surface.semantic !== "wall") continue;
+		const segment = projectedWallSegment(surface);
+		if (!segment) continue;
+		if (!edgeLiesOnBoundary(
+			segment[0],
+			segment[1],
+			boundaryIndex,
+			HYBRID_MAX_SLIVER_MEAN_WIDTH_M
+		)) continue;
+		const coverage = segmentCoverageFraction(
+			segment[0],
+			segment[1],
+			boundaryWallSegments,
+			0.02
+		);
+		if (coverage > 0) continue;
+		sourceBoundaryWalls.push(surface);
+		boundaryWallSegments.push(segment);
+	}
+
+	clipped.push(...boundaryWalls, ...sourceBoundaryWalls);
 
 	const roofUnion = unionJstsGeometries(roofGeometries);
 	const footprintAreaM2 = Number(clipFootprint.getArea?.() || 0);
 	const roofAreaM2 = Number(roofUnion?.getArea?.() || 0);
 	const boundaryLengthM = Number(clipFootprint.getBoundary?.()?.getLength?.() || 0);
-	const generatedWallBoundaryLengthM = boundaryWalls.reduce((sum, wall) => {
-		const ring = wall.rings[0];
-		return sum + Math.hypot(
-			ring[1].x - ring[0].x,
-			ring[1].y - ring[0].y
-		);
-	}, 0);
+	const generatedWallBoundaryLengthM = boundaryWallSegments.reduce(
+		(sum, [a, b]) => sum + Math.hypot(b[0] - a[0], b[1] - a[1]),
+		0
+	);
 
 	return {
 		surfaces: clipped,
@@ -1158,7 +1236,8 @@ function clipHistoricalSurfacesToFootprint(
 				: null,
 			sourceRoofSurfaces,
 			clippedRoofSurfaces,
-			generatedWallSurfaces: boundaryWalls.length
+			generatedWallSurfaces: boundaryWalls.length,
+			reusedSourceWallSurfaces: sourceBoundaryWalls.length
 		}
 	};
 }
@@ -1416,7 +1495,8 @@ async function main() {
 						minWallBoundaryCoverageRatio: 1,
 						sourceRoofSurfaces: 0,
 						clippedRoofSurfaces: 0,
-						generatedWallSurfaces: 0
+						generatedWallSurfaces: 0,
+						reusedSourceWallSurfaces: 0
 					};
 					stats.objects += 1;
 					stats.originalHistoricalAreaM2 += originalAreaM2;
@@ -1436,6 +1516,8 @@ async function main() {
 					stats.sourceRoofSurfaces += clipped.stats.sourceRoofSurfaces;
 					stats.clippedRoofSurfaces += clipped.stats.clippedRoofSurfaces;
 					stats.generatedWallSurfaces += clipped.stats.generatedWallSurfaces;
+					stats.reusedSourceWallSurfaces +=
+						clipped.stats.reusedSourceWallSurfaces;
 					clipStatsByCode.set(code, stats);
 				}
 
