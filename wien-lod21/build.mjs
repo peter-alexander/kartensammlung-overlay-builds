@@ -1087,6 +1087,7 @@ function clipHistoricalSurfacesToFootprint(
 	const boundaryIndex = boundarySegmentIndexFromGeometry(wallBoundary, writer);
 	const roofGeometries = [];
 	const boundaryWalls = [];
+	const wallLineGeometries = [];
 	const wallKeys = sharedWallKeys || new Set();
 	let generatedWallBoundaryLengthM = 0;
 	let sourceRoofSurfaces = 0;
@@ -1137,6 +1138,15 @@ function clipHistoricalSurfacesToFootprint(
 							{ x: a.x, y: a.y, z: a.z }
 						]]
 					});
+					try {
+						wallLineGeometries.push(reader.read({
+							type: "LineString",
+							coordinates: [
+								[a.x, a.y],
+								[b.x, b.y]
+							]
+						}));
+					} catch {}
 					generatedWallBoundaryLengthM += Math.hypot(
 						b.x - a.x,
 						b.y - a.y
@@ -1161,6 +1171,7 @@ function clipHistoricalSurfacesToFootprint(
 				: null,
 			generatedWallBoundaryLengthM:
 				Number(generatedWallBoundaryLengthM.toFixed(3)),
+			wallLineGeometries,
 			sourceRoofSurfaces,
 			clippedRoofSurfaces,
 			generatedWallSurfaces: boundaryWalls.length
@@ -1471,6 +1482,9 @@ async function main() {
 			minRoofCoverageRatio: 1,
 			boundaryLengthM,
 			generatedWallBoundaryLengthM: 0,
+			geometricWallBoundaryCoverageRatio: 0,
+			uncoveredWallBoundaryLengthM: boundaryLengthM,
+			wallLineGeometries: [],
 			minWallBoundaryCoverageRatio: 0,
 			sourceRoofSurfaces: 0,
 			clippedRoofSurfaces: 0,
@@ -1511,6 +1525,9 @@ async function main() {
 			stats.generatedWallBoundaryLengthM += Number(
 				clipped.stats.generatedWallBoundaryLengthM || 0
 			);
+			stats.wallLineGeometries.push(
+				...(clipped.stats.wallLineGeometries || [])
+			);
 			stats.sourceRoofSurfaces += clipped.stats.sourceRoofSurfaces;
 			stats.clippedRoofSurfaces += clipped.stats.clippedRoofSurfaces;
 			stats.generatedWallSurfaces += clipped.stats.generatedWallSurfaces;
@@ -1529,6 +1546,29 @@ async function main() {
 		stats.minWallBoundaryCoverageRatio = boundaryLengthM > 0
 			? stats.generatedWallBoundaryLengthM / boundaryLengthM
 			: 0;
+
+		const wallLines = unionJstsGeometries(stats.wallLineGeometries);
+		if (wallLines && boundaryLengthM > 0) {
+			const wallBuffer = BufferOp.bufferOp(
+				wallLines,
+				HYBRID_MAX_SLIVER_MEAN_WIDTH_M
+			);
+			const coveredBoundary = intersectionJstsGeometry(
+				clippedHistoricalGround.getBoundary(),
+				wallBuffer,
+				code + " wall boundary coverage"
+			);
+			const coveredLengthM = Number(
+				coveredBoundary?.getLength?.() || 0
+			);
+			stats.geometricWallBoundaryCoverageRatio =
+				coveredLengthM / boundaryLengthM;
+			stats.uncoveredWallBoundaryLengthM = Math.max(
+				0,
+				boundaryLengthM - coveredLengthM
+			);
+		}
+		delete stats.wallLineGeometries;
 		clipStatsByCode.set(code, stats);
 	}
 
@@ -1733,6 +1773,12 @@ async function main() {
 						Number(stats.minRoofCoverageRatio.toFixed(6)),
 					minWallBoundaryCoverageRatio:
 						Number(stats.minWallBoundaryCoverageRatio.toFixed(6)),
+					geometricWallBoundaryCoverageRatio:
+						Number(
+							stats.geometricWallBoundaryCoverageRatio.toFixed(6)
+						),
+					uncoveredWallBoundaryLengthM:
+						Number(stats.uncoveredWallBoundaryLengthM.toFixed(3)),
 					boundaryLengthM:
 						Number(stats.boundaryLengthM.toFixed(3)),
 					generatedWallBoundaryLengthM:
