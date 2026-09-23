@@ -340,12 +340,15 @@ async function main() {
 			EARTH_CIRCUMFERENCE_METERS * Math.cos(centerLat) / 2 ** tile.z;
 		const xyMetersPerExtentUnit = tileWidthM / extent;
 		const matchedFeatures = [];
+		const flatHitPoints = new Set();
+		const pitchedHitPoints = new Set();
 
 		for (let featureIndex = 0; featureIndex < layer.length; featureIndex += 1) {
 			const feature = layer.feature(featureIndex);
 			const groups = decodeGeometry3D(feature);
 			const surfaces = getSurfaceGroups(groups);
-			let containsReplacementPoint = false;
+			const featureFlatHitPoints = new Set();
+			const featurePitchedHitPoints = new Set();
 			let pitchedSurfaces = 0;
 			let flatSurfaces = 0;
 			for (const surface of surfaces) {
@@ -353,40 +356,55 @@ async function main() {
 				if (kind === "pitched-roof") pitchedSurfaces += 1;
 				if (kind === "flat-roof") flatSurfaces += 1;
 				if (kind === "wall") continue;
-				if (
-					replacementPoints.some(
-						(point) => surfaceContainsPoint(surface, point, scale)
-					)
-				) {
-					containsReplacementPoint = true;
+				for (let pointIndex = 0; pointIndex < replacementPoints.length; pointIndex += 1) {
+					if (
+						!surfaceContainsPoint(
+							surface,
+							replacementPoints[pointIndex],
+							scale
+						)
+					) continue;
+					if (kind === "pitched-roof") {
+						pitchedHitPoints.add(pointIndex);
+						featurePitchedHitPoints.add(pointIndex);
+					} else if (kind === "flat-roof") {
+						flatHitPoints.add(pointIndex);
+						featureFlatHitPoints.add(pointIndex);
+					}
 				}
 			}
-			if (!containsReplacementPoint) continue;
+			if (!featureFlatHitPoints.size && !featurePitchedHitPoints.size) continue;
 			matchedFeatures.push({
 				featureIndex,
 				pitchedSurfaces,
-				flatSurfaces
+				flatSurfaces,
+				flatHitPoints: [...featureFlatHitPoints].sort((a, b) => a - b),
+				pitchedHitPoints: [...featurePitchedHitPoints].sort((a, b) => a - b)
 			});
 		}
 
-		if (!matchedFeatures.length) {
+		if (!flatHitPoints.size && !pitchedHitPoints.size) {
 			throw new Error(code + ": replacement point matches no Maptoolkit roof");
 		}
-		const pitchedMatchedFeatures = matchedFeatures.filter(
-			(feature) => feature.pitchedSurfaces > 0
-		);
-		if (pitchedMatchedFeatures.length) {
+		if (pitchedHitPoints.size) {
 			throw new Error(
 				code + ": "
-				+ pitchedMatchedFeatures.length
-				+ " matched Maptoolkit feature(s) already have pitched surfaces"
+				+ pitchedHitPoints.size
+				+ " historical pitched-roof sample(s) already hit pitched Maptoolkit surfaces"
 			);
+		}
+		if (!flatHitPoints.size) {
+			throw new Error(code + ": no historical pitched-roof sample hits a flat Maptoolkit roof");
 		}
 
 		reports.push({
 			historicalCode: code,
 			tile: tileKey,
 			replacementPoints: replacementPoints.length,
+			flatHitPoints: flatHitPoints.size,
+			pitchedHitPoints: pitchedHitPoints.size,
+			unmatchedReplacementPoints:
+				replacementPoints.length - flatHitPoints.size - pitchedHitPoints.size,
 			currentOgdParts: Array.isArray(target.ksIds) ? target.ksIds.length : 0,
 			maptoolkitMatchedFeatures: matchedFeatures.length,
 			maptoolkitFeatures: matchedFeatures
