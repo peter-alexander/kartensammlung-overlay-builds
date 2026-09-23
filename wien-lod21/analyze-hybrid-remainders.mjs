@@ -364,7 +364,10 @@ async function main() {
 		const intersection = safeOverlay(current, old, OverlayOp.INTERSECTION);
 		const bufferedOld = BufferOp.bufferOp(old, HISTORICAL_BUFFER_M);
 		const remainder = safeOverlay(current, bufferedOld, OverlayOp.DIFFERENCE);
-		if (!intersection || !remainder) throw new Error(code + ": overlay operation failed");
+		const historicalOutside = safeOverlay(old, current, OverlayOp.DIFFERENCE);
+		if (!intersection || !remainder || !historicalOutside) {
+			throw new Error(code + ": overlay operation failed");
+		}
 
 		const currentArea = current.getArea();
 		const oldArea = old.getArea();
@@ -384,6 +387,19 @@ async function main() {
 			})
 			.sort((a, b) => b.area - a.area);
 		const meaningful = remainderParts.filter((part) => part.area >= SLIVER_AREA_M2);
+		const historicalOutsideParts = geometryParts(historicalOutside)
+			.map((geometry) => {
+				const area = Number(geometry.getArea?.() || 0);
+				const perimeter = Number(geometry.getLength?.() || 0);
+				return {
+					area,
+					perimeter,
+					meanWidthM: perimeter > 0
+						? (2 * area) / perimeter
+						: null
+				};
+			})
+			.sort((a, b) => b.area - a.area);
 
 		const metrics = {
 			historicalCode: code,
@@ -396,6 +412,15 @@ async function main() {
 			intersectionAreaM2: Number(intersectionArea.toFixed(2)),
 			currentCoverage: Number((intersectionArea / currentArea).toFixed(4)),
 			historicalCoverage: Number((intersectionArea / oldArea).toFixed(4)),
+			historicalOutsideAreaM2: Number(historicalOutside.getArea().toFixed(4)),
+			historicalOutsideComponents: historicalOutsideParts.length,
+			historicalOutsideComponentMetrics: historicalOutsideParts.map((part) => ({
+				areaM2: Number(part.area.toFixed(4)),
+				perimeterM: Number(part.perimeter.toFixed(4)),
+				meanWidthM: part.meanWidthM === null
+					? null
+					: Number(part.meanWidthM.toFixed(4))
+			})),
 			bufferM: HISTORICAL_BUFFER_M,
 			remainderAreaM2: Number(remainder.getArea().toFixed(2)),
 			remainderRatio: Number((remainder.getArea() / currentArea).toFixed(4)),
@@ -426,7 +451,8 @@ async function main() {
 		for (const [kind, geometry] of [
 			["current", current],
 			["historical", old],
-			["remainder", remainder]
+			["remainder", remainder],
+			["historical-outside", historicalOutside]
 		]) {
 			outputFeatures.push({
 				type: "Feature",
