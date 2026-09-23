@@ -1048,7 +1048,112 @@ function sourceEdgeKey(a, b, precision = 1000) {
 
 function isHistoricalClipTarget(target) {
 	const mode = String(target?.rolloutMode || "");
-	return mode === "hybrid-clip-pilot" || mode === "hybrid-b-clip";
+	return (
+		mode === "hybrid-clip-pilot"
+		|| mode === "hybrid-b-clip"
+		|| mode === "hybrid-c-clip"
+	);
+}
+
+function closedRingMetrics(coordinates) {
+	if (!Array.isArray(coordinates) || coordinates.length < 4) {
+		return { areaM2: 0, perimeterM: 0, meanWidthM: null };
+	}
+	let twiceArea = 0;
+	let perimeterM = 0;
+	for (let index = 0; index < coordinates.length - 1; index += 1) {
+		const a = coordinates[index];
+		const b = coordinates[index + 1];
+		const ax = Number(a?.[0]);
+		const ay = Number(a?.[1]);
+		const bx = Number(b?.[0]);
+		const by = Number(b?.[1]);
+		if (
+			!Number.isFinite(ax)
+			|| !Number.isFinite(ay)
+			|| !Number.isFinite(bx)
+			|| !Number.isFinite(by)
+		) continue;
+		twiceArea += ax * by - bx * ay;
+		perimeterM += Math.hypot(bx - ax, by - ay);
+	}
+	const areaM2 = Math.abs(twiceArea) / 2;
+	return {
+		areaM2,
+		perimeterM,
+		meanWidthM: perimeterM > 0
+			? (2 * areaM2) / perimeterM
+			: null
+	};
+}
+
+function removeInteriorSliverHoles(
+	geometry,
+	reader,
+	writer,
+	maxMeanWidthM = HYBRID_MAX_SLIVER_MEAN_WIDTH_M
+) {
+	if (!geometry || geometry.isEmpty()) {
+		return {
+			geometry,
+			removedHoles: 0,
+			removedAreaM2: 0,
+			maxRemovedMeanWidthM: 0
+		};
+	}
+	const geojson = writer.write(geometry);
+	const stats = {
+		removedHoles: 0,
+		removedAreaM2: 0,
+		maxRemovedMeanWidthM: 0
+	};
+	const cleanPolygon = (coordinates) => {
+		if (!Array.isArray(coordinates) || !coordinates.length) {
+			return coordinates;
+		}
+		const kept = [coordinates[0]];
+		for (const hole of coordinates.slice(1)) {
+			const metrics = closedRingMetrics(hole);
+			if (
+				metrics.meanWidthM !== null
+				&& metrics.meanWidthM <= maxMeanWidthM
+			) {
+				stats.removedHoles += 1;
+				stats.removedAreaM2 += metrics.areaM2;
+				stats.maxRemovedMeanWidthM = Math.max(
+					stats.maxRemovedMeanWidthM,
+					metrics.meanWidthM
+				);
+				continue;
+			}
+			kept.push(hole);
+		}
+		return kept;
+	};
+	let cleanedGeoJson;
+	if (geojson?.type === "Polygon") {
+		cleanedGeoJson = {
+			...geojson,
+			coordinates: cleanPolygon(geojson.coordinates)
+		};
+	} else if (geojson?.type === "MultiPolygon") {
+		cleanedGeoJson = {
+			...geojson,
+			coordinates: (geojson.coordinates || []).map(cleanPolygon)
+		};
+	} else {
+		return { geometry, ...stats };
+	}
+	let cleaned = geometry;
+	try {
+		cleaned = repairJstsGeometry(reader.read(cleanedGeoJson)) || geometry;
+	} catch {}
+	return {
+		geometry: cleaned,
+		removedHoles: stats.removedHoles,
+		removedAreaM2: stats.removedAreaM2,
+		maxRemovedMeanWidthM: stats.maxRemovedMeanWidthM
+	};
 }
 
 function clipHistoricalSurfacesToFootprint(
@@ -1452,7 +1557,7 @@ async function main() {
 		if (!historicalGround) {
 			throw new Error("Hybrid clip target " + code + " has no historical footprint.");
 		}
-		const clippedHistoricalGround = intersectionJstsGeometry(
+		let clippedHistoricalGround = intersectionJstsGeometry(
 			historicalGround,
 			currentGeometry,
 			code + " target footprint clip"
@@ -1460,6 +1565,12 @@ async function main() {
 		if (!clippedHistoricalGround || clippedHistoricalGround.isEmpty()) {
 			throw new Error("Hybrid clip target " + code + " has empty target footprint.");
 		}
+		const sliverHoleCleanup = removeInteriorSliverHoles(
+			clippedHistoricalGround,
+			geoReader,
+			geoWriter
+		);
+		clippedHistoricalGround = sliverHoleCleanup.geometry;
 		historicalGroundByCode.set(code, [clippedHistoricalGround]);
 
 		const boundaryLengthM = Number(
@@ -1488,7 +1599,12 @@ async function main() {
 			minWallBoundaryCoverageRatio: 0,
 			sourceRoofSurfaces: 0,
 			clippedRoofSurfaces: 0,
-			generatedWallSurfaces: 0
+			generatedWallSurfaces: 0,
+			removedInteriorSliverHoles: sliverHoleCleanup.removedHoles,
+			removedInteriorSliverHoleAreaM2:
+				sliverHoleCleanup.removedAreaM2,
+			maxRemovedInteriorSliverHoleMeanWidthM:
+				sliverHoleCleanup.maxRemovedMeanWidthM
 		};
 
 		for (let index = 0; index < entries.length; index += 1) {
@@ -1500,7 +1616,11 @@ async function main() {
 				currentGeometry,
 				code + " object footprint clip"
 			);
-			if (!objectClip || objectClip.isEmpty()) continue;
+			if (
+				!objectClip
+				|| objectClip.isEmpty()
+				|| Number(objectClip.getArea?.() || 0) <= 1e-6
+			) continue;
 
 			const clipped = clipHistoricalSurfacesToFootprint(
 				entry.surfaces,
@@ -1754,6 +1874,9 @@ async function main() {
 			hybridBClip: targets.filter(
 				(target) => target.rolloutMode === "hybrid-b-clip"
 			).length,
+			hybridCClip: targets.filter(
+				(target) => target.rolloutMode === "hybrid-c-clip"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -1793,7 +1916,21 @@ async function main() {
 					boundaryLengthM:
 						Number(stats.boundaryLengthM.toFixed(3)),
 					generatedWallBoundaryLengthM:
-						Number(stats.generatedWallBoundaryLengthM.toFixed(3))
+						Number(stats.generatedWallBoundaryLengthM.toFixed(3)),
+					removedInteriorSliverHoles:
+						Number(stats.removedInteriorSliverHoles || 0),
+					removedInteriorSliverHoleAreaM2:
+						Number(
+							Number(
+								stats.removedInteriorSliverHoleAreaM2 || 0
+							).toFixed(6)
+						),
+					maxRemovedInteriorSliverHoleMeanWidthM:
+						Number(
+							Number(
+								stats.maxRemovedInteriorSliverHoleMeanWidthM || 0
+							).toFixed(6)
+						)
 				};
 			})(),
 			matches: found.get(String(target.historicalCode)).map((match) => ({
@@ -1847,6 +1984,7 @@ async function main() {
 			hybridBAbsolute: targetManifest.counts.hybridBAbsolute,
 			hybridBThin: targetManifest.counts.hybridBThin,
 			hybridBClip: targetManifest.counts.hybridBClip,
+			hybridCClip: targetManifest.counts.hybridCClip,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,

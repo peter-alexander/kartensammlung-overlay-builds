@@ -8,21 +8,22 @@
 		"sheets": 1419,
 		"candidates": 33432,
 		"directProductionEligible": 1209,
-		"hybridCandidatesSelected": 696,
-		"hybridCandidatesDeferred": 367,
+		"hybridCandidatesSelected": 865,
+		"hybridCandidatesDeferred": 198,
 		"hybridBAbsoluteMaxHistoricalOutsideCurrentM2": 0.58,
 		"hybridBThinMaxHistoricalOutsideMeanWidthM": 0.05
 	},
 	"counts": {
-		"total": 1907,
+		"total": 2076,
 		"directStrong": 1209,
 		"hybridA": 614,
 		"hybridBAbsolute": 72,
 		"hybridBThin": 3,
 		"hybridBClip": 7,
+		"hybridCClip": 169,
 		"manualPilotStrong": 1,
 		"manualPilotHybrid": 1,
-		"sourceSheets": 686
+		"sourceSheets": 702
 	},
 	"buildings": [
 		{
@@ -201,6 +202,23 @@
 			"rolloutMode": "hybrid-b-absolute",
 			"expectedRemainderM2": 129.47,
 			"historicalOutsideCurrentM2": 0.32
+		},
+		{
+			"name": "Wien LOD2.1 000607",
+			"historicalCode": "000607",
+			"bwGebId": 5554661,
+			"ksIds": [
+				"wien-fmzk:4003657308",
+				"wien-fmzk:4003657341",
+				"wien-fmzk:4005236943"
+			],
+			"sheet": "107082",
+			"lng": 16.3793895,
+			"lat": 48.2110349,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 79.56,
+			"historicalOutsideCurrentM2": 1.66,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 000643",
@@ -702,6 +720,29 @@
 			"historicalOutsideCurrentM2": 240.98
 		},
 		{
+			"name": "Wien LOD2.1 004232",
+			"historicalCode": "004232",
+			"bwGebId": 5445514,
+			"ksIds": [
+				"wien-fmzk:4003682637",
+				"wien-fmzk:4003682640",
+				"wien-fmzk:4003682642",
+				"wien-fmzk:4003682650",
+				"wien-fmzk:4003682658",
+				"wien-fmzk:4003682661",
+				"wien-fmzk:4003682703",
+				"wien-fmzk:4006289733",
+				"wien-fmzk:4006289996"
+			],
+			"sheet": "109082",
+			"lng": 16.3946593,
+			"lat": 48.2092153,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 319.56,
+			"historicalOutsideCurrentM2": 9.64,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 004574",
 			"historicalCode": "004574",
 			"bwGebId": 5329014,
@@ -1053,6 +1094,24 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 007080",
+			"historicalCode": "007080",
+			"bwGebId": 5494300,
+			"ksIds": [
+				"wien-fmzk:4001408947",
+				"wien-fmzk:4006129333",
+				"wien-fmzk:4007137911",
+				"wien-fmzk:4007137913"
+			],
+			"sheet": "104079",
+			"lng": 16.3647661,
+			"lat": 48.195163,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 71.93,
+			"historicalOutsideCurrentM2": 3.7,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 007188",
@@ -1951,6 +2010,28 @@
 			"historicalOutsideCurrentM2": 12.79
 		},
 		{
+			"name": "Wien LOD2.1 010909",
+			"historicalCode": "010909",
+			"bwGebId": 5555579,
+			"ksIds": [
+				"wien-fmzk:4001393066",
+				"wien-fmzk:4001393162",
+				"wien-fmzk:4006140113",
+				"wien-fmzk:4006140115",
+				"wien-fmzk:4006140510",
+				"wien-fmzk:4006140516",
+				"wien-fmzk:4006140518",
+				"wien-fmzk:4006140528"
+			],
+			"sheet": "103078",
+			"lng": 16.3529295,
+			"lat": 48.1930872,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 237.94,
+			"historicalOutsideCurrentM2": 6.49,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 010918",
 			"historicalCode": "010918",
 			"bwGebId": 5360671,
@@ -2003,6 +2084,42 @@
 			"historicalOutsideCurrentM2": 39.14
 		},
 		{
+			"name": "Wien LOD2.1 011106",
+			"historicalCode": "011106",
+			"bwGebId": 5482554,
+			"ksIds": [
+				"wien-fmzk:4001389798",
+				"wien-fmzk:4001389807",
+				"wien-fmzk:4001389820",
+				"wien-fmzk:4001389825",
+				"wien-fmzk:4001389840",
+				"wien-fmzk:4001389849",
+				"wien-fmzk:4001389850",
+				"wien-fmzk:4001389851",
+				"wien-fmzk:4004566966",
+				"wien-fmzk:4007005479",
+				"wien-fmzk:4007005480",
+				"wien-fmzk:4007005488",
+				"wien-fmzk:4007005495",
+				"wien-fmzk:4007005496",
+				"wien-fmzk:4007005498",
+				"wien-fmzk:4007005528",
+				"wien-fmzk:4007005558",
+				"wien-fmzk:4007005559",
+				"wien-fmzk:4007005612",
+				"wien-fmzk:4007005613",
+				"wien-fmzk:4007005619",
+				"wien-fmzk:4007005638"
+			],
+			"sheet": "101078",
+			"lng": 16.3413222,
+			"lat": 48.1903979,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 491.37,
+			"historicalOutsideCurrentM2": 6.58,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 011305",
 			"historicalCode": "011305",
 			"bwGebId": 5557899,
@@ -2029,6 +2146,36 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 0.02
+		},
+		{
+			"name": "Wien LOD2.1 011549",
+			"historicalCode": "011549",
+			"bwGebId": 5526498,
+			"ksIds": [
+				"wien-fmzk:4007027502",
+				"wien-fmzk:4007027512",
+				"wien-fmzk:4007027513",
+				"wien-fmzk:4007027518",
+				"wien-fmzk:4007027522",
+				"wien-fmzk:4007027543",
+				"wien-fmzk:4007027573",
+				"wien-fmzk:4007027591",
+				"wien-fmzk:4007027593",
+				"wien-fmzk:4007027594",
+				"wien-fmzk:4007027596",
+				"wien-fmzk:4007027597",
+				"wien-fmzk:4007027598",
+				"wien-fmzk:4007027605",
+				"wien-fmzk:4007027612",
+				"wien-fmzk:4007027615"
+			],
+			"sheet": "102081",
+			"lng": 16.350427,
+			"lat": 48.2052416,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 179.53,
+			"historicalOutsideCurrentM2": 4.01,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 011684",
@@ -2664,6 +2811,23 @@
 			"historicalOutsideCurrentM2": 0.03
 		},
 		{
+			"name": "Wien LOD2.1 015435",
+			"historicalCode": "015435",
+			"bwGebId": 5469183,
+			"ksIds": [
+				"wien-fmzk:4006022173",
+				"wien-fmzk:4006022176",
+				"wien-fmzk:4006022183"
+			],
+			"sheet": "118082",
+			"lng": 16.4566183,
+			"lat": 48.2089918,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 39.25,
+			"historicalOutsideCurrentM2": 1.03,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 015857",
 			"historicalCode": "015857",
 			"bwGebId": 5572543,
@@ -2787,6 +2951,23 @@
 			"rolloutMode": "hybrid-b-absolute",
 			"expectedRemainderM2": 54.73,
 			"historicalOutsideCurrentM2": 0.36
+		},
+		{
+			"name": "Wien LOD2.1 016590",
+			"historicalCode": "016590",
+			"bwGebId": 5377307,
+			"ksIds": [
+				"wien-fmzk:4002205419",
+				"wien-fmzk:4002205519",
+				"wien-fmzk:4007307617"
+			],
+			"sheet": "106074",
+			"lng": 16.3770412,
+			"lat": 48.1752173,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 212.58,
+			"historicalOutsideCurrentM2": 6.1,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 018048",
@@ -3036,6 +3217,23 @@
 			"historicalOutsideCurrentM2": 1.69
 		},
 		{
+			"name": "Wien LOD2.1 019538",
+			"historicalCode": "019538",
+			"bwGebId": 5547230,
+			"ksIds": [
+				"wien-fmzk:4006955850",
+				"wien-fmzk:4006955877",
+				"wien-fmzk:4006955884"
+			],
+			"sheet": "111071",
+			"lng": 16.4064154,
+			"lat": 48.1592753,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 66.64,
+			"historicalOutsideCurrentM2": 1.03,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 020573",
 			"historicalCode": "020573",
 			"bwGebId": 5354039,
@@ -3082,6 +3280,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.04,
 			"historicalOutsideCurrentM2": 93.98
+		},
+		{
+			"name": "Wien LOD2.1 021746",
+			"historicalCode": "021746",
+			"bwGebId": 5442326,
+			"ksIds": [
+				"wien-fmzk:4006129691",
+				"wien-fmzk:4006129692",
+				"wien-fmzk:4007529801"
+			],
+			"sheet": "108065",
+			"lng": 16.3864397,
+			"lat": 48.1332519,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 51.41,
+			"historicalOutsideCurrentM2": 0.66,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 021757",
@@ -3135,6 +3350,29 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 58.62,
 			"historicalOutsideCurrentM2": 0.14
+		},
+		{
+			"name": "Wien LOD2.1 022260",
+			"historicalCode": "022260",
+			"bwGebId": 5552177,
+			"ksIds": [
+				"wien-fmzk:4001545570",
+				"wien-fmzk:4001545586",
+				"wien-fmzk:4001545636",
+				"wien-fmzk:4001545663",
+				"wien-fmzk:4001545735",
+				"wien-fmzk:4001545745",
+				"wien-fmzk:4006140859",
+				"wien-fmzk:4006140876",
+				"wien-fmzk:4006140881"
+			],
+			"sheet": "111065",
+			"lng": 16.4107874,
+			"lat": 48.1336493,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 0.24,
+			"historicalOutsideCurrentM2": 22.98,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 022620",
@@ -3266,6 +3504,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 5.21,
 			"historicalOutsideCurrentM2": 22.69
+		},
+		{
+			"name": "Wien LOD2.1 023538",
+			"historicalCode": "023538",
+			"bwGebId": 5512686,
+			"ksIds": [
+				"wien-fmzk:4005893505",
+				"wien-fmzk:4005893509",
+				"wien-fmzk:4005893527"
+			],
+			"sheet": "115073",
+			"lng": 16.4339322,
+			"lat": 48.171054,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.03,
+			"historicalOutsideCurrentM2": 0.67,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 023888",
@@ -4125,6 +4380,25 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 030968",
+			"historicalCode": "030968",
+			"bwGebId": 5377315,
+			"ksIds": [
+				"wien-fmzk:4001338062",
+				"wien-fmzk:4001338094",
+				"wien-fmzk:4001338096",
+				"wien-fmzk:4005718984",
+				"wien-fmzk:4006338802"
+			],
+			"sheet": "095077",
+			"lng": 16.3002884,
+			"lat": 48.1860625,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 188.57,
+			"historicalOutsideCurrentM2": 4.91,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 030970",
 			"historicalCode": "030970",
 			"bwGebId": 5374985,
@@ -4143,6 +4417,25 @@
 			"historicalOutsideCurrentM2": 32.4
 		},
 		{
+			"name": "Wien LOD2.1 031269",
+			"historicalCode": "031269",
+			"bwGebId": 5385944,
+			"ksIds": [
+				"wien-fmzk:4001276027",
+				"wien-fmzk:4001276047",
+				"wien-fmzk:4006385418",
+				"wien-fmzk:4006386067",
+				"wien-fmzk:4006386078"
+			],
+			"sheet": "093076",
+			"lng": 16.2874071,
+			"lat": 48.1846256,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 113.35,
+			"historicalOutsideCurrentM2": 1.24,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 031886",
 			"historicalCode": "031886",
 			"bwGebId": 5298251,
@@ -4159,6 +4452,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 25.8,
 			"historicalOutsideCurrentM2": 0.04
+		},
+		{
+			"name": "Wien LOD2.1 031898",
+			"historicalCode": "031898",
+			"bwGebId": 5398249,
+			"ksIds": [
+				"wien-fmzk:4005889321",
+				"wien-fmzk:4006384448",
+				"wien-fmzk:4006384453"
+			],
+			"sheet": "091076",
+			"lng": 16.2771973,
+			"lat": 48.1822712,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 37.29,
+			"historicalOutsideCurrentM2": 1.63,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 031939",
@@ -4484,6 +4794,46 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 50.82,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 033593",
+			"historicalCode": "033593",
+			"bwGebId": 5380326,
+			"ksIds": [
+				"wien-fmzk:4005270946",
+				"wien-fmzk:4005869385",
+				"wien-fmzk:4005869390",
+				"wien-fmzk:4005870441",
+				"wien-fmzk:4005870442"
+			],
+			"sheet": "091075",
+			"lng": 16.2772603,
+			"lat": 48.1792263,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 43.09,
+			"historicalOutsideCurrentM2": 1.49,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 034374",
+			"historicalCode": "034374",
+			"bwGebId": 5549642,
+			"ksIds": [
+				"wien-fmzk:4003738863",
+				"wien-fmzk:4003738919",
+				"wien-fmzk:4003738944",
+				"wien-fmzk:4005874883",
+				"wien-fmzk:4005874922",
+				"wien-fmzk:4005875304",
+				"wien-fmzk:4005875372"
+			],
+			"sheet": "091072",
+			"lng": 16.2725182,
+			"lat": 48.166496,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 443.91,
+			"historicalOutsideCurrentM2": 14.35,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 034582",
@@ -4929,6 +5279,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 21.45
+		},
+		{
+			"name": "Wien LOD2.1 036758",
+			"historicalCode": "036758",
+			"bwGebId": 5489240,
+			"ksIds": [
+				"wien-fmzk:4007436289",
+				"wien-fmzk:4007436293",
+				"wien-fmzk:4007436298"
+			],
+			"sheet": "093075",
+			"lng": 16.2872247,
+			"lat": 48.1770864,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 41.21,
+			"historicalOutsideCurrentM2": 0.95,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 036898",
@@ -5383,6 +5750,40 @@
 			"historicalOutsideCurrentM2": 0.03
 		},
 		{
+			"name": "Wien LOD2.1 041736",
+			"historicalCode": "041736",
+			"bwGebId": 5446344,
+			"ksIds": [
+				"wien-fmzk:4005209014",
+				"wien-fmzk:4005209938",
+				"wien-fmzk:4007366108"
+			],
+			"sheet": "087082",
+			"lng": 16.245562,
+			"lat": 48.208578,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 25.2,
+			"historicalOutsideCurrentM2": 1.63,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 041771",
+			"historicalCode": "041771",
+			"bwGebId": 5534288,
+			"ksIds": [
+				"wien-fmzk:4002437753",
+				"wien-fmzk:4005728799",
+				"wien-fmzk:4005729191"
+			],
+			"sheet": "087082",
+			"lng": 16.2511651,
+			"lat": 48.2094271,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 35.62,
+			"historicalOutsideCurrentM2": 1.49,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 041885",
 			"historicalCode": "041885",
 			"bwGebId": 5356657,
@@ -5592,6 +5993,25 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 042929",
+			"historicalCode": "042929",
+			"bwGebId": 5392898,
+			"ksIds": [
+				"wien-fmzk:4003925728",
+				"wien-fmzk:4003925729",
+				"wien-fmzk:4005706205",
+				"wien-fmzk:4007110621",
+				"wien-fmzk:4007110622"
+			],
+			"sheet": "087085",
+			"lng": 16.2449679,
+			"lat": 48.2245333,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 41.76,
+			"historicalOutsideCurrentM2": 1.31,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 042952",
 			"historicalCode": "042952",
 			"bwGebId": 5372556,
@@ -5717,6 +6137,23 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 043549",
+			"historicalCode": "043549",
+			"bwGebId": 5511395,
+			"ksIds": [
+				"wien-fmzk:4005812366",
+				"wien-fmzk:4006720172",
+				"wien-fmzk:4007824013"
+			],
+			"sheet": "081086",
+			"lng": 16.2059739,
+			"lat": 48.2278836,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 41.92,
+			"historicalOutsideCurrentM2": 1.59,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 043551",
 			"historicalCode": "043551",
 			"bwGebId": 5402022,
@@ -5781,6 +6218,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0.03
+		},
+		{
+			"name": "Wien LOD2.1 044279",
+			"historicalCode": "044279",
+			"bwGebId": 5463094,
+			"ksIds": [
+				"wien-fmzk:4006156116",
+				"wien-fmzk:4007001692",
+				"wien-fmzk:4007001695"
+			],
+			"sheet": "100081",
+			"lng": 16.3354938,
+			"lat": 48.2033753,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 83.8,
+			"historicalOutsideCurrentM2": 3.32,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 044387",
@@ -6147,6 +6601,22 @@
 			"historicalOutsideCurrentM2": 2.73
 		},
 		{
+			"name": "Wien LOD2.1 049698",
+			"historicalCode": "049698",
+			"bwGebId": 5369839,
+			"ksIds": [
+				"wien-fmzk:4005703066",
+				"wien-fmzk:4006491083"
+			],
+			"sheet": "093083",
+			"lng": 16.2888502,
+			"lat": 48.2128329,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 182.12,
+			"historicalOutsideCurrentM2": 2.77,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 050057",
 			"historicalCode": "050057",
 			"bwGebId": 5339274,
@@ -6206,6 +6676,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 4.06,
 			"historicalOutsideCurrentM2": 69.68
+		},
+		{
+			"name": "Wien LOD2.1 050869",
+			"historicalCode": "050869",
+			"bwGebId": 5364820,
+			"ksIds": [
+				"wien-fmzk:4006247686",
+				"wien-fmzk:4006248210",
+				"wien-fmzk:4006248217"
+			],
+			"sheet": "100084",
+			"lng": 16.3339703,
+			"lat": 48.2178113,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 79.64,
+			"historicalOutsideCurrentM2": 1.36,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 050922",
@@ -6363,6 +6850,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 118.87,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 052238",
+			"historicalCode": "052238",
+			"bwGebId": 5505981,
+			"ksIds": [
+				"wien-fmzk:4000766286",
+				"wien-fmzk:4006526918"
+			],
+			"sheet": "097085",
+			"lng": 16.3169543,
+			"lat": 48.2249469,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 57.86,
+			"historicalOutsideCurrentM2": 1.65,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 052308",
@@ -7068,6 +7571,21 @@
 			"historicalOutsideCurrentM2": 0.07
 		},
 		{
+			"name": "Wien LOD2.1 056301",
+			"historicalCode": "056301",
+			"bwGebId": 5361370,
+			"ksIds": [
+				"wien-fmzk:4007142799"
+			],
+			"sheet": "096088",
+			"lng": 16.3079394,
+			"lat": 48.238757,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 65.04,
+			"historicalOutsideCurrentM2": 1.42,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 056343",
 			"historicalCode": "056343",
 			"bwGebId": 5320775,
@@ -7226,6 +7744,21 @@
 			"historicalOutsideCurrentM2": 19.57
 		},
 		{
+			"name": "Wien LOD2.1 058374",
+			"historicalCode": "058374",
+			"bwGebId": 5531549,
+			"ksIds": [
+				"wien-fmzk:4006172486"
+			],
+			"sheet": "103090",
+			"lng": 16.3538334,
+			"lat": 48.2476437,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 62.13,
+			"historicalOutsideCurrentM2": 1.47,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 058387",
 			"historicalCode": "058387",
 			"bwGebId": 5462569,
@@ -7275,6 +7808,40 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 128.34
+		},
+		{
+			"name": "Wien LOD2.1 058865",
+			"historicalCode": "058865",
+			"bwGebId": 5528427,
+			"ksIds": [
+				"wien-fmzk:4006449554",
+				"wien-fmzk:4006449657",
+				"wien-fmzk:4006449662"
+			],
+			"sheet": "103096",
+			"lng": 16.3555259,
+			"lat": 48.2745427,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 112.94,
+			"historicalOutsideCurrentM2": 7.29,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 058871",
+			"historicalCode": "058871",
+			"bwGebId": 5426431,
+			"ksIds": [
+				"wien-fmzk:4005340915",
+				"wien-fmzk:4005340923",
+				"wien-fmzk:4005345547"
+			],
+			"sheet": "101099",
+			"lng": 16.3445838,
+			"lat": 48.284569,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 58.64,
+			"historicalOutsideCurrentM2": 1.96,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 058940",
@@ -7357,6 +7924,46 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 060041",
+			"historicalCode": "060041",
+			"bwGebId": 5338152,
+			"ksIds": [
+				"wien-fmzk:4006148647",
+				"wien-fmzk:4006148655",
+				"wien-fmzk:4006149027",
+				"wien-fmzk:4006149029",
+				"wien-fmzk:4006149037",
+				"wien-fmzk:4006149039",
+				"wien-fmzk:4007317816",
+				"wien-fmzk:4007317827"
+			],
+			"sheet": "100092",
+			"lng": 16.3335304,
+			"lat": 48.2531509,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 134.87,
+			"historicalOutsideCurrentM2": 3.02,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 060102",
+			"historicalCode": "060102",
+			"bwGebId": 5380636,
+			"ksIds": [
+				"wien-fmzk:4005602946",
+				"wien-fmzk:4005603399",
+				"wien-fmzk:4005603420",
+				"wien-fmzk:4007219027"
+			],
+			"sheet": "099092",
+			"lng": 16.3262656,
+			"lat": 48.2528883,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 94.76,
+			"historicalOutsideCurrentM2": 2.92,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 060124",
 			"historicalCode": "060124",
 			"bwGebId": 5515652,
@@ -7373,6 +7980,25 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 26.57,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 060237",
+			"historicalCode": "060237",
+			"bwGebId": 5391620,
+			"ksIds": [
+				"wien-fmzk:4006157070",
+				"wien-fmzk:4006157073",
+				"wien-fmzk:4006157079",
+				"wien-fmzk:4006157482",
+				"wien-fmzk:4006157495"
+			],
+			"sheet": "100091",
+			"lng": 16.3367812,
+			"lat": 48.2499951,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 59.74,
+			"historicalOutsideCurrentM2": 3,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 060307",
@@ -7596,6 +8222,22 @@
 			"historicalOutsideCurrentM2": 49.74
 		},
 		{
+			"name": "Wien LOD2.1 062608",
+			"historicalCode": "062608",
+			"bwGebId": 5485165,
+			"ksIds": [
+				"wien-fmzk:4005466944",
+				"wien-fmzk:4005467381"
+			],
+			"sheet": "102094",
+			"lng": 16.3468502,
+			"lat": 48.2630109,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 37.69,
+			"historicalOutsideCurrentM2": 2.08,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 064071",
 			"historicalCode": "064071",
 			"bwGebId": 5544272,
@@ -7695,6 +8337,23 @@
 			"historicalOutsideCurrentM2": 147.38
 		},
 		{
+			"name": "Wien LOD2.1 065015",
+			"historicalCode": "065015",
+			"bwGebId": 5475956,
+			"ksIds": [
+				"wien-fmzk:4006247052",
+				"wien-fmzk:4006247054",
+				"wien-fmzk:4006247065"
+			],
+			"sheet": "112094",
+			"lng": 16.4175908,
+			"lat": 48.262294,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 24.07,
+			"historicalOutsideCurrentM2": 1.48,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 065031",
 			"historicalCode": "065031",
 			"bwGebId": 5459021,
@@ -7772,6 +8431,24 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 2.15
+		},
+		{
+			"name": "Wien LOD2.1 066316",
+			"historicalCode": "066316",
+			"bwGebId": 5511096,
+			"ksIds": [
+				"wien-fmzk:4004868900",
+				"wien-fmzk:4004868909",
+				"wien-fmzk:4006257559",
+				"wien-fmzk:4006258293"
+			],
+			"sheet": "108096",
+			"lng": 16.386905,
+			"lat": 48.274548,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 36.16,
+			"historicalOutsideCurrentM2": 0.74,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 066386",
@@ -8173,6 +8850,21 @@
 			"historicalOutsideCurrentM2": 6.05
 		},
 		{
+			"name": "Wien LOD2.1 069382",
+			"historicalCode": "069382",
+			"bwGebId": 5300430,
+			"ksIds": [
+				"wien-fmzk:4006667756"
+			],
+			"sheet": "111100",
+			"lng": 16.4112501,
+			"lat": 48.2913072,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 67.58,
+			"historicalOutsideCurrentM2": 1.28,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 069606",
 			"historicalCode": "069606",
 			"bwGebId": 5523473,
@@ -8255,6 +8947,22 @@
 			"historicalOutsideCurrentM2": 0.12
 		},
 		{
+			"name": "Wien LOD2.1 070021",
+			"historicalCode": "070021",
+			"bwGebId": 5358776,
+			"ksIds": [
+				"wien-fmzk:4007300344",
+				"wien-fmzk:4007300345"
+			],
+			"sheet": "117098",
+			"lng": 16.4497425,
+			"lat": 48.2795775,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 27.48,
+			"historicalOutsideCurrentM2": 0.95,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 070023",
 			"historicalCode": "070023",
 			"bwGebId": 5327004,
@@ -8333,6 +9041,32 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 44.2,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 070705",
+			"historicalCode": "070705",
+			"bwGebId": 5427210,
+			"ksIds": [
+				"wien-fmzk:4000725374",
+				"wien-fmzk:4003377880",
+				"wien-fmzk:4004393309",
+				"wien-fmzk:4004393310",
+				"wien-fmzk:4004393319",
+				"wien-fmzk:4004393337",
+				"wien-fmzk:4004468035",
+				"wien-fmzk:4006034635",
+				"wien-fmzk:4006448667",
+				"wien-fmzk:4006812811",
+				"wien-fmzk:4006812816",
+				"wien-fmzk:4007284119"
+			],
+			"sheet": "117094",
+			"lng": 16.4476946,
+			"lat": 48.2617699,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 909.69,
+			"historicalOutsideCurrentM2": 23.41,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 070797",
@@ -8505,6 +9239,23 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 071678",
+			"historicalCode": "071678",
+			"bwGebId": 5416024,
+			"ksIds": [
+				"wien-fmzk:4005531120",
+				"wien-fmzk:4005531121",
+				"wien-fmzk:4005531125"
+			],
+			"sheet": "107099",
+			"lng": 16.3798991,
+			"lat": 48.2857175,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 53.48,
+			"historicalOutsideCurrentM2": 2.19,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 071805",
 			"historicalCode": "071805",
 			"bwGebId": 5523666,
@@ -8596,6 +9347,44 @@
 			"historicalOutsideCurrentM2": 25.36
 		},
 		{
+			"name": "Wien LOD2.1 072752",
+			"historicalCode": "072752",
+			"bwGebId": 5364176,
+			"ksIds": [
+				"wien-fmzk:4000435123",
+				"wien-fmzk:4000435128",
+				"wien-fmzk:4000435146",
+				"wien-fmzk:4000435156",
+				"wien-fmzk:4005599213",
+				"wien-fmzk:4006255304",
+				"wien-fmzk:4006711487"
+			],
+			"sheet": "107097",
+			"lng": 16.3856068,
+			"lat": 48.279167,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 41.92,
+			"historicalOutsideCurrentM2": 1.39,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 072786",
+			"historicalCode": "072786",
+			"bwGebId": 5306126,
+			"ksIds": [
+				"wien-fmzk:4006254777",
+				"wien-fmzk:4006254779",
+				"wien-fmzk:4006255084"
+			],
+			"sheet": "107097",
+			"lng": 16.3809559,
+			"lat": 48.2770811,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 20.31,
+			"historicalOutsideCurrentM2": 1.09,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 072790",
 			"historicalCode": "072790",
 			"bwGebId": 5423918,
@@ -8648,6 +9437,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 2.43,
 			"historicalOutsideCurrentM2": 168.28
+		},
+		{
+			"name": "Wien LOD2.1 073709",
+			"historicalCode": "073709",
+			"bwGebId": 5521277,
+			"ksIds": [
+				"wien-fmzk:4005554844",
+				"wien-fmzk:4005554853",
+				"wien-fmzk:4005554855"
+			],
+			"sheet": "113088",
+			"lng": 16.4217456,
+			"lat": 48.236791,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 165.22,
+			"historicalOutsideCurrentM2": 3.65,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 073891",
@@ -8719,6 +9525,24 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 5.25,
 			"historicalOutsideCurrentM2": 2.66
+		},
+		{
+			"name": "Wien LOD2.1 074015",
+			"historicalCode": "074015",
+			"bwGebId": 5502212,
+			"ksIds": [
+				"wien-fmzk:4005949513",
+				"wien-fmzk:4005949517",
+				"wien-fmzk:4005950048",
+				"wien-fmzk:4005950050"
+			],
+			"sheet": "115084",
+			"lng": 16.4396708,
+			"lat": 48.2178828,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 32.1,
+			"historicalOutsideCurrentM2": 1.95,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 074025",
@@ -8863,6 +9687,28 @@
 			"historicalOutsideCurrentM2": 1.19
 		},
 		{
+			"name": "Wien LOD2.1 074865",
+			"historicalCode": "074865",
+			"bwGebId": 5517595,
+			"ksIds": [
+				"wien-fmzk:4005973312",
+				"wien-fmzk:4005973314",
+				"wien-fmzk:4005973316",
+				"wien-fmzk:4005973336",
+				"wien-fmzk:4005973501",
+				"wien-fmzk:4005973505",
+				"wien-fmzk:4005973509",
+				"wien-fmzk:4005973511"
+			],
+			"sheet": "118085",
+			"lng": 16.4537041,
+			"lat": 48.2253356,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 52.11,
+			"historicalOutsideCurrentM2": 2,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 074967",
 			"historicalCode": "074967",
 			"bwGebId": 5371087,
@@ -8883,6 +9729,26 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 140.68
+		},
+		{
+			"name": "Wien LOD2.1 075042",
+			"historicalCode": "075042",
+			"bwGebId": 5556224,
+			"ksIds": [
+				"wien-fmzk:4006106754",
+				"wien-fmzk:4006106755",
+				"wien-fmzk:4006106757",
+				"wien-fmzk:4006106958",
+				"wien-fmzk:4006106960",
+				"wien-fmzk:4006106963"
+			],
+			"sheet": "120090",
+			"lng": 16.4729825,
+			"lat": 48.2444089,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 30.02,
+			"historicalOutsideCurrentM2": 1.86,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 075043",
@@ -9385,6 +10251,22 @@
 			"historicalOutsideCurrentM2": 21.29
 		},
 		{
+			"name": "Wien LOD2.1 077789",
+			"historicalCode": "077789",
+			"bwGebId": 5435760,
+			"ksIds": [
+				"wien-fmzk:4006055798",
+				"wien-fmzk:4006056180"
+			],
+			"sheet": "124083",
+			"lng": 16.4939332,
+			"lat": 48.2132387,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.58,
+			"historicalOutsideCurrentM2": 0.59,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 077791",
 			"historicalCode": "077791",
 			"bwGebId": 5478063,
@@ -9487,6 +10369,23 @@
 			"historicalOutsideCurrentM2": 0.07
 		},
 		{
+			"name": "Wien LOD2.1 078113",
+			"historicalCode": "078113",
+			"bwGebId": 5394499,
+			"ksIds": [
+				"wien-fmzk:4004330398",
+				"wien-fmzk:4004330399",
+				"wien-fmzk:4006117638"
+			],
+			"sheet": "128082",
+			"lng": 16.5209028,
+			"lat": 48.2075064,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 31.6,
+			"historicalOutsideCurrentM2": 1.47,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 078149",
 			"historicalCode": "078149",
 			"bwGebId": 5389448,
@@ -9563,6 +10462,21 @@
 			"historicalOutsideCurrentM2": 5.66
 		},
 		{
+			"name": "Wien LOD2.1 078530",
+			"historicalCode": "078530",
+			"bwGebId": 5387420,
+			"ksIds": [
+				"wien-fmzk:4005379703"
+			],
+			"sheet": "129083",
+			"lng": 16.5332128,
+			"lat": 48.2130867,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 3.77,
+			"historicalOutsideCurrentM2": 1.4,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 078536",
 			"historicalCode": "078536",
 			"bwGebId": 5340296,
@@ -9591,6 +10505,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 7.58,
 			"historicalOutsideCurrentM2": 0.15
+		},
+		{
+			"name": "Wien LOD2.1 078546",
+			"historicalCode": "078546",
+			"bwGebId": 5412490,
+			"ksIds": [
+				"wien-fmzk:4005452856",
+				"wien-fmzk:4006111537"
+			],
+			"sheet": "130083",
+			"lng": 16.5361927,
+			"lat": 48.2120483,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 39.96,
+			"historicalOutsideCurrentM2": 0.45,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 078553",
@@ -9815,6 +10745,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 65.19,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 079568",
+			"historicalCode": "079568",
+			"bwGebId": 5421210,
+			"ksIds": [
+				"wien-fmzk:4007267390",
+				"wien-fmzk:4007267424"
+			],
+			"sheet": "122091",
+			"lng": 16.4846554,
+			"lat": 48.2496057,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 45.97,
+			"historicalOutsideCurrentM2": 2.15,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 079570",
@@ -10106,6 +11052,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 080341",
+			"historicalCode": "080341",
+			"bwGebId": 5328290,
+			"ksIds": [
+				"wien-fmzk:4005415840",
+				"wien-fmzk:4005416025"
+			],
+			"sheet": "115093",
+			"lng": 16.4366023,
+			"lat": 48.2571923,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 49.24,
+			"historicalOutsideCurrentM2": 1.85,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 080552",
 			"historicalCode": "080552",
 			"bwGebId": 5349181,
@@ -10134,6 +11096,28 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 32.85
+		},
+		{
+			"name": "Wien LOD2.1 080710",
+			"historicalCode": "080710",
+			"bwGebId": 5471114,
+			"ksIds": [
+				"wien-fmzk:4005975516",
+				"wien-fmzk:4005975519",
+				"wien-fmzk:4005975861",
+				"wien-fmzk:4005975868",
+				"wien-fmzk:4007426717",
+				"wien-fmzk:4007426719",
+				"wien-fmzk:4007426724",
+				"wien-fmzk:4007426725"
+			],
+			"sheet": "115090",
+			"lng": 16.4394146,
+			"lat": 48.2463934,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 188.25,
+			"historicalOutsideCurrentM2": 2.61,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 080855",
@@ -10391,6 +11375,22 @@
 			"historicalOutsideCurrentM2": 24.3
 		},
 		{
+			"name": "Wien LOD2.1 084392",
+			"historicalCode": "084392",
+			"bwGebId": 5418821,
+			"ksIds": [
+				"wien-fmzk:4005432128",
+				"wien-fmzk:4007287270"
+			],
+			"sheet": "116093",
+			"lng": 16.4429444,
+			"lat": 48.2578423,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 41.77,
+			"historicalOutsideCurrentM2": 0.83,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 084406",
 			"historicalCode": "084406",
 			"bwGebId": 5509419,
@@ -10543,6 +11543,29 @@
 			"historicalOutsideCurrentM2": 18.57
 		},
 		{
+			"name": "Wien LOD2.1 085247",
+			"historicalCode": "085247",
+			"bwGebId": 5292505,
+			"ksIds": [
+				"wien-fmzk:4006044596",
+				"wien-fmzk:4006044597",
+				"wien-fmzk:4006044599",
+				"wien-fmzk:4006044603",
+				"wien-fmzk:4006044604",
+				"wien-fmzk:4006045139",
+				"wien-fmzk:4006045162",
+				"wien-fmzk:4006926668",
+				"wien-fmzk:4006926669"
+			],
+			"sheet": "089066",
+			"lng": 16.2628663,
+			"lat": 48.136108,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 212.73,
+			"historicalOutsideCurrentM2": 5.08,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 085518",
 			"historicalCode": "085518",
 			"bwGebId": 5531293,
@@ -10557,6 +11580,40 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 111.28,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 085561",
+			"historicalCode": "085561",
+			"bwGebId": 5353521,
+			"ksIds": [
+				"wien-fmzk:4005448682",
+				"wien-fmzk:4006041290"
+			],
+			"sheet": "087066",
+			"lng": 16.2512603,
+			"lat": 48.1385369,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 63.75,
+			"historicalOutsideCurrentM2": 1.78,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 085564",
+			"historicalCode": "085564",
+			"bwGebId": 5447062,
+			"ksIds": [
+				"wien-fmzk:4005448646",
+				"wien-fmzk:4006041206",
+				"wien-fmzk:4006523653",
+				"wien-fmzk:4006523655"
+			],
+			"sheet": "087066",
+			"lng": 16.2499595,
+			"lat": 48.1384483,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.5,
+			"historicalOutsideCurrentM2": 1.79,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 085583",
@@ -10688,6 +11745,74 @@
 			"historicalOutsideCurrentM2": 0.09
 		},
 		{
+			"name": "Wien LOD2.1 086234",
+			"historicalCode": "086234",
+			"bwGebId": 5427757,
+			"ksIds": [
+				"wien-fmzk:4006016312",
+				"wien-fmzk:4006016834",
+				"wien-fmzk:4006900849"
+			],
+			"sheet": "089069",
+			"lng": 16.2597401,
+			"lat": 48.150409,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 97.5,
+			"historicalOutsideCurrentM2": 7.08,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 086330",
+			"historicalCode": "086330",
+			"bwGebId": 5423277,
+			"ksIds": [
+				"wien-fmzk:4005822572",
+				"wien-fmzk:4005822805",
+				"wien-fmzk:4005879035"
+			],
+			"sheet": "089071",
+			"lng": 16.2648632,
+			"lat": 48.1590785,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 41.88,
+			"historicalOutsideCurrentM2": 1.71,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 086531",
+			"historicalCode": "086531",
+			"bwGebId": 5293057,
+			"ksIds": [
+				"wien-fmzk:4007151455",
+				"wien-fmzk:4007151461",
+				"wien-fmzk:4007151463"
+			],
+			"sheet": "091070",
+			"lng": 16.2751642,
+			"lat": 48.1550177,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 34.5,
+			"historicalOutsideCurrentM2": 1,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 086554",
+			"historicalCode": "086554",
+			"bwGebId": 5524606,
+			"ksIds": [
+				"wien-fmzk:4007486794",
+				"wien-fmzk:4007486796",
+				"wien-fmzk:4007486802"
+			],
+			"sheet": "092070",
+			"lng": 16.2789488,
+			"lat": 48.154013,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 40.76,
+			"historicalOutsideCurrentM2": 2.14,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 086710",
 			"historicalCode": "086710",
 			"bwGebId": 5316032,
@@ -10780,6 +11905,26 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 37.18,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 087208",
+			"historicalCode": "087208",
+			"bwGebId": 5372564,
+			"ksIds": [
+				"wien-fmzk:4004134716",
+				"wien-fmzk:4006934362",
+				"wien-fmzk:4006934363",
+				"wien-fmzk:4006934364",
+				"wien-fmzk:4006934365",
+				"wien-fmzk:4006934371"
+			],
+			"sheet": "092069",
+			"lng": 16.2799519,
+			"lat": 48.1509718,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.83,
+			"historicalOutsideCurrentM2": 2.37,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 087289",
@@ -10875,6 +12020,39 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 25.52,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 087530",
+			"historicalCode": "087530",
+			"bwGebId": 5302666,
+			"ksIds": [
+				"wien-fmzk:4005354671",
+				"wien-fmzk:4005355073",
+				"wien-fmzk:4005882957"
+			],
+			"sheet": "093070",
+			"lng": 16.2884639,
+			"lat": 48.1565601,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 64.1,
+			"historicalOutsideCurrentM2": 0.93,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 087585",
+			"historicalCode": "087585",
+			"bwGebId": 5473932,
+			"ksIds": [
+				"wien-fmzk:4004152984",
+				"wien-fmzk:4005884171"
+			],
+			"sheet": "094071",
+			"lng": 16.2946692,
+			"lat": 48.1612523,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 92.11,
+			"historicalOutsideCurrentM2": 1.7,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 087613",
@@ -11067,6 +12245,21 @@
 			"historicalOutsideCurrentM2": 1.15
 		},
 		{
+			"name": "Wien LOD2.1 088355",
+			"historicalCode": "088355",
+			"bwGebId": 5459675,
+			"ksIds": [
+				"wien-fmzk:4005808484"
+			],
+			"sheet": "096071",
+			"lng": 16.3103507,
+			"lat": 48.1584907,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 37.11,
+			"historicalOutsideCurrentM2": 1.38,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 088356",
 			"historicalCode": "088356",
 			"bwGebId": 5499908,
@@ -11178,6 +12371,25 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 089133",
+			"historicalCode": "089133",
+			"bwGebId": 5528413,
+			"ksIds": [
+				"wien-fmzk:4005919719",
+				"wien-fmzk:4005919864",
+				"wien-fmzk:4005919870",
+				"wien-fmzk:4005919872",
+				"wien-fmzk:4006878595"
+			],
+			"sheet": "098068",
+			"lng": 16.3245544,
+			"lat": 48.1464541,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 30.83,
+			"historicalOutsideCurrentM2": 0.67,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 089176",
 			"historicalCode": "089176",
 			"bwGebId": 5411124,
@@ -11271,6 +12483,24 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 21.08
+		},
+		{
+			"name": "Wien LOD2.1 089473",
+			"historicalCode": "089473",
+			"bwGebId": 5347980,
+			"ksIds": [
+				"wien-fmzk:4007341345",
+				"wien-fmzk:4007341346",
+				"wien-fmzk:4007341347",
+				"wien-fmzk:4007813418"
+			],
+			"sheet": "099067",
+			"lng": 16.3314302,
+			"lat": 48.1424558,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 32.61,
+			"historicalOutsideCurrentM2": 1.04,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 089504",
@@ -11400,6 +12630,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 31.5,
 			"historicalOutsideCurrentM2": 0.06
+		},
+		{
+			"name": "Wien LOD2.1 090075",
+			"historicalCode": "090075",
+			"bwGebId": 5313090,
+			"ksIds": [
+				"wien-fmzk:4005312994",
+				"wien-fmzk:4005312995"
+			],
+			"sheet": "097064",
+			"lng": 16.3176276,
+			"lat": 48.1302749,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 45.88,
+			"historicalOutsideCurrentM2": 1.24,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 090083",
@@ -11570,6 +12816,26 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 21.25,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 091382",
+			"historicalCode": "091382",
+			"bwGebId": 5502577,
+			"ksIds": [
+				"wien-fmzk:4005333586",
+				"wien-fmzk:4005333856",
+				"wien-fmzk:4007479231",
+				"wien-fmzk:4007479232",
+				"wien-fmzk:4007479233",
+				"wien-fmzk:4007479234"
+			],
+			"sheet": "093070",
+			"lng": 16.2858501,
+			"lat": 48.1574324,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 81.34,
+			"historicalOutsideCurrentM2": 0.79,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 091686",
@@ -11798,6 +13064,23 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 093156",
+			"historicalCode": "093156",
+			"bwGebId": 5491945,
+			"ksIds": [
+				"wien-fmzk:4007151499",
+				"wien-fmzk:4007151502",
+				"wien-fmzk:4007151504"
+			],
+			"sheet": "090070",
+			"lng": 16.266907,
+			"lat": 48.1553514,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 10.74,
+			"historicalOutsideCurrentM2": 0.2,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 093178",
 			"historicalCode": "093178",
 			"bwGebId": 5308971,
@@ -11997,6 +13280,27 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 28.27,
 			"historicalOutsideCurrentM2": 0.2
+		},
+		{
+			"name": "Wien LOD2.1 093947",
+			"historicalCode": "093947",
+			"bwGebId": 5314905,
+			"ksIds": [
+				"wien-fmzk:4007224328",
+				"wien-fmzk:4007224331",
+				"wien-fmzk:4007224332",
+				"wien-fmzk:4007224396",
+				"wien-fmzk:4007224407",
+				"wien-fmzk:4007224430",
+				"wien-fmzk:4007224445"
+			],
+			"sheet": "100093",
+			"lng": 16.3347495,
+			"lat": 48.259653,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 56.94,
+			"historicalOutsideCurrentM2": 2.96,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 093950",
@@ -12341,6 +13645,25 @@
 			"historicalOutsideCurrentM2": 0.08
 		},
 		{
+			"name": "Wien LOD2.1 097008",
+			"historicalCode": "097008",
+			"bwGebId": 5555027,
+			"ksIds": [
+				"wien-fmzk:4005782501",
+				"wien-fmzk:4005782504",
+				"wien-fmzk:4005782779",
+				"wien-fmzk:4006992885",
+				"wien-fmzk:4007652334"
+			],
+			"sheet": "084084",
+			"lng": 16.2279774,
+			"lat": 48.2174119,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 75.72,
+			"historicalOutsideCurrentM2": 0.82,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 097058",
 			"historicalCode": "097058",
 			"bwGebId": 5532832,
@@ -12370,6 +13693,25 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 2.31,
 			"historicalOutsideCurrentM2": 177.45
+		},
+		{
+			"name": "Wien LOD2.1 097435",
+			"historicalCode": "097435",
+			"bwGebId": 5526224,
+			"ksIds": [
+				"wien-fmzk:4006157140",
+				"wien-fmzk:4006157175",
+				"wien-fmzk:4006157573",
+				"wien-fmzk:4006157584",
+				"wien-fmzk:4007218035"
+			],
+			"sheet": "100091",
+			"lng": 16.3347414,
+			"lat": 48.2510684,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 55.15,
+			"historicalOutsideCurrentM2": 1.3,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 097573",
@@ -13006,6 +14348,24 @@
 			"historicalOutsideCurrentM2": 21.29
 		},
 		{
+			"name": "Wien LOD2.1 102369",
+			"historicalCode": "102369",
+			"bwGebId": 5494527,
+			"ksIds": [
+				"wien-fmzk:4003623785",
+				"wien-fmzk:4005187995",
+				"wien-fmzk:4005188001",
+				"wien-fmzk:4007584448"
+			],
+			"sheet": "112074",
+			"lng": 16.4179797,
+			"lat": 48.1732229,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 1.43,
+			"historicalOutsideCurrentM2": 11.09,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 102417",
 			"historicalCode": "102417",
 			"bwGebId": 5389884,
@@ -13177,6 +14537,26 @@
 			"historicalOutsideCurrentM2": 4.63
 		},
 		{
+			"name": "Wien LOD2.1 103271",
+			"historicalCode": "103271",
+			"bwGebId": 5547608,
+			"ksIds": [
+				"wien-fmzk:4000622728",
+				"wien-fmzk:4000622730",
+				"wien-fmzk:4005467634",
+				"wien-fmzk:4005472091",
+				"wien-fmzk:4006924142",
+				"wien-fmzk:4006924173"
+			],
+			"sheet": "117098",
+			"lng": 16.4516911,
+			"lat": 48.2834347,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 186.36,
+			"historicalOutsideCurrentM2": 5.2,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 103421",
 			"historicalCode": "103421",
 			"bwGebId": 5422995,
@@ -13227,6 +14607,21 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 103826",
+			"historicalCode": "103826",
+			"bwGebId": 5434696,
+			"ksIds": [
+				"wien-fmzk:4006000775"
+			],
+			"sheet": "107067",
+			"lng": 16.3857383,
+			"lat": 48.1411931,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 32.63,
+			"historicalOutsideCurrentM2": 1.48,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 103948",
 			"historicalCode": "103948",
 			"bwGebId": 5286970,
@@ -13243,6 +14638,56 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 104106",
+			"historicalCode": "104106",
+			"bwGebId": 5547741,
+			"ksIds": [
+				"wien-fmzk:4006258976",
+				"wien-fmzk:4006258980",
+				"wien-fmzk:4006704908"
+			],
+			"sheet": "107096",
+			"lng": 16.3793854,
+			"lat": 48.272487,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.49,
+			"historicalOutsideCurrentM2": 0.71,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 104524",
+			"historicalCode": "104524",
+			"bwGebId": 5328427,
+			"ksIds": [
+				"wien-fmzk:4000612744",
+				"wien-fmzk:4005486436",
+				"wien-fmzk:4007031685",
+				"wien-fmzk:4007031692"
+			],
+			"sheet": "118096",
+			"lng": 16.4591584,
+			"lat": 48.2726271,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 22.14,
+			"historicalOutsideCurrentM2": 0.85,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 104531",
+			"historicalCode": "104531",
+			"bwGebId": 5548754,
+			"ksIds": [
+				"wien-fmzk:4006052804"
+			],
+			"sheet": "121082",
+			"lng": 16.4788377,
+			"lat": 48.2084172,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 0.03,
+			"historicalOutsideCurrentM2": 2.16,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 104562",
 			"historicalCode": "104562",
 			"bwGebId": 5545939,
@@ -13256,6 +14701,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.04,
 			"historicalOutsideCurrentM2": 51.75
+		},
+		{
+			"name": "Wien LOD2.1 104573",
+			"historicalCode": "104573",
+			"bwGebId": 5529193,
+			"ksIds": [
+				"wien-fmzk:4005740227",
+				"wien-fmzk:4005740228",
+				"wien-fmzk:4007152023"
+			],
+			"sheet": "094084",
+			"lng": 16.2958172,
+			"lat": 48.2170973,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 62.4,
+			"historicalOutsideCurrentM2": 0.69,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 104777",
@@ -13542,6 +15004,23 @@
 			"historicalOutsideCurrentM2": 269.43
 		},
 		{
+			"name": "Wien LOD2.1 106534",
+			"historicalCode": "106534",
+			"bwGebId": 5418073,
+			"ksIds": [
+				"wien-fmzk:4006185790",
+				"wien-fmzk:4006185791",
+				"wien-fmzk:4007387068"
+			],
+			"sheet": "112098",
+			"lng": 16.4184156,
+			"lat": 48.2824656,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 50.5,
+			"historicalOutsideCurrentM2": 0.59,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 106720",
 			"historicalCode": "106720",
 			"bwGebId": 5299294,
@@ -13612,6 +15091,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 10.69,
 			"historicalOutsideCurrentM2": 29.28
+		},
+		{
+			"name": "Wien LOD2.1 107156",
+			"historicalCode": "107156",
+			"bwGebId": 5461966,
+			"ksIds": [
+				"wien-fmzk:4005429679",
+				"wien-fmzk:4005430787"
+			],
+			"sheet": "103096",
+			"lng": 16.3560824,
+			"lat": 48.2746069,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 24.15,
+			"historicalOutsideCurrentM2": 0.7,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 107187",
@@ -13737,6 +15232,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 18.07,
 			"historicalOutsideCurrentM2": 3.96
+		},
+		{
+			"name": "Wien LOD2.1 108271",
+			"historicalCode": "108271",
+			"bwGebId": 5333116,
+			"ksIds": [
+				"wien-fmzk:4006607882",
+				"wien-fmzk:4006607895"
+			],
+			"sheet": "116083",
+			"lng": 16.4419989,
+			"lat": 48.2157659,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.7,
+			"historicalOutsideCurrentM2": 0.45,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 108279",
@@ -14006,6 +15517,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 38.93,
 			"historicalOutsideCurrentM2": 0.03
+		},
+		{
+			"name": "Wien LOD2.1 110203",
+			"historicalCode": "110203",
+			"bwGebId": 5404467,
+			"ksIds": [
+				"wien-fmzk:4006878394",
+				"wien-fmzk:4007383998",
+				"wien-fmzk:4007383999"
+			],
+			"sheet": "099068",
+			"lng": 16.3265406,
+			"lat": 48.1450501,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 23.39,
+			"historicalOutsideCurrentM2": 0.35,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 110486",
@@ -14678,6 +16206,23 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 114437",
+			"historicalCode": "114437",
+			"bwGebId": 5537013,
+			"ksIds": [
+				"wien-fmzk:4006607364",
+				"wien-fmzk:4006607388",
+				"wien-fmzk:4006607394"
+			],
+			"sheet": "116083",
+			"lng": 16.4434339,
+			"lat": 48.214816,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 22.73,
+			"historicalOutsideCurrentM2": 0.29,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 114935",
 			"historicalCode": "114935",
 			"bwGebId": 5536406,
@@ -14767,6 +16312,41 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 36.93,
 			"historicalOutsideCurrentM2": 0.02
+		},
+		{
+			"name": "Wien LOD2.1 116007",
+			"historicalCode": "116007",
+			"bwGebId": 5423331,
+			"ksIds": [
+				"wien-fmzk:4003431357",
+				"wien-fmzk:4003431358",
+				"wien-fmzk:4006113783",
+				"wien-fmzk:4007152205"
+			],
+			"sheet": "125082",
+			"lng": 16.501662,
+			"lat": 48.2101957,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.28,
+			"historicalOutsideCurrentM2": 1.07,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 116222",
+			"historicalCode": "116222",
+			"bwGebId": 5476445,
+			"ksIds": [
+				"wien-fmzk:4005229992",
+				"wien-fmzk:4007373519",
+				"wien-fmzk:4007719024"
+			],
+			"sheet": "096062",
+			"lng": 16.305504,
+			"lat": 48.1216543,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 30.95,
+			"historicalOutsideCurrentM2": 0.83,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 116360",
@@ -15013,6 +16593,46 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 119315",
+			"historicalCode": "119315",
+			"bwGebId": 5405005,
+			"ksIds": [
+				"wien-fmzk:4000666267",
+				"wien-fmzk:4007209181"
+			],
+			"sheet": "112093",
+			"lng": 16.4182077,
+			"lat": 48.2579316,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 8.85,
+			"historicalOutsideCurrentM2": 0.2,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 119525",
+			"historicalCode": "119525",
+			"bwGebId": 5506770,
+			"ksIds": [
+				"wien-fmzk:4004074364",
+				"wien-fmzk:4004074365",
+				"wien-fmzk:4004846197",
+				"wien-fmzk:4005897454",
+				"wien-fmzk:4005897459",
+				"wien-fmzk:4005904890",
+				"wien-fmzk:4006556386",
+				"wien-fmzk:4006556396",
+				"wien-fmzk:4006556418",
+				"wien-fmzk:4006924417"
+			],
+			"sheet": "092066",
+			"lng": 16.2814982,
+			"lat": 48.1397236,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 148.96,
+			"historicalOutsideCurrentM2": 2.62,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 119637",
 			"historicalCode": "119637",
 			"bwGebId": 5535951,
@@ -15246,6 +16866,23 @@
 			"historicalOutsideCurrentM2": 0.02
 		},
 		{
+			"name": "Wien LOD2.1 120561",
+			"historicalCode": "120561",
+			"bwGebId": 5379032,
+			"ksIds": [
+				"wien-fmzk:4005133786",
+				"wien-fmzk:4005695521",
+				"wien-fmzk:4006528266"
+			],
+			"sheet": "088084",
+			"lng": 16.2546279,
+			"lat": 48.2191874,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.1,
+			"historicalOutsideCurrentM2": 0.75,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 120582",
 			"historicalCode": "120582",
 			"bwGebId": 5528343,
@@ -15404,6 +17041,22 @@
 			"historicalOutsideCurrentM2": 0.08
 		},
 		{
+			"name": "Wien LOD2.1 121566",
+			"historicalCode": "121566",
+			"bwGebId": 5485702,
+			"ksIds": [
+				"wien-fmzk:4007419441",
+				"wien-fmzk:4007419442"
+			],
+			"sheet": "095064",
+			"lng": 16.304871,
+			"lat": 48.1285392,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 27.77,
+			"historicalOutsideCurrentM2": 0.34,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 121582",
 			"historicalCode": "121582",
 			"bwGebId": 5435365,
@@ -15507,6 +17160,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 3.19,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 121928",
+			"historicalCode": "121928",
+			"bwGebId": 5308415,
+			"ksIds": [
+				"wien-fmzk:4007283785",
+				"wien-fmzk:4007794160",
+				"wien-fmzk:4007794162"
+			],
+			"sheet": "114081",
+			"lng": 16.4294261,
+			"lat": 48.204666,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 25.66,
+			"historicalOutsideCurrentM2": 0.69,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 121981",
@@ -15655,6 +17325,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 9.38,
 			"historicalOutsideCurrentM2": 11.52
+		},
+		{
+			"name": "Wien LOD2.1 122391",
+			"historicalCode": "122391",
+			"bwGebId": 5537515,
+			"ksIds": [
+				"wien-fmzk:4006262687",
+				"wien-fmzk:4006262999"
+			],
+			"sheet": "107094",
+			"lng": 16.3819322,
+			"lat": 48.2621235,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 17.77,
+			"historicalOutsideCurrentM2": 0.91,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 122447",
@@ -15987,6 +17673,24 @@
 			"historicalOutsideCurrentM2": 3
 		},
 		{
+			"name": "Wien LOD2.1 123923",
+			"historicalCode": "123923",
+			"bwGebId": 5435729,
+			"ksIds": [
+				"wien-fmzk:4002826778",
+				"wien-fmzk:4002826788",
+				"wien-fmzk:4007276314",
+				"wien-fmzk:4007385959"
+			],
+			"sheet": "112098",
+			"lng": 16.4193356,
+			"lat": 48.2810483,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 42.78,
+			"historicalOutsideCurrentM2": 1.11,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 124067",
 			"historicalCode": "124067",
 			"bwGebId": 5510680,
@@ -16059,6 +17763,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 1.44,
 			"historicalOutsideCurrentM2": 27.35
+		},
+		{
+			"name": "Wien LOD2.1 124241",
+			"historicalCode": "124241",
+			"bwGebId": 5396069,
+			"ksIds": [
+				"wien-fmzk:4006129862",
+				"wien-fmzk:4006129877",
+				"wien-fmzk:4006130278"
+			],
+			"sheet": "131082",
+			"lng": 16.5409845,
+			"lat": 48.2087291,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 56.54,
+			"historicalOutsideCurrentM2": 1.56,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 124331",
@@ -16778,6 +18499,21 @@
 			"historicalOutsideCurrentM2": 0.02
 		},
 		{
+			"name": "Wien LOD2.1 126557",
+			"historicalCode": "126557",
+			"bwGebId": 5536844,
+			"ksIds": [
+				"wien-fmzk:4006252563"
+			],
+			"sheet": "109095",
+			"lng": 16.3959628,
+			"lat": 48.2676969,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 22.61,
+			"historicalOutsideCurrentM2": 0.56,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 126568",
 			"historicalCode": "126568",
 			"bwGebId": 5350469,
@@ -17048,6 +18784,21 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 128010",
+			"historicalCode": "128010",
+			"bwGebId": 5372612,
+			"ksIds": [
+				"wien-fmzk:4005229817"
+			],
+			"sheet": "114085",
+			"lng": 16.4309818,
+			"lat": 48.224452,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 5.56,
+			"historicalOutsideCurrentM2": 0.15,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 128043",
 			"historicalCode": "128043",
 			"bwGebId": 5485039,
@@ -17061,6 +18812,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 18.81,
 			"historicalOutsideCurrentM2": 7.12
+		},
+		{
+			"name": "Wien LOD2.1 128057",
+			"historicalCode": "128057",
+			"bwGebId": 5443673,
+			"ksIds": [
+				"wien-fmzk:4006549605",
+				"wien-fmzk:4007644150",
+				"wien-fmzk:4007644152"
+			],
+			"sheet": "087082",
+			"lng": 16.2508687,
+			"lat": 48.2102439,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 33.41,
+			"historicalOutsideCurrentM2": 1.19,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 128167",
@@ -17122,6 +18890,39 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 12.84,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 128239",
+			"historicalCode": "128239",
+			"bwGebId": 5501297,
+			"ksIds": [
+				"wien-fmzk:4005498387",
+				"wien-fmzk:4006761334"
+			],
+			"sheet": "131084",
+			"lng": 16.5452613,
+			"lat": 48.2175316,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 33.55,
+			"historicalOutsideCurrentM2": 1.07,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 128263",
+			"historicalCode": "128263",
+			"bwGebId": 5456819,
+			"ksIds": [
+				"wien-fmzk:4006999563",
+				"wien-fmzk:4006999565",
+				"wien-fmzk:4007257420"
+			],
+			"sheet": "112080",
+			"lng": 16.4130391,
+			"lat": 48.1984447,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.15,
+			"historicalOutsideCurrentM2": 0.33,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 128265",
@@ -17223,6 +19024,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 128692",
+			"historicalCode": "128692",
+			"bwGebId": 5467814,
+			"ksIds": [
+				"wien-fmzk:4006132072",
+				"wien-fmzk:4006132540",
+				"wien-fmzk:4006992410"
+			],
+			"sheet": "100078",
+			"lng": 16.3367169,
+			"lat": 48.1920573,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 129.37,
+			"historicalOutsideCurrentM2": 6.63,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 128723",
@@ -18060,6 +19878,23 @@
 			"historicalOutsideCurrentM2": 0.66
 		},
 		{
+			"name": "Wien LOD2.1 134037",
+			"historicalCode": "134037",
+			"bwGebId": 5441880,
+			"ksIds": [
+				"wien-fmzk:4005348041",
+				"wien-fmzk:4005348572",
+				"wien-fmzk:4007237665"
+			],
+			"sheet": "121072",
+			"lng": 16.4753965,
+			"lat": 48.1655979,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.4,
+			"historicalOutsideCurrentM2": 0.46,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 134077",
 			"historicalCode": "134077",
 			"bwGebId": 5544182,
@@ -18206,6 +20041,21 @@
 			"historicalOutsideCurrentM2": 7.83
 		},
 		{
+			"name": "Wien LOD2.1 134893",
+			"historicalCode": "134893",
+			"bwGebId": 5340585,
+			"ksIds": [
+				"wien-fmzk:4007221319"
+			],
+			"sheet": "116097",
+			"lng": 16.4427888,
+			"lat": 48.2792455,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 18.87,
+			"historicalOutsideCurrentM2": 0.27,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 134943",
 			"historicalCode": "134943",
 			"bwGebId": 5538489,
@@ -18252,6 +20102,23 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 135351",
+			"historicalCode": "135351",
+			"bwGebId": 5465083,
+			"ksIds": [
+				"wien-fmzk:4005483392",
+				"wien-fmzk:4007073091",
+				"wien-fmzk:4007073099"
+			],
+			"sheet": "116097",
+			"lng": 16.4432891,
+			"lat": 48.276451,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 29.99,
+			"historicalOutsideCurrentM2": 0.33,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 135459",
 			"historicalCode": "135459",
 			"bwGebId": 5325550,
@@ -18295,6 +20162,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 18.13,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 135655",
+			"historicalCode": "135655",
+			"bwGebId": 5440476,
+			"ksIds": [
+				"wien-fmzk:4002275658",
+				"wien-fmzk:4005381736",
+				"wien-fmzk:4006994661"
+			],
+			"sheet": "115071",
+			"lng": 16.4345008,
+			"lat": 48.1594801,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 21.56,
+			"historicalOutsideCurrentM2": 1.39,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 135677",
@@ -18403,6 +20287,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 136023",
+			"historicalCode": "136023",
+			"bwGebId": 5366117,
+			"ksIds": [
+				"wien-fmzk:4001950290",
+				"wien-fmzk:4006274162"
+			],
+			"sheet": "098081",
+			"lng": 16.3232763,
+			"lat": 48.2049162,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 5.57,
+			"historicalOutsideCurrentM2": 0.15,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 136049",
 			"historicalCode": "136049",
 			"bwGebId": 5504098,
@@ -18415,6 +20315,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 1.88,
 			"historicalOutsideCurrentM2": 6.66
+		},
+		{
+			"name": "Wien LOD2.1 136134",
+			"historicalCode": "136134",
+			"bwGebId": 5427957,
+			"ksIds": [
+				"wien-fmzk:4005801000",
+				"wien-fmzk:4007252971"
+			],
+			"sheet": "080087",
+			"lng": 16.2001334,
+			"lat": 48.2301296,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 0,
+			"historicalOutsideCurrentM2": 1.4,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 136204",
@@ -18535,6 +20451,21 @@
 			"historicalOutsideCurrentM2": 9.66
 		},
 		{
+			"name": "Wien LOD2.1 136666",
+			"historicalCode": "136666",
+			"bwGebId": 5285051,
+			"ksIds": [
+				"wien-fmzk:4006001926"
+			],
+			"sheet": "115071",
+			"lng": 16.437863,
+			"lat": 48.1609991,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 4.19,
+			"historicalOutsideCurrentM2": 1.96,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 136771",
 			"historicalCode": "136771",
 			"bwGebId": 5293474,
@@ -18653,6 +20584,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 28.35,
 			"historicalOutsideCurrentM2": 0.06
+		},
+		{
+			"name": "Wien LOD2.1 137250",
+			"historicalCode": "137250",
+			"bwGebId": 5340173,
+			"ksIds": [
+				"wien-fmzk:4005674141",
+				"wien-fmzk:4007121074"
+			],
+			"sheet": "098080",
+			"lng": 16.323401,
+			"lat": 48.2011407,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 21.81,
+			"historicalOutsideCurrentM2": 0.81,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 137271",
@@ -18784,6 +20731,25 @@
 			"rolloutMode": "hybrid-b-absolute",
 			"expectedRemainderM2": 14.88,
 			"historicalOutsideCurrentM2": 0.07
+		},
+		{
+			"name": "Wien LOD2.1 137801",
+			"historicalCode": "137801",
+			"bwGebId": 5357517,
+			"ksIds": [
+				"wien-fmzk:4003127389",
+				"wien-fmzk:4005501721",
+				"wien-fmzk:4005501722",
+				"wien-fmzk:4007141003",
+				"wien-fmzk:4007141008"
+			],
+			"sheet": "122099",
+			"lng": 16.4847466,
+			"lat": 48.2856738,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 27.12,
+			"historicalOutsideCurrentM2": 0.84,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 137857",
@@ -18968,6 +20934,24 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 29.85,
 			"historicalOutsideCurrentM2": 0.12
+		},
+		{
+			"name": "Wien LOD2.1 138510",
+			"historicalCode": "138510",
+			"bwGebId": 5299359,
+			"ksIds": [
+				"wien-fmzk:4003118756",
+				"wien-fmzk:4004695534",
+				"wien-fmzk:4007032237",
+				"wien-fmzk:4007032241"
+			],
+			"sheet": "120097",
+			"lng": 16.4702372,
+			"lat": 48.2772846,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 27.75,
+			"historicalOutsideCurrentM2": 0.73,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 138681",
@@ -19460,6 +21444,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 140956",
+			"historicalCode": "140956",
+			"bwGebId": 5531635,
+			"ksIds": [
+				"wien-fmzk:4006559813",
+				"wien-fmzk:4006559819"
+			],
+			"sheet": "105070",
+			"lng": 16.3704255,
+			"lat": 48.157215,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.03,
+			"historicalOutsideCurrentM2": 0.43,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 140992",
 			"historicalCode": "140992",
 			"bwGebId": 5350366,
@@ -19565,6 +21565,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 141698",
+			"historicalCode": "141698",
+			"bwGebId": 5349015,
+			"ksIds": [
+				"wien-fmzk:4007148151",
+				"wien-fmzk:4007148155"
+			],
+			"sheet": "095091",
+			"lng": 16.2985986,
+			"lat": 48.2496325,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.61,
+			"historicalOutsideCurrentM2": 0.83,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 141705",
 			"historicalCode": "141705",
 			"bwGebId": 5362701,
@@ -19639,6 +21655,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 45.92,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 141825",
+			"historicalCode": "141825",
+			"bwGebId": 5286161,
+			"ksIds": [
+				"wien-fmzk:4006013443",
+				"wien-fmzk:4006013448"
+			],
+			"sheet": "110070",
+			"lng": 16.4042093,
+			"lat": 48.1566388,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 27.49,
+			"historicalOutsideCurrentM2": 0.57,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 141998",
@@ -19836,6 +21868,27 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 142530",
+			"historicalCode": "142530",
+			"bwGebId": 5309606,
+			"ksIds": [
+				"wien-fmzk:4005219472",
+				"wien-fmzk:4005219477",
+				"wien-fmzk:4005219792",
+				"wien-fmzk:4005219793",
+				"wien-fmzk:4005219799",
+				"wien-fmzk:4005219805",
+				"wien-fmzk:4006550881"
+			],
+			"sheet": "089082",
+			"lng": 16.2608747,
+			"lat": 48.2094941,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 55.36,
+			"historicalOutsideCurrentM2": 2.79,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 142605",
 			"historicalCode": "142605",
 			"bwGebId": 5516252,
@@ -19970,6 +22023,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 22.96,
 			"historicalOutsideCurrentM2": 0.04
+		},
+		{
+			"name": "Wien LOD2.1 143181",
+			"historicalCode": "143181",
+			"bwGebId": 5481391,
+			"ksIds": [
+				"wien-fmzk:4001856034",
+				"wien-fmzk:4007604977"
+			],
+			"sheet": "108069",
+			"lng": 16.3897884,
+			"lat": 48.1526163,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 26.28,
+			"historicalOutsideCurrentM2": 0.97,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 143322",
@@ -20198,6 +22267,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 3.82
+		},
+		{
+			"name": "Wien LOD2.1 144638",
+			"historicalCode": "144638",
+			"bwGebId": 5418716,
+			"ksIds": [
+				"wien-fmzk:4006120096",
+				"wien-fmzk:4006120098",
+				"wien-fmzk:4006873281"
+			],
+			"sheet": "120081",
+			"lng": 16.4681987,
+			"lat": 48.2039706,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 105.05,
+			"historicalOutsideCurrentM2": 2.46,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 144734",
@@ -20524,6 +22610,22 @@
 			"historicalOutsideCurrentM2": 0.01
 		},
 		{
+			"name": "Wien LOD2.1 146847",
+			"historicalCode": "146847",
+			"bwGebId": 5513173,
+			"ksIds": [
+				"wien-fmzk:4006962052",
+				"wien-fmzk:4006962053"
+			],
+			"sheet": "109073",
+			"lng": 16.3992378,
+			"lat": 48.1688001,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 12.1,
+			"historicalOutsideCurrentM2": 0.19,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 146852",
 			"historicalCode": "146852",
 			"bwGebId": 5464055,
@@ -20790,6 +22892,24 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 148568",
+			"historicalCode": "148568",
+			"bwGebId": 5557658,
+			"ksIds": [
+				"wien-fmzk:4005712861",
+				"wien-fmzk:4005713324",
+				"wien-fmzk:4006758992",
+				"wien-fmzk:4006758996"
+			],
+			"sheet": "092086",
+			"lng": 16.2830834,
+			"lat": 48.2267562,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.88,
+			"historicalOutsideCurrentM2": 0.46,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 148602",
 			"historicalCode": "148602",
 			"bwGebId": 5480393,
@@ -20866,6 +22986,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 149011",
+			"historicalCode": "149011",
+			"bwGebId": 5374701,
+			"ksIds": [
+				"wien-fmzk:4005972641",
+				"wien-fmzk:4006906256"
+			],
+			"sheet": "116086",
+			"lng": 16.4443459,
+			"lat": 48.2260396,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 26.68,
+			"historicalOutsideCurrentM2": 0.7,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 149037",
 			"historicalCode": "149037",
 			"bwGebId": 5493151,
@@ -20922,6 +23058,21 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 7.81,
 			"historicalOutsideCurrentM2": 3.79
+		},
+		{
+			"name": "Wien LOD2.1 149144",
+			"historicalCode": "149144",
+			"bwGebId": 5305181,
+			"ksIds": [
+				"wien-fmzk:4005280715"
+			],
+			"sheet": "115087",
+			"lng": 16.4377905,
+			"lat": 48.2305531,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 36.58,
+			"historicalOutsideCurrentM2": 0.43,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 149146",
@@ -21218,6 +23369,37 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 18.75,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 151261",
+			"historicalCode": "151261",
+			"bwGebId": 5573603,
+			"ksIds": [
+				"wien-fmzk:4005923705"
+			],
+			"sheet": "110072",
+			"lng": 16.4031149,
+			"lat": 48.1655523,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.46,
+			"historicalOutsideCurrentM2": 0.84,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 151555",
+			"historicalCode": "151555",
+			"bwGebId": 5469919,
+			"ksIds": [
+				"wien-fmzk:4002137163",
+				"wien-fmzk:4006947007"
+			],
+			"sheet": "099072",
+			"lng": 16.331158,
+			"lat": 48.1628974,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 22.26,
+			"historicalOutsideCurrentM2": 1.28,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 151718",
@@ -22280,6 +24462,24 @@
 			"historicalOutsideCurrentM2": 1.05
 		},
 		{
+			"name": "Wien LOD2.1 161333",
+			"historicalCode": "161333",
+			"bwGebId": 5350873,
+			"ksIds": [
+				"wien-fmzk:4003131724",
+				"wien-fmzk:4007827838",
+				"wien-fmzk:4007827841",
+				"wien-fmzk:4007827857"
+			],
+			"sheet": "124098",
+			"lng": 16.4988014,
+			"lat": 48.2832643,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 45.48,
+			"historicalOutsideCurrentM2": 1.26,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 161610",
 			"historicalCode": "161610",
 			"bwGebId": 5514639,
@@ -22292,6 +24492,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 161754",
+			"historicalCode": "161754",
+			"bwGebId": 5558770,
+			"ksIds": [
+				"wien-fmzk:4006854841",
+				"wien-fmzk:4006854865",
+				"wien-fmzk:4006854874"
+			],
+			"sheet": "116087",
+			"lng": 16.4433105,
+			"lat": 48.2313204,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.49,
+			"historicalOutsideCurrentM2": 0.64,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 162012",
@@ -22486,6 +24703,22 @@
 			"historicalOutsideCurrentM2": 0.46
 		},
 		{
+			"name": "Wien LOD2.1 163644",
+			"historicalCode": "163644",
+			"bwGebId": 5471632,
+			"ksIds": [
+				"wien-fmzk:4005403476",
+				"wien-fmzk:4007093197"
+			],
+			"sheet": "129091",
+			"lng": 16.5323974,
+			"lat": 48.2495959,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 24.72,
+			"historicalOutsideCurrentM2": 0.98,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 163781",
 			"historicalCode": "163781",
 			"bwGebId": 5460845,
@@ -22666,6 +24899,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 50.68,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 166602",
+			"historicalCode": "166602",
+			"bwGebId": 5342888,
+			"ksIds": [
+				"wien-fmzk:4006471872",
+				"wien-fmzk:4006471874",
+				"wien-fmzk:4006471876"
+			],
+			"sheet": "097091",
+			"lng": 16.314311,
+			"lat": 48.250304,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 14.28,
+			"historicalOutsideCurrentM2": 0.26,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 166739",
@@ -23387,6 +25637,21 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 16.54,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 177810",
+			"historicalCode": "177810",
+			"bwGebId": 5534984,
+			"ksIds": [
+				"wien-fmzk:4005715352"
+			],
+			"sheet": "094080",
+			"lng": 16.2940456,
+			"lat": 48.2003657,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.55,
+			"historicalOutsideCurrentM2": 0.28,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 177938",
@@ -24137,6 +26402,23 @@
 			"historicalOutsideCurrentM2": 0.06
 		},
 		{
+			"name": "Wien LOD2.1 180046",
+			"historicalCode": "180046",
+			"bwGebId": 5529304,
+			"ksIds": [
+				"wien-fmzk:4005209317",
+				"wien-fmzk:4005210271",
+				"wien-fmzk:4005210272"
+			],
+			"sheet": "087082",
+			"lng": 16.2492192,
+			"lat": 48.2101474,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 13.7,
+			"historicalOutsideCurrentM2": 0.3,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 180052",
 			"historicalCode": "180052",
 			"bwGebId": 5513192,
@@ -24196,6 +26478,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 180307",
+			"historicalCode": "180307",
+			"bwGebId": 5325598,
+			"ksIds": [
+				"wien-fmzk:4006977394",
+				"wien-fmzk:4006977395"
+			],
+			"sheet": "084083",
+			"lng": 16.2277038,
+			"lat": 48.213169,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 14.29,
+			"historicalOutsideCurrentM2": 0.92,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 180312",
 			"historicalCode": "180312",
 			"bwGebId": 5404702,
@@ -24208,6 +26506,42 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 16.76,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 180322",
+			"historicalCode": "180322",
+			"bwGebId": 5481491,
+			"ksIds": [
+				"wien-fmzk:4006977429",
+				"wien-fmzk:4006977432"
+			],
+			"sheet": "084083",
+			"lng": 16.2289578,
+			"lat": 48.21358,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 35.03,
+			"historicalOutsideCurrentM2": 0.43,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 180327",
+			"historicalCode": "180327",
+			"bwGebId": 5528186,
+			"ksIds": [
+				"wien-fmzk:4005777122",
+				"wien-fmzk:4005777128",
+				"wien-fmzk:4005777134",
+				"wien-fmzk:4005777144",
+				"wien-fmzk:4005777586",
+				"wien-fmzk:4005777593"
+			],
+			"sheet": "084083",
+			"lng": 16.2289873,
+			"lat": 48.2139384,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 42.22,
+			"historicalOutsideCurrentM2": 1.24,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 180371",
@@ -24453,6 +26787,21 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 181057",
+			"historicalCode": "181057",
+			"bwGebId": 5477439,
+			"ksIds": [
+				"wien-fmzk:4007124895"
+			],
+			"sheet": "093085",
+			"lng": 16.2915994,
+			"lat": 48.2218752,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 15.86,
+			"historicalOutsideCurrentM2": 0.55,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 181120",
 			"historicalCode": "181120",
 			"bwGebId": 5411794,
@@ -24528,6 +26877,38 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 117.79,
 			"historicalOutsideCurrentM2": 45.31
+		},
+		{
+			"name": "Wien LOD2.1 181670",
+			"historicalCode": "181670",
+			"bwGebId": 5474433,
+			"ksIds": [
+				"wien-fmzk:4006323015",
+				"wien-fmzk:4006323034"
+			],
+			"sheet": "095082",
+			"lng": 16.2990828,
+			"lat": 48.2074305,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 6.82,
+			"historicalOutsideCurrentM2": 0.25,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 182038",
+			"historicalCode": "182038",
+			"bwGebId": 5447341,
+			"ksIds": [
+				"wien-fmzk:4005460265",
+				"wien-fmzk:4005460904"
+			],
+			"sheet": "103095",
+			"lng": 16.3572317,
+			"lat": 48.2677416,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 30.14,
+			"historicalOutsideCurrentM2": 1.18,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 182040",
@@ -24635,6 +27016,23 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 1,
 			"historicalOutsideCurrentM2": 1.98
+		},
+		{
+			"name": "Wien LOD2.1 182349",
+			"historicalCode": "182349",
+			"bwGebId": 5505798,
+			"ksIds": [
+				"wien-fmzk:4005713081",
+				"wien-fmzk:4005713505",
+				"wien-fmzk:4005713509"
+			],
+			"sheet": "092086",
+			"lng": 16.2796569,
+			"lat": 48.2279087,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.3,
+			"historicalOutsideCurrentM2": 0.3,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 182373",
@@ -25084,6 +27482,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 183939",
+			"historicalCode": "183939",
+			"bwGebId": 5543464,
+			"ksIds": [
+				"wien-fmzk:4003858856",
+				"wien-fmzk:4006602521"
+			],
+			"sheet": "099093",
+			"lng": 16.3262857,
+			"lat": 48.2595289,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 7.49,
+			"historicalOutsideCurrentM2": 0.13,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 183972",
 			"historicalCode": "183972",
 			"bwGebId": 5510375,
@@ -25127,6 +27541,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 184271",
+			"historicalCode": "184271",
+			"bwGebId": 5506924,
+			"ksIds": [
+				"wien-fmzk:4007027915",
+				"wien-fmzk:4007027916"
+			],
+			"sheet": "097086",
+			"lng": 16.3169168,
+			"lat": 48.2286806,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19,
+			"historicalOutsideCurrentM2": 0.62,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 184331",
@@ -25249,6 +27679,22 @@
 			"historicalOutsideCurrentM2": 3.03
 		},
 		{
+			"name": "Wien LOD2.1 184970",
+			"historicalCode": "184970",
+			"bwGebId": 5545045,
+			"ksIds": [
+				"wien-fmzk:4007024931",
+				"wien-fmzk:4007024941"
+			],
+			"sheet": "096091",
+			"lng": 16.3096105,
+			"lat": 48.2513078,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 7.22,
+			"historicalOutsideCurrentM2": 0.2,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 184996",
 			"historicalCode": "184996",
 			"bwGebId": 5379257,
@@ -25278,6 +27724,24 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 10.23,
 			"historicalOutsideCurrentM2": 5.15
+		},
+		{
+			"name": "Wien LOD2.1 185038",
+			"historicalCode": "185038",
+			"bwGebId": 5348858,
+			"ksIds": [
+				"wien-fmzk:4000791041",
+				"wien-fmzk:4007000732",
+				"wien-fmzk:4007000733",
+				"wien-fmzk:4007000735"
+			],
+			"sheet": "096087",
+			"lng": 16.3073011,
+			"lat": 48.2326908,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 13.43,
+			"historicalOutsideCurrentM2": 0.29,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 185092",
@@ -25336,6 +27800,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.01,
 			"historicalOutsideCurrentM2": 0.01
+		},
+		{
+			"name": "Wien LOD2.1 185296",
+			"historicalCode": "185296",
+			"bwGebId": 5341069,
+			"ksIds": [
+				"wien-fmzk:4005464893",
+				"wien-fmzk:4005466011"
+			],
+			"sheet": "104095",
+			"lng": 16.3623695,
+			"lat": 48.2678648,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.76,
+			"historicalOutsideCurrentM2": 1.12,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 185393",
@@ -25762,6 +28242,36 @@
 			"historicalOutsideCurrentM2": 2.71
 		},
 		{
+			"name": "Wien LOD2.1 186189",
+			"historicalCode": "186189",
+			"bwGebId": 5468518,
+			"ksIds": [
+				"wien-fmzk:4007425942"
+			],
+			"sheet": "094070",
+			"lng": 16.2932275,
+			"lat": 48.1567122,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.24,
+			"historicalOutsideCurrentM2": 0.82,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 186207",
+			"historicalCode": "186207",
+			"bwGebId": 5431841,
+			"ksIds": [
+				"wien-fmzk:4005335001"
+			],
+			"sheet": "094071",
+			"lng": 16.2922405,
+			"lat": 48.159566,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 20.84,
+			"historicalOutsideCurrentM2": 0.28,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 186210",
 			"historicalCode": "186210",
 			"bwGebId": 5518113,
@@ -25997,6 +28507,23 @@
 			"historicalOutsideCurrentM2": 10.19
 		},
 		{
+			"name": "Wien LOD2.1 186775",
+			"historicalCode": "186775",
+			"bwGebId": 5449649,
+			"ksIds": [
+				"wien-fmzk:4005015076",
+				"wien-fmzk:4005587612",
+				"wien-fmzk:4005587731"
+			],
+			"sheet": "104093",
+			"lng": 16.3635376,
+			"lat": 48.256853,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 16.21,
+			"historicalOutsideCurrentM2": 0.82,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 186992",
 			"historicalCode": "186992",
 			"bwGebId": 5469391,
@@ -26059,6 +28586,24 @@
 			"historicalOutsideCurrentM2": 9.32
 		},
 		{
+			"name": "Wien LOD2.1 187046",
+			"historicalCode": "187046",
+			"bwGebId": 5371876,
+			"ksIds": [
+				"wien-fmzk:4006507116",
+				"wien-fmzk:4006507242",
+				"wien-fmzk:4007130426",
+				"wien-fmzk:4007130428"
+			],
+			"sheet": "085079",
+			"lng": 16.2371841,
+			"lat": 48.1975946,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 30.13,
+			"historicalOutsideCurrentM2": 0.6,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 187048",
 			"historicalCode": "187048",
 			"bwGebId": 5284604,
@@ -26072,6 +28617,22 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 24.9,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 187049",
+			"historicalCode": "187049",
+			"bwGebId": 5484162,
+			"ksIds": [
+				"wien-fmzk:4006507233",
+				"wien-fmzk:4007130385"
+			],
+			"sheet": "085079",
+			"lng": 16.2370111,
+			"lat": 48.1973934,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.94,
+			"historicalOutsideCurrentM2": 0.8,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 187051",
@@ -26160,6 +28721,23 @@
 			"historicalOutsideCurrentM2": 9.25
 		},
 		{
+			"name": "Wien LOD2.1 187517",
+			"historicalCode": "187517",
+			"bwGebId": 5400277,
+			"ksIds": [
+				"wien-fmzk:4006941725",
+				"wien-fmzk:4006941732",
+				"wien-fmzk:4006941746"
+			],
+			"sheet": "098070",
+			"lng": 16.3218427,
+			"lat": 48.1536032,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 17.99,
+			"historicalOutsideCurrentM2": 0.27,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 187738",
 			"historicalCode": "187738",
 			"bwGebId": 5411654,
@@ -26172,6 +28750,27 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 2.76,
 			"historicalOutsideCurrentM2": 4.72
+		},
+		{
+			"name": "Wien LOD2.1 187755",
+			"historicalCode": "187755",
+			"bwGebId": 5373596,
+			"ksIds": [
+				"wien-fmzk:4001897647",
+				"wien-fmzk:4001897649",
+				"wien-fmzk:4001897675",
+				"wien-fmzk:4006496866",
+				"wien-fmzk:4006497465",
+				"wien-fmzk:4006497470",
+				"wien-fmzk:4007124863"
+			],
+			"sheet": "094084",
+			"lng": 16.2926683,
+			"lat": 48.2184118,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 48.54,
+			"historicalOutsideCurrentM2": 2.98,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 187789",
@@ -26341,6 +28940,22 @@
 			"historicalOutsideCurrentM2": 0.01
 		},
 		{
+			"name": "Wien LOD2.1 188421",
+			"historicalCode": "188421",
+			"bwGebId": 5318872,
+			"ksIds": [
+				"wien-fmzk:4006115464",
+				"wien-fmzk:4006860523"
+			],
+			"sheet": "126082",
+			"lng": 16.5123479,
+			"lat": 48.2108231,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 39.85,
+			"historicalOutsideCurrentM2": 0.47,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 188436",
 			"historicalCode": "188436",
 			"bwGebId": 5413110,
@@ -26457,6 +29072,22 @@
 			"historicalOutsideCurrentM2": 16.84
 		},
 		{
+			"name": "Wien LOD2.1 188586",
+			"historicalCode": "188586",
+			"bwGebId": 5328845,
+			"ksIds": [
+				"wien-fmzk:4006131454",
+				"wien-fmzk:4006875282"
+			],
+			"sheet": "126081",
+			"lng": 16.5118504,
+			"lat": 48.2066609,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 28.14,
+			"historicalOutsideCurrentM2": 0.52,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 188630",
 			"historicalCode": "188630",
 			"bwGebId": 5520017,
@@ -26485,6 +29116,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 13.11,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 188642",
+			"historicalCode": "188642",
+			"bwGebId": 5543658,
+			"ksIds": [
+				"wien-fmzk:4006873531",
+				"wien-fmzk:4006873567",
+				"wien-fmzk:4006873597"
+			],
+			"sheet": "126081",
+			"lng": 16.5109397,
+			"lat": 48.2042244,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 34.24,
+			"historicalOutsideCurrentM2": 1.1,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 188829",
@@ -27011,6 +29659,37 @@
 			"historicalOutsideCurrentM2": 0.24
 		},
 		{
+			"name": "Wien LOD2.1 190391",
+			"historicalCode": "190391",
+			"bwGebId": 5285040,
+			"ksIds": [
+				"wien-fmzk:4004229464",
+				"wien-fmzk:4005916594"
+			],
+			"sheet": "102069",
+			"lng": 16.3473545,
+			"lat": 48.1530172,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 25.46,
+			"historicalOutsideCurrentM2": 0.79,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 190596",
+			"historicalCode": "190596",
+			"bwGebId": 5569018,
+			"ksIds": [
+				"wien-fmzk:4005834067"
+			],
+			"sheet": "103072",
+			"lng": 16.3585044,
+			"lat": 48.1637749,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 23.88,
+			"historicalOutsideCurrentM2": 0.69,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 190617",
 			"historicalCode": "190617",
 			"bwGebId": 5329795,
@@ -27024,6 +29703,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 26.94,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 190733",
+			"historicalCode": "190733",
+			"bwGebId": 5377618,
+			"ksIds": [
+				"wien-fmzk:4005891584",
+				"wien-fmzk:4005891952",
+				"wien-fmzk:4005891961"
+			],
+			"sheet": "104071",
+			"lng": 16.3603203,
+			"lat": 48.1617604,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 24.19,
+			"historicalOutsideCurrentM2": 0.51,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 190776",
@@ -28036,6 +30732,27 @@
 			"historicalOutsideCurrentM2": 0.01
 		},
 		{
+			"name": "Wien LOD2.1 212279",
+			"historicalCode": "212279",
+			"bwGebId": 5360425,
+			"ksIds": [
+				"wien-fmzk:4001297423",
+				"wien-fmzk:4001297456",
+				"wien-fmzk:4001297473",
+				"wien-fmzk:4001297502",
+				"wien-fmzk:4001297531",
+				"wien-fmzk:4001297532",
+				"wien-fmzk:4001297548"
+			],
+			"sheet": "090078",
+			"lng": 16.2703121,
+			"lat": 48.1904659,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 0.04,
+			"historicalOutsideCurrentM2": 12.61,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Straußengasse 2–10",
 			"historicalCode": "212535",
 			"bwGebId": 5488074,
@@ -28268,6 +30985,22 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 216344",
+			"historicalCode": "216344",
+			"bwGebId": 5369714,
+			"ksIds": [
+				"wien-fmzk:4006738946",
+				"wien-fmzk:4007303791"
+			],
+			"sheet": "111100",
+			"lng": 16.412268,
+			"lat": 48.2886722,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 45.92,
+			"historicalOutsideCurrentM2": 0.62,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 216779",
 			"historicalCode": "216779",
 			"bwGebId": 5308016,
@@ -28353,6 +31086,22 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.02,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 217189",
+			"historicalCode": "217189",
+			"bwGebId": 5423152,
+			"ksIds": [
+				"wien-fmzk:4007031683",
+				"wien-fmzk:4007837602"
+			],
+			"sheet": "118096",
+			"lng": 16.4594641,
+			"lat": 48.2726191,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 21.05,
+			"historicalOutsideCurrentM2": 0.75,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 217212",
@@ -29199,6 +31948,26 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 225468",
+			"historicalCode": "225468",
+			"bwGebId": 5295985,
+			"ksIds": [
+				"wien-fmzk:4006266301",
+				"wien-fmzk:4006685007",
+				"wien-fmzk:4006685010",
+				"wien-fmzk:4006685017",
+				"wien-fmzk:4006685022",
+				"wien-fmzk:4007164712"
+			],
+			"sheet": "108101",
+			"lng": 16.3918966,
+			"lat": 48.2942303,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 64.54,
+			"historicalOutsideCurrentM2": 1.17,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 226133",
 			"historicalCode": "226133",
 			"bwGebId": 5344903,
@@ -29476,6 +32245,44 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 0.14,
 			"historicalOutsideCurrentM2": 0.06
+		},
+		{
+			"name": "Wien LOD2.1 230625",
+			"historicalCode": "230625",
+			"bwGebId": 5325860,
+			"ksIds": [
+				"wien-fmzk:4005269749",
+				"wien-fmzk:4005269751",
+				"wien-fmzk:4005870596",
+				"wien-fmzk:4006367726",
+				"wien-fmzk:4006368345",
+				"wien-fmzk:4007490499",
+				"wien-fmzk:4007490500"
+			],
+			"sheet": "090075",
+			"lng": 16.2662002,
+			"lat": 48.1761152,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 167.59,
+			"historicalOutsideCurrentM2": 4.77,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 500170",
+			"historicalCode": "500170",
+			"bwGebId": 5341499,
+			"ksIds": [
+				"wien-fmzk:4005266326",
+				"wien-fmzk:4005266344",
+				"wien-fmzk:4005267101"
+			],
+			"sheet": "118090",
+			"lng": 16.459275,
+			"lat": 48.2449466,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 29.8,
+			"historicalOutsideCurrentM2": 1.17,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 500171",
@@ -29800,6 +32607,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 16.01,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 500962",
+			"historicalCode": "500962",
+			"bwGebId": 5330706,
+			"ksIds": [
+				"wien-fmzk:4005210318",
+				"wien-fmzk:4005210324",
+				"wien-fmzk:4005210326"
+			],
+			"sheet": "087082",
+			"lng": 16.2485218,
+			"lat": 48.2105934,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 12.65,
+			"historicalOutsideCurrentM2": 0.3,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 500967",
@@ -30319,6 +33143,33 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 503392",
+			"historicalCode": "503392",
+			"bwGebId": 5335143,
+			"ksIds": [
+				"wien-fmzk:4005366194",
+				"wien-fmzk:4005366195",
+				"wien-fmzk:4005366206",
+				"wien-fmzk:4005366207",
+				"wien-fmzk:4005366209",
+				"wien-fmzk:4005366216",
+				"wien-fmzk:4005366217",
+				"wien-fmzk:4005366224",
+				"wien-fmzk:4005366226",
+				"wien-fmzk:4005366230",
+				"wien-fmzk:4005366235",
+				"wien-fmzk:4005366425",
+				"wien-fmzk:4006075787"
+			],
+			"sheet": "113090",
+			"lng": 16.4222606,
+			"lat": 48.2446054,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 125.44,
+			"historicalOutsideCurrentM2": 4.66,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 503420",
 			"historicalCode": "503420",
 			"bwGebId": 5361257,
@@ -30487,6 +33338,42 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 504175",
+			"historicalCode": "504175",
+			"bwGebId": 5340638,
+			"ksIds": [
+				"wien-fmzk:4006194746",
+				"wien-fmzk:4006195222",
+				"wien-fmzk:4006195227",
+				"wien-fmzk:4006195249"
+			],
+			"sheet": "101086",
+			"lng": 16.3414831,
+			"lat": 48.2270769,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 153.78,
+			"historicalOutsideCurrentM2": 7.6,
+			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Wien LOD2.1 504534",
+			"historicalCode": "504534",
+			"bwGebId": 5506041,
+			"ksIds": [
+				"wien-fmzk:4006163674",
+				"wien-fmzk:4007033398",
+				"wien-fmzk:4007033399",
+				"wien-fmzk:4007033401"
+			],
+			"sheet": "103081",
+			"lng": 16.3562715,
+			"lat": 48.2046839,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 437.23,
+			"historicalOutsideCurrentM2": 6.65,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 504597",
 			"historicalCode": "504597",
 			"bwGebId": 5536874,
@@ -30594,6 +33481,23 @@
 			"historicalOutsideCurrentM2": 0.06
 		},
 		{
+			"name": "Wien LOD2.1 506030",
+			"historicalCode": "506030",
+			"bwGebId": 5426607,
+			"ksIds": [
+				"wien-fmzk:4002820667",
+				"wien-fmzk:4002820670",
+				"wien-fmzk:4006747995"
+			],
+			"sheet": "112095",
+			"lng": 16.4152828,
+			"lat": 48.266432,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 12.68,
+			"historicalOutsideCurrentM2": 0.36,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 506112",
 			"historicalCode": "506112",
 			"bwGebId": 5458773,
@@ -30682,6 +33586,24 @@
 			"historicalOutsideCurrentM2": 0
 		},
 		{
+			"name": "Wien LOD2.1 506424",
+			"historicalCode": "506424",
+			"bwGebId": 5491631,
+			"ksIds": [
+				"wien-fmzk:4001219869",
+				"wien-fmzk:4005520252",
+				"wien-fmzk:4006783923",
+				"wien-fmzk:4007160206"
+			],
+			"sheet": "125097",
+			"lng": 16.5055941,
+			"lat": 48.2750916,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 11.95,
+			"historicalOutsideCurrentM2": 0.7,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 506474",
 			"historicalCode": "506474",
 			"bwGebId": 5394193,
@@ -30695,6 +33617,23 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 15.04,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Wien LOD2.1 506500",
+			"historicalCode": "506500",
+			"bwGebId": 5353833,
+			"ksIds": [
+				"wien-fmzk:4005284610",
+				"wien-fmzk:4005284611",
+				"wien-fmzk:4006764751"
+			],
+			"sheet": "127086",
+			"lng": 16.5157825,
+			"lat": 48.2262773,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 27.43,
+			"historicalOutsideCurrentM2": 0.76,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 506618",
@@ -31078,6 +34017,22 @@
 			"historicalOutsideCurrentM2": 0.02
 		},
 		{
+			"name": "Wien LOD2.1 510527",
+			"historicalCode": "510527",
+			"bwGebId": 5477911,
+			"ksIds": [
+				"wien-fmzk:4005533565",
+				"wien-fmzk:4007289507"
+			],
+			"sheet": "108099",
+			"lng": 16.389205,
+			"lat": 48.2844164,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 19.44,
+			"historicalOutsideCurrentM2": 0.62,
+			"auditedHistoricalClip": true
+		},
+		{
 			"name": "Wien LOD2.1 510594",
 			"historicalCode": "510594",
 			"bwGebId": 5417231,
@@ -31304,6 +34259,21 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 1.42,
 			"historicalOutsideCurrentM2": 25.82
+		},
+		{
+			"name": "Wien LOD2.1 514245",
+			"historicalCode": "514245",
+			"bwGebId": 5491676,
+			"ksIds": [
+				"wien-fmzk:4006538837"
+			],
+			"sheet": "122092",
+			"lng": 16.4858262,
+			"lat": 48.2528589,
+			"rolloutMode": "hybrid-c-clip",
+			"expectedRemainderM2": 35.8,
+			"historicalOutsideCurrentM2": 0.59,
+			"auditedHistoricalClip": true
 		},
 		{
 			"name": "Wien LOD2.1 514448",
