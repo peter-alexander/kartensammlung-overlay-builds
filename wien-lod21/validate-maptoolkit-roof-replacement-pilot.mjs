@@ -372,16 +372,14 @@ async function main() {
 		if (!matchedFeatures.length) {
 			throw new Error(code + ": replacement point matches no Maptoolkit roof");
 		}
-		if (matchedFeatures.length !== 1) {
+		const pitchedMatchedFeatures = matchedFeatures.filter(
+			(feature) => feature.pitchedSurfaces > 0
+		);
+		if (pitchedMatchedFeatures.length) {
 			throw new Error(
-				code + ": expected exactly one Maptoolkit feature, got "
-				+ matchedFeatures.length
-			);
-		}
-		if (matchedFeatures[0].pitchedSurfaces !== 0) {
-			throw new Error(
-				code + ": matched Maptoolkit feature already has "
-				+ matchedFeatures[0].pitchedSurfaces + " pitched surfaces"
+				code + ": "
+				+ pitchedMatchedFeatures.length
+				+ " matched Maptoolkit feature(s) already have pitched surfaces"
 			);
 		}
 
@@ -389,9 +387,9 @@ async function main() {
 			historicalCode: code,
 			tile: tileKey,
 			replacementPoints: replacementPoints.length,
-			maptoolkitFeatureIndex: matchedFeatures[0].featureIndex,
-			maptoolkitFlatRoofSurfaces: matchedFeatures[0].flatSurfaces,
-			maptoolkitPitchedRoofSurfaces: matchedFeatures[0].pitchedSurfaces
+			currentOgdParts: Array.isArray(target.ksIds) ? target.ksIds.length : 0,
+			maptoolkitMatchedFeatures: matchedFeatures.length,
+			maptoolkitFeatures: matchedFeatures
 		});
 	}
 
