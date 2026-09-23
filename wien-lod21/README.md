@@ -71,6 +71,26 @@ Die übrigen 1.063 sicheren `legacy-subset`-Kandidaten werden **noch nicht**
 automatisch gebaut. Für sie muss zuerst die heutige zusätzliche Grundrissfläche
 als LOD1 erhalten bleiben.
 
+## Hybrid-Restgeometrie
+
+Für `legacy-subset`-Fälle wird die zusätzliche heutige Gebäudefläche nicht im
+Browser verschnitten. Der Build lädt stattdessen die exakt zugeordneten
+aktuellen FMZK-Baukörper aus dem Wiener WFS und berechnet in EPSG:31256:
+
+`aktueller OGD-Grundriss − historischer LOD2.1-Grundriss`
+
+Dieser Rest wird als LOD1-Prisma direkt in dieselbe Binärkachel wie das
+historische LOD2.1 geschrieben. Der Client kann dadurch weiterhin den ganzen
+aktuellen OGD-Baukörper unterdrücken, ohne die inzwischen hinzugekommene
+Gebäudefläche zu verlieren. Die Boolesche Operation findet nur beim Build statt
+und verursacht daher keine zusätzliche Last bei Darstellung oder
+Schattenberechnung.
+
+Der erste Rollout bleibt absichtlich auf die drei bekannten
+`manual-pilot-hybrid`-Gebäude in der Straußengasse beschränkt. Dafür existiert
+`targets.hybrid-pilot.json`; erst nach visueller Kontrolle wird die Logik auf
+die 1.063 automatisch erkannten Hybrid-Kandidaten erweitert.
+
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält nur die für den Client benötigte
 Version, Tile-Verfügbarkeit und kompakte Zähler.
