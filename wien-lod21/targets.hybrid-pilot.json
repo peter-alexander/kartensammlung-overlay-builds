@@ -1,0 +1,63 @@
+{
+	"schemaVersion": 1,
+	"status": "hybrid-pilot",
+	"zoom": 15,
+	"extent": 8192,
+	"counts": {
+		"total": 3,
+		"manualPilotHybrid": 3,
+		"sourceSheets": 1
+	},
+	"buildings": [
+		{
+			"name": "Straußengasse 12",
+			"historicalCode": "009238",
+			"bwGebId": 5513194,
+			"ksIds": [
+				"wien-fmzk:4001396091",
+				"wien-fmzk:4001396099",
+				"wien-fmzk:4001396104",
+				"wien-fmzk:4001396140",
+				"wien-fmzk:4004980675",
+				"wien-fmzk:4004980677",
+				"wien-fmzk:4006142020"
+			],
+			"sheet": "104078",
+			"lng": 16.3620195,
+			"lat": 48.1917828,
+			"rolloutMode": "manual-pilot-hybrid"
+		},
+		{
+			"name": "Straußengasse 14",
+			"historicalCode": "113842",
+			"bwGebId": 5386352,
+			"ksIds": [
+				"wien-fmzk:4001396001",
+				"wien-fmzk:4006141761",
+				"wien-fmzk:4007229119"
+			],
+			"sheet": "104078",
+			"lng": 16.3618049,
+			"lat": 48.1917944,
+			"rolloutMode": "manual-pilot-hybrid"
+		},
+		{
+			"name": "Straußengasse 2–10",
+			"historicalCode": "212535",
+			"bwGebId": 5488074,
+			"ksIds": [
+				"wien-fmzk:4001396133",
+				"wien-fmzk:4001396195",
+				"wien-fmzk:4001396327",
+				"wien-fmzk:4006141749",
+				"wien-fmzk:4007229077",
+				"wien-fmzk:4007229090",
+				"wien-fmzk:4007229104"
+			],
+			"sheet": "104078",
+			"lng": 16.3624848,
+			"lat": 48.191511,
+			"rolloutMode": "manual-pilot-hybrid"
+		}
+	]
+}
