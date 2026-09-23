@@ -789,6 +789,67 @@ function normalizeOpen2DRing(ring, ccw) {
 	return points;
 }
 
+function boundarySegmentsFromGeometry(geometry, writer) {
+	const segments = [];
+	const geojson = writer.write(geometry);
+	const polygons = geojson?.type === "Polygon"
+		? [geojson.coordinates]
+		: geojson?.type === "MultiPolygon"
+			? geojson.coordinates
+			: [];
+
+	for (const polygon of polygons) {
+		for (const ring of polygon || []) {
+			for (let index = 0; index + 1 < ring.length; index += 1) {
+				const a = ring[index];
+				const b = ring[index + 1];
+				if (
+					!Number.isFinite(Number(a?.[0]))
+					|| !Number.isFinite(Number(a?.[1]))
+					|| !Number.isFinite(Number(b?.[0]))
+					|| !Number.isFinite(Number(b?.[1]))
+				) continue;
+				segments.push([
+					[Number(a[0]), Number(a[1])],
+					[Number(b[0]), Number(b[1])]
+				]);
+			}
+		}
+	}
+	return segments;
+}
+
+function pointToSegmentDistance(point, a, b) {
+	const vx = b[0] - a[0];
+	const vy = b[1] - a[1];
+	const lengthSquared = vx * vx + vy * vy;
+	if (!(lengthSquared > 0)) {
+		return Math.hypot(point[0] - a[0], point[1] - a[1]);
+	}
+	const t = Math.max(0, Math.min(
+		1,
+		((point[0] - a[0]) * vx + (point[1] - a[1]) * vy)
+			/ lengthSquared
+	));
+	return Math.hypot(
+		point[0] - (a[0] + t * vx),
+		point[1] - (a[1] + t * vy)
+	);
+}
+
+function edgeLiesOnBoundary(a, b, segments, toleranceM = 0.01) {
+	if (!segments?.length) return false;
+	const samples = [0.25, 0.5, 0.75].map((t) => [
+		a[0] + (b[0] - a[0]) * t,
+		a[1] + (b[1] - a[1]) * t
+	]);
+	return samples.every((point) => (
+		segments.some(([start, end]) => (
+			pointToSegmentDistance(point, start, end) <= toleranceM
+		))
+	));
+}
+
 function currentFeatureLevels(properties = {}) {
 	const roofZ = finiteNumber(properties.O_KOTE);
 	const terrainZ = finiteNumber(properties.T_KOTE)
@@ -807,7 +868,11 @@ function currentFeatureLevels(properties = {}) {
 	return { roofZ, terrainZ, bottomZ };
 }
 
-function extrusionSurfacesFromPolygon(coordinates, levels) {
+function extrusionSurfacesFromPolygon(
+	coordinates,
+	levels,
+	{ seamSegments = [] } = {}
+) {
 	const rings2D = (coordinates || [])
 		.map((ring, index) => normalizeOpen2DRing(ring, index === 0))
 		.filter((ring) => ring.length >= 3);
@@ -826,6 +891,7 @@ function extrusionSurfacesFromPolygon(coordinates, levels) {
 		for (let index = 0; index < ring.length; index += 1) {
 			const a = ring[index];
 			const b = ring[(index + 1) % ring.length];
+			if (edgeLiesOnBoundary(a, b, seamSegments)) continue;
 			surfaces.push({
 				semantic: "wall",
 				rings: [[
@@ -1078,6 +1144,10 @@ async function main() {
 			historicalGround,
 			HYBRID_HISTORY_BUFFER_M
 		);
+		const historicalBoundarySegments = boundarySegmentsFromGeometry(
+			historicalGround,
+			geoWriter
+		);
 		let rawRemainderAreaM2 = 0;
 		let remainderAreaM2 = 0;
 		let remainderParts = 0;
@@ -1133,7 +1203,8 @@ async function main() {
 				for (const coordinates of polygons) {
 					const surfaces = extrusionSurfacesFromPolygon(
 						coordinates,
-						levels
+						levels,
+						{ seamSegments: historicalBoundarySegments }
 					);
 					if (!surfaces.length) continue;
 					const added = addBuildingToTile(tileData, {
