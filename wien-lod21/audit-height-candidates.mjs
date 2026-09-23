@@ -329,11 +329,30 @@ function historicalObject(building, surfaces, reader, sourceSheet) {
 	const groundMaxZ = Math.max(...groundZ);
 	const roofMinZ = Math.min(...roofZ);
 	const roofMaxZ = Math.max(...roofZ);
+	const roofSurfaces = (surfaces || [])
+		.filter((surface) => surface.semantic === "roof")
+		.map((surface, index) => {
+			const geometry = surfaceGeometry(surface, reader);
+			const values = surface.rings
+				.flat()
+				.map((point) => Number(point[2]))
+				.filter(Number.isFinite);
+			if (!geometry || geometry.isEmpty() || !values.length) return null;
+			return {
+				index,
+				geometry,
+				projectedAreaM2: Number(geometry.getArea?.() || 0),
+				minZ: Math.min(...values),
+				maxZ: Math.max(...values)
+			};
+		})
+		.filter(Boolean);
 	return {
 		cityGmlId: nodeAttribute(building, GML_NS, "id"),
 		sourceSheet,
 		roofType: buildingRoofType(building),
 		geometry: ground,
+		roofSurfaces,
 		groundAreaM2: Number(ground.getArea?.() || 0),
 		groundMinZ,
 		groundMaxZ,
@@ -417,6 +436,98 @@ function overlapRow(object, part) {
 	};
 }
 
+function weightedQuantile(samples, quantile, valueKey, weightKey = "areaM2") {
+	const rows = (samples || [])
+		.map((item) => ({
+			value: Number(item?.[valueKey]),
+			weight: Number(item?.[weightKey])
+		}))
+		.filter((item) => Number.isFinite(item.value) && item.weight > 0)
+		.sort((a, b) => a.value - b.value);
+	if (!rows.length) return null;
+	const total = rows.reduce((sum, item) => sum + item.weight, 0);
+	const threshold = total * Math.min(1, Math.max(0, quantile));
+	let cumulative = 0;
+	for (const item of rows) {
+		cumulative += item.weight;
+		if (cumulative >= threshold) return item.value;
+	}
+	return rows[rows.length - 1].value;
+}
+
+function localizedPartHeightAudit(objects, historicalUnion, part) {
+	const historicalIntersection = safeIntersection(
+		historicalUnion,
+		part.geometry
+	);
+	const historicalAreaM2 = Number(
+		historicalIntersection?.getArea?.() || 0
+	);
+	const roofSamples = [];
+	for (const object of objects || []) {
+		for (const surface of object.roofSurfaces || []) {
+			const intersection = safeIntersection(
+				surface.geometry,
+				part.geometry
+			);
+			const areaM2 = Number(intersection?.getArea?.() || 0);
+			if (!(areaM2 > 1e-6)) continue;
+			roofSamples.push({
+				cityGmlId: object.cityGmlId,
+				surfaceIndex: surface.index,
+				areaM2,
+				minZ: surface.minZ,
+				maxZ: surface.maxZ
+			});
+		}
+	}
+	const largestSurface = [...roofSamples].sort(
+		(a, b) => b.areaM2 - a.areaM2
+	)[0] || null;
+	const eaveZP25 = weightedQuantile(roofSamples, 0.25, "minZ");
+	const eaveZP50 = weightedQuantile(roofSamples, 0.50, "minZ");
+	const eaveZP75 = weightedQuantile(roofSamples, 0.75, "minZ");
+	const eaveZP90 = weightedQuantile(roofSamples, 0.90, "minZ");
+	const difference = (z) => (
+		part.oKote !== null && Number.isFinite(z)
+			? part.oKote - z
+			: null
+	);
+	return {
+		fmzkId: part.fmzkId,
+		ksId: part.ksId,
+		areaM2: round(part.areaM2),
+		historicalCoverage: round(
+			part.areaM2 > 0 ? historicalAreaM2 / part.areaM2 : 0,
+			6
+		),
+		currentOKote: round(part.oKote),
+		currentHeightM: round(part.currentHeightM),
+		roofSampleCount: roofSamples.length,
+		roofProjectedOverlapAreaM2: round(
+			roofSamples.reduce((sum, item) => sum + item.areaM2, 0)
+		),
+		eaveZP25: round(eaveZP25),
+		eaveZP50: round(eaveZP50),
+		eaveZP75: round(eaveZP75),
+		eaveZP90: round(eaveZP90),
+		largestSurfaceMinZ: round(largestSurface?.minZ),
+		eaveDifferenceP25M: round(difference(eaveZP25)),
+		eaveDifferenceP50M: round(difference(eaveZP50)),
+		eaveDifferenceP75M: round(difference(eaveZP75)),
+		eaveDifferenceP90M: round(difference(eaveZP90)),
+		eaveDifferenceLargestSurfaceM:
+			round(difference(largestSurface?.minZ)),
+		roofSamples: roofSamples.map((item) => ({
+			cityGmlId: item.cityGmlId,
+			surfaceIndex: item.surfaceIndex,
+			areaM2: round(item.areaM2),
+			minZ: round(item.minZ),
+			maxZ: round(item.maxZ)
+		}))
+	};
+}
+
 async function main() {
 	const args = parseArgs(process.argv);
 	const targetsJson = JSON.parse(await fs.readFile(args.targets, "utf8"));
@@ -496,6 +607,12 @@ async function main() {
 				);
 			return matches[0] || null;
 		});
+		const historicalUnion = unionGeometries(
+			objects.map((object) => object.geometry)
+		);
+		const partHeightAudit = parts.map((part) => (
+			localizedPartHeightAudit(objects, historicalUnion, part)
+		));
 
 		rows.push({
 			historicalCode: code,
@@ -513,7 +630,8 @@ async function main() {
 				roofMaxZ: round(object.roofMaxZ),
 				eaveProxyHeightM: round(object.eaveProxyHeightM),
 				ridgeHeightM: round(object.ridgeHeightM),
-				roofRiseM: round(object.roofRiseM)
+				roofRiseM: round(object.roofRiseM),
+				roofSurfaceCount: object.roofSurfaces?.length || 0
 			})),
 			currentParts: parts.map((part) => ({
 				fmzkId: part.fmzkId,
@@ -527,7 +645,8 @@ async function main() {
 				currentHeightM: round(part.currentHeightM)
 			})),
 			overlaps,
-			bestOverlapByHistoricalObject: bestByObject
+			bestOverlapByHistoricalObject: bestByObject,
+			partHeightAudit
 		});
 	}
 
@@ -540,6 +659,22 @@ async function main() {
 		.filter(Number.isFinite)
 		.sort((a, b) => a - b);
 	const within = (limit) => absEaveDiffs.filter(
+		(value) => value <= limit
+	).length;
+	const significantParts = rows
+		.flatMap((item) => (item.partHeightAudit || []).map((part) => ({
+			historicalCode: item.historicalCode,
+			knownManualProduction: item.knownManualProduction,
+			...part
+		})))
+		.filter((part) => (
+			Number(part.historicalCoverage) >= 0.50
+			&& Number.isFinite(Number(part.eaveDifferenceP50M))
+		));
+	const partAbsDiffs = significantParts
+		.map((part) => Math.abs(Number(part.eaveDifferenceP50M)))
+		.sort((a, b) => a - b);
+	const partWithin = (limit) => partAbsDiffs.filter(
 		(value) => value <= limit
 	).length;
 
@@ -560,6 +695,17 @@ async function main() {
 			within2m: within(2),
 			within3m: within(3)
 		},
+		localizedPartEaveDifferenceP50: {
+			significantParts: significantParts.length,
+			maxAbsM: round(
+				partAbsDiffs.length
+					? partAbsDiffs[partAbsDiffs.length - 1]
+					: null
+			),
+			within1m: partWithin(1),
+			within2m: partWithin(2),
+			within3m: partWithin(3)
+		},
 		rows
 	};
 	await fs.mkdir(path.dirname(args.output), { recursive: true });
@@ -572,7 +718,9 @@ async function main() {
 		targets: output.targets,
 		knownManualProduction: output.knownManualProduction,
 		bestOverlapObjects: output.bestOverlapObjects,
-		bestOverlapEaveDifference: output.bestOverlapEaveDifference
+		bestOverlapEaveDifference: output.bestOverlapEaveDifference,
+		localizedPartEaveDifferenceP50:
+			output.localizedPartEaveDifferenceP50
 	}, null, 2));
 }
 
