@@ -6,6 +6,7 @@ on:
       - feature/wien-lod21-clip-pilot
     paths:
       - '.github/workflows/wien-lod21-clip-seven.yml'
+      - 'wien-lod21/build.mjs'
 
 permissions:
   contents: read
@@ -124,7 +125,10 @@ jobs:
           			+ ": roof coverage " + clip.minRoofCoverageRatio
           		);
           	}
-          	if (!(clip.minWallBoundaryCoverageRatio >= 0.98)) {
+          	if (!(
+          		clip.minWallBoundaryCoverageRatio >= 0.999
+          		&& clip.minWallBoundaryCoverageRatio <= 1.01
+          	)) {
           		throw new Error(
           			target.historicalCode
           			+ ": wall coverage " + clip.minWallBoundaryCoverageRatio
