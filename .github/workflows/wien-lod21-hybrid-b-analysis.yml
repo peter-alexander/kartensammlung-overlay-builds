@@ -1,0 +1,111 @@
+name: Summarize Vienna LOD2.1 deferred hybrids
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-hybrid-b-analysis
+    paths:
+      - '.github/workflows/wien-lod21-hybrid-b-analysis.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Build compact hybrid tier summary
+        run: |
+          node wien-lod21/analyze-hybrid-candidates.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --output /tmp/wien-lod21-hybrid-candidates.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const input = JSON.parse(
+          	fs.readFileSync("/tmp/wien-lod21-hybrid-candidates.json", "utf8")
+          );
+          const candidates = input.candidates || [];
+          const modes = ["hybrid-a", "hybrid-b", "hybrid-c", "defer"];
+          const reasonCounts = {};
+          for (const candidate of candidates.filter((item) => item.hybridTier !== "hybrid-a")) {
+          	const metrics = candidate.metrics || {};
+          	const currentHeight = metrics.currentHeightM === null
+          		? null
+          		: Number(metrics.currentHeightM);
+          	const heightTolerance = currentHeight === null
+          		? 6
+          		: Math.max(6, currentHeight * 0.30);
+          	const reasons = [];
+          	if (Number(metrics.oldCoverage) < 0.999) reasons.push("oldCoverage<0.999");
+          	if (Number(metrics.currentCoverage) < 0.60) reasons.push("currentCoverage<0.60");
+          	if (Number(metrics.centroidDistanceM) > 6) reasons.push("centroid>6m");
+          	if (
+          		metrics.heightDifferenceM !== null
+          		&& Number(metrics.heightDifferenceM) > heightTolerance
+          	) reasons.push("height");
+          	for (const reason of reasons) {
+          		reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+          	}
+          }
+          const sample = Object.fromEntries(modes.map((mode) => [
+          	mode,
+          	candidates
+          		.filter((item) => item.hybridTier === mode)
+          		.sort((a, b) => (
+          			Number(a.metrics?.oldCoverage || 0)
+          			- Number(b.metrics?.oldCoverage || 0)
+          		))
+          		.slice(0, 12)
+          		.map((item) => ({
+          			historicalCode: item.historicalCode,
+          			sheet: item.sheet,
+          			oldCoverage: item.metrics?.oldCoverage,
+          			currentCoverage: item.metrics?.currentCoverage,
+          			centroidDistanceM: item.metrics?.centroidDistanceM,
+          			heightDifferenceM: item.metrics?.heightDifferenceM,
+          			currentHeightM: item.metrics?.currentHeightM,
+          			outsideOldAreaM2: item.outsideOldAreaM2,
+          			ksIdCount: item.ksIdCount
+          		}))
+          ]));
+          const summary = {
+          	generatedAt: input.generatedAt,
+          	sourceGeneratedAt: input.sourceGeneratedAt,
+          	count: input.count,
+          	tiers: input.tiers,
+          	tierDetails: input.tierDetails,
+          	distribution: input.distribution,
+          	pilots: input.pilots,
+          	hybridAExclusionReasons: reasonCounts,
+          	lowestOldCoverageSamples: sample
+          };
+          fs.writeFileSync(
+          	"wien-lod21/hybrid-tier-summary.generated.json",
+          	JSON.stringify(summary, null, "\t") + "\n"
+          );
+          NODE
+
+      - name: Commit summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/hybrid-tier-summary.generated.json
+          git commit -m "Record Vienna deferred hybrid tier summary"
+          git push
