@@ -1,0 +1,200 @@
+name: Record Vienna LOD2.1 height audit
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-height-audit
+    paths:
+      - '.github/workflows/wien-lod21-height-audit-record.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-height-audit
+          path: /tmp/height-audit
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35902348692
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-height-control
+          path: /tmp/height-control
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35902929941
+
+      - name: Build compact reproducible audit snapshot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const audit = JSON.parse(
+          	fs.readFileSync("/tmp/height-audit/height-audit.json", "utf8")
+          );
+          const control = JSON.parse(
+          	fs.readFileSync("/tmp/height-control/height-control-summary.json", "utf8")
+          );
+
+          const criteria = {
+          	estimator:
+          		"area-weighted P25 of overlapping historical roof-surface minimum Z values",
+          	minCurrentPartAreaM2: 10,
+          	minHistoricalCoverage: 0.50,
+          	maxAbsEaveDifferenceM: 2.50
+          };
+
+          const rows = (audit.rows || []).map((row) => {
+          	const relevant = (row.partHeightAudit || [])
+          		.filter((part) => (
+          			Number(part.areaM2) >= criteria.minCurrentPartAreaM2
+          			&& Number(part.historicalCoverage)
+          				>= criteria.minHistoricalCoverage
+          			&& Number.isFinite(Number(part.eaveDifferenceP25M))
+          		))
+          		.map((part) => ({
+          			fmzkId: String(part.fmzkId),
+          			areaM2: Number(part.areaM2),
+          			historicalCoverage:
+          				Number(part.historicalCoverage),
+          			eaveDifferenceP25M:
+          				Number(part.eaveDifferenceP25M)
+          		}));
+          	const maxAbs = relevant.length
+          		? Math.max(
+          			...relevant.map(
+          				(part) => Math.abs(part.eaveDifferenceP25M)
+          			)
+          		)
+          		: null;
+          	const knownManual = row.knownManualProduction === true;
+          	return {
+          		historicalCode: String(row.historicalCode),
+          		knownManualProduction: knownManual,
+          		sourceMetrics: row.sourceMetrics || null,
+          		relevantPartCount: relevant.length,
+          		maxRelevantAbsEaveDifferenceP25M:
+          			maxAbs === null ? null : Number(maxAbs.toFixed(3)),
+          		passesAutomaticHeightAudit: (
+          			!knownManual
+          			&& maxAbs !== null
+          			&& maxAbs <= criteria.maxAbsEaveDifferenceM
+          		),
+          		relevantParts: relevant
+          	};
+          }).sort(
+          	(a, b) => a.historicalCode.localeCompare(b.historicalCode)
+          );
+
+          const controlP25 = control
+          	?.calibration
+          	?.coverage50_area10
+          	?.estimators
+          	?.p25;
+          if (!controlP25 || Number(controlP25.n) !== 451) {
+          	throw new Error("Unexpected control calibration.");
+          }
+
+          const automatic = rows.filter(
+          	(row) => row.passesAutomaticHeightAudit
+          );
+          const remainingNonManual = rows.filter(
+          	(row) => (
+          		!row.passesAutomaticHeightAudit
+          		&& !row.knownManualProduction
+          	)
+          );
+
+          if (rows.length !== 29) {
+          	throw new Error("Expected 29 audited height candidates.");
+          }
+          if (automatic.length !== 25) {
+          	throw new Error(
+          		"Expected 25 automatic height passes, got "
+          		+ automatic.length
+          	);
+          }
+          const expectedRemaining = ["029048", "041765", "074864"];
+          if (
+          	JSON.stringify(
+          		remainingNonManual.map(
+          			(row) => row.historicalCode
+          		).sort()
+          	) !== JSON.stringify(expectedRemaining)
+          ) {
+          	throw new Error("Unexpected remaining height candidates.");
+          }
+
+          const output = {
+          	schemaVersion: 1,
+          	status: "validated-height-audit",
+          	source: {
+          		candidateAuditRunId: 35902348692,
+          		controlCalibrationRunId: 35902929941,
+          		controlSampleBuildings: 240,
+          		controlSignificantParts: Number(controlP25.n)
+          	},
+          	criteria,
+          	controlCalibration: {
+          		p25AbsDifferenceM: {
+          			q50: Number(controlP25.q50),
+          			q90: Number(controlP25.q90),
+          			q95: Number(controlP25.q95),
+          			q99: Number(controlP25.q99),
+          			max: Number(controlP25.max),
+          			within1m: Number(controlP25.within1m),
+          			within2m: Number(controlP25.within2m),
+          			within3m: Number(controlP25.within3m)
+          		},
+          		partsWithin2_5m: 424,
+          		partPassRate: Number((424 / 451).toFixed(6))
+          	},
+          	counts: {
+          		auditedCandidates: rows.length,
+          		automaticHeightPass: automatic.length,
+          		knownManualProduction: rows.filter(
+          			(row) => row.knownManualProduction
+          		).length,
+          		remainingNonManual: remainingNonManual.length
+          	},
+          	automaticHeightCodes: automatic.map(
+          		(row) => row.historicalCode
+          	),
+          	remainingNonManualCodes: remainingNonManual.map(
+          		(row) => row.historicalCode
+          	),
+          	rows
+          };
+
+          fs.writeFileSync(
+          	"wien-lod21/height-audit.generated.json",
+          	JSON.stringify(output, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify({
+          	criteria: output.criteria,
+          	controlCalibration: output.controlCalibration,
+          	counts: output.counts,
+          	automaticHeightCodes: output.automaticHeightCodes,
+          	remainingNonManualCodes: output.remainingNonManualCodes
+          }, null, 2));
+          NODE
+
+      - name: Commit audit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/height-audit.generated.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Record Vienna LOD2.1 height audit"
+          git push
