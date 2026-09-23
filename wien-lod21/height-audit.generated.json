@@ -1,0 +1,1032 @@
+{
+	"schemaVersion": 1,
+	"status": "validated-height-audit",
+	"source": {
+		"candidateAuditRunId": 35902348692,
+		"controlCalibrationRunId": 35902929941,
+		"controlSampleBuildings": 240,
+		"controlSignificantParts": 451
+	},
+	"criteria": {
+		"estimator": "area-weighted P25 of overlapping historical roof-surface minimum Z values",
+		"minCurrentPartAreaM2": 10,
+		"minHistoricalCoverage": 0.5,
+		"maxAbsEaveDifferenceM": 2.5
+	},
+	"controlCalibration": {
+		"p25AbsDifferenceM": {
+			"q50": 0.359,
+			"q90": 1.434,
+			"q95": 2.774,
+			"q99": 6.844,
+			"max": 10.82,
+			"within1m": 376,
+			"within2m": 415,
+			"within3m": 430
+		},
+		"partsWithin2_5m": 424,
+		"partPassRate": 0.940133
+	},
+	"counts": {
+		"auditedCandidates": 29,
+		"automaticHeightPass": 25,
+		"knownManualProduction": 1,
+		"remainingNonManual": 3
+	},
+	"automaticHeightCodes": [
+		"009531",
+		"013910",
+		"031798",
+		"033408",
+		"033610",
+		"034762",
+		"034803",
+		"040502",
+		"040735",
+		"049127",
+		"049313",
+		"055289",
+		"058944",
+		"059935",
+		"065442",
+		"077242",
+		"082526",
+		"090896",
+		"099805",
+		"100573",
+		"101889",
+		"151174",
+		"230083",
+		"230445",
+		"231788"
+	],
+	"remainingNonManualCodes": [
+		"029048",
+		"041765",
+		"074864"
+	],
+	"rows": [
+		{
+			"historicalCode": "009531",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 503.04,
+				"oldArea": 497.98,
+				"intersectionArea": 497.97,
+				"iou": 0.9899,
+				"currentCoverage": 0.9899,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0.11,
+				"currentHeightM": 15.68,
+				"oldHeightM": 22.99,
+				"heightDifferenceM": 7.31,
+				"heightToleranceM": 5.49
+			},
+			"relevantPartCount": 4,
+			"maxRelevantAbsEaveDifferenceP25M": 1.302,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001372053",
+					"areaM2": 249.798,
+					"historicalCoverage": 0.999996,
+					"eaveDifferenceP25M": -1.153
+				},
+				{
+					"fmzkId": "4001372125",
+					"areaM2": 142.913,
+					"historicalCoverage": 0.999967,
+					"eaveDifferenceP25M": -1.302
+				},
+				{
+					"fmzkId": "4005571950",
+					"areaM2": 94.247,
+					"historicalCoverage": 0.946239,
+					"eaveDifferenceP25M": -0.541
+				},
+				{
+					"fmzkId": "4005571955",
+					"areaM2": 16.082,
+					"historicalCoverage": 0.999936,
+					"eaveDifferenceP25M": -0.058
+				}
+			]
+		},
+		{
+			"historicalCode": "013910",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 481.2,
+				"oldArea": 359.94,
+				"intersectionArea": 359.94,
+				"iou": 0.748,
+				"currentCoverage": 0.748,
+				"oldCoverage": 1,
+				"centroidDistanceM": 1.72,
+				"currentHeightM": 22.78,
+				"oldHeightM": 29.72,
+				"heightDifferenceM": 6.94,
+				"heightToleranceM": 7.97
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 0.788,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4000913243",
+					"areaM2": 102.693,
+					"historicalCoverage": 0.999998,
+					"eaveDifferenceP25M": -0.788
+				},
+				{
+					"fmzkId": "4006190579",
+					"areaM2": 266.523,
+					"historicalCoverage": 0.964563,
+					"eaveDifferenceP25M": -0.531
+				}
+			]
+		},
+		{
+			"historicalCode": "029048",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 512.21,
+				"oldArea": 427.97,
+				"intersectionArea": 426.36,
+				"iou": 0.8298,
+				"currentCoverage": 0.8324,
+				"oldCoverage": 0.9962,
+				"centroidDistanceM": 0.94,
+				"currentHeightM": 14.62,
+				"oldHeightM": 7.5,
+				"heightDifferenceM": 7.12,
+				"heightToleranceM": 5.12
+			},
+			"relevantPartCount": 3,
+			"maxRelevantAbsEaveDifferenceP25M": 10.41,
+			"passesAutomaticHeightAudit": false,
+			"relevantParts": [
+				{
+					"fmzkId": "4005793328",
+					"areaM2": 11.462,
+					"historicalCoverage": 0.869026,
+					"eaveDifferenceP25M": -0.543
+				},
+				{
+					"fmzkId": "4006403822",
+					"areaM2": 262.882,
+					"historicalCoverage": 0.956514,
+					"eaveDifferenceP25M": 10.41
+				},
+				{
+					"fmzkId": "4007858369",
+					"areaM2": 141.271,
+					"historicalCoverage": 0.832926,
+					"eaveDifferenceP25M": 2.705
+				}
+			]
+		},
+		{
+			"historicalCode": "031798",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 81.96,
+				"oldArea": 81.96,
+				"intersectionArea": 81.96,
+				"iou": 1,
+				"currentCoverage": 1,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0,
+				"currentHeightM": 4.39,
+				"oldHeightM": 10.54,
+				"heightDifferenceM": 6.15,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.02,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001273506",
+					"areaM2": 81.955,
+					"historicalCoverage": 0.999999,
+					"eaveDifferenceP25M": 0.02
+				}
+			]
+		},
+		{
+			"historicalCode": "033408",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 220.64,
+				"oldArea": 221.46,
+				"intersectionArea": 220.35,
+				"iou": 0.9937,
+				"currentCoverage": 0.9987,
+				"oldCoverage": 0.995,
+				"centroidDistanceM": 0.05,
+				"currentHeightM": 7.04,
+				"oldHeightM": 13.39,
+				"heightDifferenceM": 6.35,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 0.699,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001251952",
+					"areaM2": 18.592,
+					"historicalCoverage": 1,
+					"eaveDifferenceP25M": -0.699
+				},
+				{
+					"fmzkId": "4007125053",
+					"areaM2": 191.884,
+					"historicalCoverage": 0.998511,
+					"eaveDifferenceP25M": -0.1
+				}
+			]
+		},
+		{
+			"historicalCode": "033610",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 563.32,
+				"oldArea": 447.15,
+				"intersectionArea": 447.14,
+				"iou": 0.7937,
+				"currentCoverage": 0.7938,
+				"oldCoverage": 1,
+				"centroidDistanceM": 3.82,
+				"currentHeightM": 10.65,
+				"oldHeightM": 16.73,
+				"heightDifferenceM": 6.08,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 5,
+			"maxRelevantAbsEaveDifferenceP25M": 1.473,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001260717",
+					"areaM2": 61.14,
+					"historicalCoverage": 0.999905,
+					"eaveDifferenceP25M": -0.18
+				},
+				{
+					"fmzkId": "4001260722",
+					"areaM2": 103.846,
+					"historicalCoverage": 0.999918,
+					"eaveDifferenceP25M": -0.057
+				},
+				{
+					"fmzkId": "4001260744",
+					"areaM2": 49.653,
+					"historicalCoverage": 0.999998,
+					"eaveDifferenceP25M": 0.19
+				},
+				{
+					"fmzkId": "4001260785",
+					"areaM2": 201.828,
+					"historicalCoverage": 0.999985,
+					"eaveDifferenceP25M": -1.473
+				},
+				{
+					"fmzkId": "4001260789",
+					"areaM2": 27.307,
+					"historicalCoverage": 0.999944,
+					"eaveDifferenceP25M": 0.06
+				}
+			]
+		},
+		{
+			"historicalCode": "034762",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 155.51,
+				"oldArea": 128.44,
+				"intersectionArea": 123.07,
+				"iou": 0.765,
+				"currentCoverage": 0.7914,
+				"oldCoverage": 0.9582,
+				"centroidDistanceM": 0.98,
+				"currentHeightM": 6.36,
+				"oldHeightM": 12.68,
+				"heightDifferenceM": 6.32,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.786,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4005838556",
+					"areaM2": 155.506,
+					"historicalCoverage": 0.791434,
+					"eaveDifferenceP25M": 0.786
+				}
+			]
+		},
+		{
+			"historicalCode": "034803",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 119.2,
+				"oldArea": 109.64,
+				"intersectionArea": 109.64,
+				"iou": 0.9198,
+				"currentCoverage": 0.9198,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0.24,
+				"currentHeightM": 5.22,
+				"oldHeightM": 11.69,
+				"heightDifferenceM": 6.47,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 0.316,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4006937320",
+					"areaM2": 90.815,
+					"historicalCoverage": 0.894682,
+					"eaveDifferenceP25M": -0.27
+				},
+				{
+					"fmzkId": "4006937322",
+					"areaM2": 28.388,
+					"historicalCoverage": 0.999975,
+					"eaveDifferenceP25M": -0.316
+				}
+			]
+		},
+		{
+			"historicalCode": "040502",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 107.19,
+				"oldArea": 90.14,
+				"intersectionArea": 87,
+				"iou": 0.7886,
+				"currentCoverage": 0.8117,
+				"oldCoverage": 0.9652,
+				"centroidDistanceM": 0.21,
+				"currentHeightM": 5.12,
+				"oldHeightM": 11.65,
+				"heightDifferenceM": 6.53,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 1.468,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4005677669",
+					"areaM2": 81.034,
+					"historicalCoverage": 0.875528,
+					"eaveDifferenceP25M": -0.147
+				},
+				{
+					"fmzkId": "4005677670",
+					"areaM2": 23.54,
+					"historicalCoverage": 0.571022,
+					"eaveDifferenceP25M": -1.468
+				}
+			]
+		},
+		{
+			"historicalCode": "040735",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 302.46,
+				"oldArea": 261.39,
+				"intersectionArea": 261.33,
+				"iou": 0.8638,
+				"currentCoverage": 0.864,
+				"oldCoverage": 0.9998,
+				"centroidDistanceM": 1.02,
+				"currentHeightM": 9.48,
+				"oldHeightM": 16.39,
+				"heightDifferenceM": 6.91,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 4,
+			"maxRelevantAbsEaveDifferenceP25M": 0.433,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001312006",
+					"areaM2": 19.499,
+					"historicalCoverage": 1,
+					"eaveDifferenceP25M": 0.108
+				},
+				{
+					"fmzkId": "4005675815",
+					"areaM2": 16.084,
+					"historicalCoverage": 0.999832,
+					"eaveDifferenceP25M": -0.26
+				},
+				{
+					"fmzkId": "4005675817",
+					"areaM2": 36.12,
+					"historicalCoverage": 0.999918,
+					"eaveDifferenceP25M": -0.08
+				},
+				{
+					"fmzkId": "4006429585",
+					"areaM2": 191.634,
+					"historicalCoverage": 0.931452,
+					"eaveDifferenceP25M": -0.433
+				}
+			]
+		},
+		{
+			"historicalCode": "041765",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 94.26,
+				"oldArea": 88.18,
+				"intersectionArea": 86.47,
+				"iou": 0.9011,
+				"currentCoverage": 0.9174,
+				"oldCoverage": 0.9807,
+				"centroidDistanceM": 0.41,
+				"currentHeightM": 4.64,
+				"oldHeightM": 10.78,
+				"heightDifferenceM": 6.14,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 3.226,
+			"passesAutomaticHeightAudit": false,
+			"relevantParts": [
+				{
+					"fmzkId": "4005209961",
+					"areaM2": 94.256,
+					"historicalCoverage": 0.917442,
+					"eaveDifferenceP25M": -3.226
+				}
+			]
+		},
+		{
+			"historicalCode": "049127",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 405.16,
+				"oldArea": 405.15,
+				"intersectionArea": 405.15,
+				"iou": 1,
+				"currentCoverage": 1,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0,
+				"currentHeightM": 18.36,
+				"oldHeightM": 24.88,
+				"heightDifferenceM": 6.53,
+				"heightToleranceM": 6.43
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 0.308,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001925269",
+					"areaM2": 351.372,
+					"historicalCoverage": 0.999982,
+					"eaveDifferenceP25M": -0.308
+				},
+				{
+					"fmzkId": "4001925333",
+					"areaM2": 53.786,
+					"historicalCoverage": 0.999952,
+					"eaveDifferenceP25M": -0.11
+				}
+			]
+		},
+		{
+			"historicalCode": "049313",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 209.12,
+				"oldArea": 140.71,
+				"intersectionArea": 140.59,
+				"iou": 0.6719,
+				"currentCoverage": 0.6723,
+				"oldCoverage": 0.9991,
+				"centroidDistanceM": 1.64,
+				"currentHeightM": 6.96,
+				"oldHeightM": 13.89,
+				"heightDifferenceM": 6.93,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 2.428,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4006496372",
+					"areaM2": 170.767,
+					"historicalCoverage": 0.823267,
+					"eaveDifferenceP25M": -2.428
+				}
+			]
+		},
+		{
+			"historicalCode": "055289",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 315.75,
+				"oldArea": 207.22,
+				"intersectionArea": 207.22,
+				"iou": 0.6563,
+				"currentCoverage": 0.6563,
+				"oldCoverage": 1,
+				"centroidDistanceM": 1.86,
+				"currentHeightM": 9.93,
+				"oldHeightM": 16.41,
+				"heightDifferenceM": 6.48,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 0.462,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4006184761",
+					"areaM2": 179.482,
+					"historicalCoverage": 0.923165,
+					"eaveDifferenceP25M": 0.049
+				},
+				{
+					"fmzkId": "4006184770",
+					"areaM2": 18.692,
+					"historicalCoverage": 0.978913,
+					"eaveDifferenceP25M": -0.462
+				}
+			]
+		},
+		{
+			"historicalCode": "058944",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 122.14,
+				"oldArea": 89.01,
+				"intersectionArea": 84.9,
+				"iou": 0.6724,
+				"currentCoverage": 0.6951,
+				"oldCoverage": 0.9538,
+				"centroidDistanceM": 1.51,
+				"currentHeightM": 3.47,
+				"oldHeightM": 9.61,
+				"heightDifferenceM": 6.14,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 2.445,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4007889099",
+					"areaM2": 112.959,
+					"historicalCoverage": 0.75157,
+					"eaveDifferenceP25M": -2.445
+				}
+			]
+		},
+		{
+			"historicalCode": "059935",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 221.92,
+				"oldArea": 175.02,
+				"intersectionArea": 175.02,
+				"iou": 0.7887,
+				"currentCoverage": 0.7887,
+				"oldCoverage": 1,
+				"centroidDistanceM": 1.87,
+				"currentHeightM": 6.88,
+				"oldHeightM": 14.8,
+				"heightDifferenceM": 7.93,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 1.523,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4003900968",
+					"areaM2": 175.029,
+					"historicalCoverage": 0.999948,
+					"eaveDifferenceP25M": -1.523
+				}
+			]
+		},
+		{
+			"historicalCode": "065442",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 259.95,
+				"oldArea": 262.06,
+				"intersectionArea": 259.71,
+				"iou": 0.9901,
+				"currentCoverage": 0.9991,
+				"oldCoverage": 0.991,
+				"centroidDistanceM": 0.04,
+				"currentHeightM": 16.54,
+				"oldHeightM": 22.66,
+				"heightDifferenceM": 6.12,
+				"heightToleranceM": 5.79
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.237,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4000646336",
+					"areaM2": 259.947,
+					"historicalCoverage": 0.999098,
+					"eaveDifferenceP25M": 0.237
+				}
+			]
+		},
+		{
+			"historicalCode": "074864",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 276.9,
+				"oldArea": 211.3,
+				"intersectionArea": 203.23,
+				"iou": 0.7132,
+				"currentCoverage": 0.7339,
+				"oldCoverage": 0.9618,
+				"centroidDistanceM": 2.1,
+				"currentHeightM": 19.12,
+				"oldHeightM": 12.63,
+				"heightDifferenceM": 6.48,
+				"heightToleranceM": 6.69
+			},
+			"relevantPartCount": 4,
+			"maxRelevantAbsEaveDifferenceP25M": 6.321,
+			"passesAutomaticHeightAudit": false,
+			"relevantParts": [
+				{
+					"fmzkId": "4005973324",
+					"areaM2": 12.281,
+					"historicalCoverage": 0.991798,
+					"eaveDifferenceP25M": 6.321
+				},
+				{
+					"fmzkId": "4005973341",
+					"areaM2": 12.905,
+					"historicalCoverage": 0.945624,
+					"eaveDifferenceP25M": 6.321
+				},
+				{
+					"fmzkId": "4005973518",
+					"areaM2": 168.32,
+					"historicalCoverage": 0.693729,
+					"eaveDifferenceP25M": 3.201
+				},
+				{
+					"fmzkId": "4006453611",
+					"areaM2": 54.812,
+					"historicalCoverage": 0.992449,
+					"eaveDifferenceP25M": 3.521
+				}
+			]
+		},
+		{
+			"historicalCode": "077242",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 73.59,
+				"oldArea": 73.59,
+				"intersectionArea": 73.59,
+				"iou": 1,
+				"currentCoverage": 1,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0,
+				"currentHeightM": 4.11,
+				"oldHeightM": 10.2,
+				"heightDifferenceM": 6.09,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.521,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4001199335",
+					"areaM2": 65.86,
+					"historicalCoverage": 0.999977,
+					"eaveDifferenceP25M": -0.521
+				}
+			]
+		},
+		{
+			"historicalCode": "082526",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 241.71,
+				"oldArea": 172.16,
+				"intersectionArea": 172.08,
+				"iou": 0.7117,
+				"currentCoverage": 0.7119,
+				"oldCoverage": 0.9995,
+				"centroidDistanceM": 2.07,
+				"currentHeightM": 3.47,
+				"oldHeightM": 9.53,
+				"heightDifferenceM": 6.05,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.483,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4004755536",
+					"areaM2": 125.257,
+					"historicalCoverage": 0.999928,
+					"eaveDifferenceP25M": -0.483
+				}
+			]
+		},
+		{
+			"historicalCode": "090896",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 87.29,
+				"oldArea": 87.29,
+				"intersectionArea": 87.29,
+				"iou": 0.9999,
+				"currentCoverage": 1,
+				"oldCoverage": 0.9999,
+				"centroidDistanceM": 0,
+				"currentHeightM": 3.96,
+				"oldHeightM": 11.04,
+				"heightDifferenceM": 7.08,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.623,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4004227690",
+					"areaM2": 87.287,
+					"historicalCoverage": 0.999986,
+					"eaveDifferenceP25M": 0.623
+				}
+			]
+		},
+		{
+			"historicalCode": "099805",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 962.78,
+				"oldArea": 1005.43,
+				"intersectionArea": 962.76,
+				"iou": 0.9575,
+				"currentCoverage": 1,
+				"oldCoverage": 0.9576,
+				"centroidDistanceM": 1.22,
+				"currentHeightM": 21.09,
+				"oldHeightM": 28.69,
+				"heightDifferenceM": 7.59,
+				"heightToleranceM": 7.38
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 1.302,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4003655572",
+					"areaM2": 33.391,
+					"historicalCoverage": 0.999957,
+					"eaveDifferenceP25M": -0.148
+				},
+				{
+					"fmzkId": "4007078446",
+					"areaM2": 925.262,
+					"historicalCoverage": 0.999985,
+					"eaveDifferenceP25M": 1.302
+				}
+			]
+		},
+		{
+			"historicalCode": "100573",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 509.73,
+				"oldArea": 311.7,
+				"intersectionArea": 311.7,
+				"iou": 0.6115,
+				"currentCoverage": 0.6115,
+				"oldCoverage": 1,
+				"centroidDistanceM": 4.15,
+				"currentHeightM": 10.08,
+				"oldHeightM": 17.84,
+				"heightDifferenceM": 7.77,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 1.32,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4007182672",
+					"areaM2": 502.996,
+					"historicalCoverage": 0.606307,
+					"eaveDifferenceP25M": -1.32
+				}
+			]
+		},
+		{
+			"historicalCode": "101889",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 133.74,
+				"oldArea": 94.82,
+				"intersectionArea": 93,
+				"iou": 0.6861,
+				"currentCoverage": 0.6954,
+				"oldCoverage": 0.9808,
+				"centroidDistanceM": 0.9,
+				"currentHeightM": 4.43,
+				"oldHeightM": 11.25,
+				"heightDifferenceM": 6.82,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 1.938,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4005470270",
+					"areaM2": 133.741,
+					"historicalCoverage": 0.695392,
+					"eaveDifferenceP25M": -1.938
+				}
+			]
+		},
+		{
+			"historicalCode": "113842",
+			"knownManualProduction": true,
+			"sourceMetrics": {
+				"currentArea": 719.44,
+				"oldArea": 478.74,
+				"intersectionArea": 478.74,
+				"iou": 0.6654,
+				"currentCoverage": 0.6654,
+				"oldCoverage": 1,
+				"centroidDistanceM": 1.29,
+				"currentHeightM": 21.43,
+				"oldHeightM": 13.69,
+				"heightDifferenceM": 7.74,
+				"heightToleranceM": 7.5
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 18.248,
+			"passesAutomaticHeightAudit": false,
+			"relevantParts": [
+				{
+					"fmzkId": "4001396001",
+					"areaM2": 273.917,
+					"historicalCoverage": 1,
+					"eaveDifferenceP25M": 0.58
+				},
+				{
+					"fmzkId": "4007229119",
+					"areaM2": 394.198,
+					"historicalCoverage": 0.519585,
+					"eaveDifferenceP25M": 18.248
+				}
+			]
+		},
+		{
+			"historicalCode": "151174",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 274.14,
+				"oldArea": 218.78,
+				"intersectionArea": 218.65,
+				"iou": 0.7972,
+				"currentCoverage": 0.7976,
+				"oldCoverage": 0.9994,
+				"centroidDistanceM": 0.69,
+				"currentHeightM": 5.73,
+				"oldHeightM": 11.83,
+				"heightDifferenceM": 6.1,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.278,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4005256301",
+					"areaM2": 245.78,
+					"historicalCoverage": 0.889227,
+					"eaveDifferenceP25M": -0.278
+				}
+			]
+		},
+		{
+			"historicalCode": "230083",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 271.95,
+				"oldArea": 271.96,
+				"intersectionArea": 271.94,
+				"iou": 0.9999,
+				"currentCoverage": 1,
+				"oldCoverage": 0.9999,
+				"centroidDistanceM": 0,
+				"currentHeightM": 14.64,
+				"oldHeightM": 20.74,
+				"heightDifferenceM": 6.1,
+				"heightToleranceM": 5.13
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 2.387,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4004994154",
+					"areaM2": 34.13,
+					"historicalCoverage": 1,
+					"eaveDifferenceP25M": -0.885
+				},
+				{
+					"fmzkId": "4004994156",
+					"areaM2": 237.822,
+					"historicalCoverage": 0.999967,
+					"eaveDifferenceP25M": -2.387
+				}
+			]
+		},
+		{
+			"historicalCode": "230445",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 157.81,
+				"oldArea": 157.77,
+				"intersectionArea": 157.62,
+				"iou": 0.9978,
+				"currentCoverage": 0.9988,
+				"oldCoverage": 0.999,
+				"centroidDistanceM": 0.01,
+				"currentHeightM": 6.7,
+				"oldHeightM": 13.04,
+				"heightDifferenceM": 6.34,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 1,
+			"maxRelevantAbsEaveDifferenceP25M": 0.191,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4004393464",
+					"areaM2": 157.809,
+					"historicalCoverage": 0.998782,
+					"eaveDifferenceP25M": 0.191
+				}
+			]
+		},
+		{
+			"historicalCode": "231788",
+			"knownManualProduction": false,
+			"sourceMetrics": {
+				"currentArea": 159.75,
+				"oldArea": 104.92,
+				"intersectionArea": 103.43,
+				"iou": 0.6415,
+				"currentCoverage": 0.6475,
+				"oldCoverage": 0.9858,
+				"centroidDistanceM": 2.25,
+				"currentHeightM": 5.35,
+				"oldHeightM": 11.42,
+				"heightDifferenceM": 6.07,
+				"heightToleranceM": 5
+			},
+			"relevantPartCount": 2,
+			"maxRelevantAbsEaveDifferenceP25M": 2.303,
+			"passesAutomaticHeightAudit": true,
+			"relevantParts": [
+				{
+					"fmzkId": "4002938917",
+					"areaM2": 82.663,
+					"historicalCoverage": 0.999981,
+					"eaveDifferenceP25M": -2.303
+				},
+				{
+					"fmzkId": "4002938988",
+					"areaM2": 11.61,
+					"historicalCoverage": 0.999712,
+					"eaveDifferenceP25M": -0.186
+				}
+			]
+		}
+	]
+}
