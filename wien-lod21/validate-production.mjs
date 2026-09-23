@@ -39,6 +39,16 @@ for (const target of targets.targets) {
 	if (!target.matches?.length) {
 		throw new Error("Target has no CityGML match: " + target.historicalCode);
 	}
+	if (target.rolloutMode === "manual-pilot-hybrid") {
+		for (const match of target.matches) {
+			if (!(Number(match.hybridRemainder?.areaM2) > 0)) {
+				throw new Error(
+					"Hybrid pilot target has no embedded OGD remainder: "
+					+ target.historicalCode
+				);
+			}
+		}
+	}
 	if (!Array.isArray(target.ksIds) || !target.ksIds.length) {
 		throw new Error("Target has no exact OGD KS_IDs: " + target.historicalCode);
 	}
