@@ -39,6 +39,7 @@ const hybridBAbsolute = countMode("hybrid-b-absolute");
 const hybridBThin = countMode("hybrid-b-thin");
 const hybridBClip = countMode("hybrid-b-clip");
 const hybridCClip = countMode("hybrid-c-clip");
+const hybridDClip = countMode("hybrid-d-clip");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -100,8 +101,18 @@ if (
 		+ Number(release.counts.hybridCClip || 0)
 	);
 }
-if (items.length !== 2076) {
-	throw new Error("Expected 2076 production targets, got " + items.length);
+if (
+	hybridDClip !== 169
+	|| Number(release.counts.hybridDClip || 0) !== hybridDClip
+) {
+	throw new Error(
+		"Expected 169 audited clipped Hybrid-D targets, got "
+		+ hybridDClip + " / release "
+		+ Number(release.counts.hybridDClip || 0)
+	);
+}
+if (items.length !== 2245) {
+	throw new Error("Expected 2245 production targets, got " + items.length);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -117,6 +128,7 @@ const hybrid = items.filter((target) => (
 	|| target.rolloutMode === "hybrid-b-thin"
 	|| target.rolloutMode === "hybrid-b-clip"
 	|| target.rolloutMode === "hybrid-c-clip"
+	|| target.rolloutMode === "hybrid-d-clip"
 	|| target.rolloutMode === "manual-pilot-hybrid"
 ));
 let remainderTargets = 0;
@@ -165,6 +177,7 @@ for (const target of items) {
 	if (
 		target.rolloutMode === "hybrid-b-clip"
 		|| target.rolloutMode === "hybrid-c-clip"
+		|| target.rolloutMode === "hybrid-d-clip"
 	) {
 		if (target.auditedHistoricalClip !== true) {
 			throw new Error(
@@ -312,6 +325,7 @@ console.log(JSON.stringify({
 		hybridBThin,
 		hybridBClip,
 		hybridCClip,
+		hybridDClip,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
