@@ -349,6 +349,22 @@ zur aktuellen Traufe und die verwendete Toleranz gespeichert.
 
 Die drei verbleibenden Fälle werden **nicht** automatisch über die neue
 Höhenmetrik freigegeben: Bei ihnen ist sogar der historische First niedriger
-als die heutige Traufe. `113842` bleibt ausschließlich wegen der bereits
-manuell bestätigten Straußengasse-Ausnahme produktiv; `029048` und
-`074864` bleiben vorerst draußen.
+als die heutige Traufe. Eine zusätzliche FMZK-Teilflächenanalyse ist in
+`height-part-analysis.generated.json` dokumentiert:
+
+- `029048`: Der aktuelle 14,621-m-Teilbaukörper überlappt den historischen
+  Grundriss zu **95,65 %**; der historische First liegt nur bei 7,50 m.
+  Das ist damit eine echte Höhenänderung innerhalb des historischen
+  Baukörpers, nicht bloß ein neuer Anbau außerhalb des alten Grundrisses.
+- `074864`: Eine aktuelle, 19,119 m hohe FMZK-Teilfläche von 7,492 m² liegt
+  **vollständig** innerhalb des historischen Grundrisses. Der historische
+  First liegt nur bei 12,634 m. Ein reines XY-Clipping würde diesen heutigen
+  hohen Teil daher fälschlich durch das alte Dach ersetzen.
+- `113842`: Der heutige Bestand ist ein Mischfall mit 14,17-m- und
+  21,428-m-Teilflächen; die 21,428-m-Fläche überlappt den historischen
+  Grundriss teilweise. Dieser Code bleibt ausschließlich wegen der bereits
+  manuell bestätigten Straußengasse-Ausnahme produktiv.
+
+`029048` und `074864` bleiben daher bewusst beim aktuellen LOD1-Fallback.
+Eine spätere LOD2.1-Nutzung würde dort ein **höhensensitives
+Teilflächen-Clipping** erfordern, nicht lediglich eine weitere Toleranzregel.
