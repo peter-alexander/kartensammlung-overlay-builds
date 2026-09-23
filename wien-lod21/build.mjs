@@ -1048,7 +1048,11 @@ function sourceEdgeKey(a, b, precision = 1000) {
 
 function isHistoricalClipTarget(target) {
 	const mode = String(target?.rolloutMode || "");
-	return mode === "hybrid-clip-pilot" || mode === "hybrid-b-clip";
+	return (
+		mode === "hybrid-clip-pilot"
+		|| mode === "hybrid-b-clip"
+		|| mode === "hybrid-c-clip"
+	);
 }
 
 function closedRingMetrics(coordinates) {
@@ -1870,6 +1874,9 @@ async function main() {
 			hybridBClip: targets.filter(
 				(target) => target.rolloutMode === "hybrid-b-clip"
 			).length,
+			hybridCClip: targets.filter(
+				(target) => target.rolloutMode === "hybrid-c-clip"
+			).length,
 			manualPilotStrong: targets.filter(
 				(target) => target.rolloutMode === "manual-pilot-strong"
 			).length,
@@ -1977,6 +1984,7 @@ async function main() {
 			hybridBAbsolute: targetManifest.counts.hybridBAbsolute,
 			hybridBThin: targetManifest.counts.hybridBThin,
 			hybridBClip: targetManifest.counts.hybridBClip,
+			hybridCClip: targetManifest.counts.hybridCClip,
 			manualPilotStrong: targetManifest.counts.manualPilotStrong,
 			manualPilotHybrid: targetManifest.counts.manualPilotHybrid,
 			hybridRemainderTargets: targetManifest.counts.hybridRemainderTargets,
