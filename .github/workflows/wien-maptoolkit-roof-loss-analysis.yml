@@ -1,0 +1,91 @@
+name: Analyze Vienna Maptoolkit roof loss
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-loss-analysis.yml'
+      - 'wien-buildings/analyze-maptoolkit-gaps.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Analyze Vienna Maptoolkit roof loss
+        run: |
+          node wien-buildings/analyze-maptoolkit-gaps.mjs \
+            /tmp/wien-maptoolkit-roof-loss.json
+
+      - name: Verify roof-loss analysis
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("/tmp/wien-maptoolkit-roof-loss.json", "utf8")
+          );
+          const counts = data.counts || {};
+          for (const key of [
+          	"ogdFeatures",
+          	"matchedOgdFeatures",
+          	"lod2SurfaceInteriorPoints",
+          	"lod2PitchedSurfaceInteriorPoints",
+          	"flatOnlyMaptoolkitBuildings",
+          	"roofLossLod21CodeCandidates",
+          	"roofLossLod21CandidateSheets"
+          ]) {
+          	if (!Number.isFinite(Number(counts[key]))) {
+          		throw new Error("Missing numeric count: " + key);
+          	}
+          }
+          if (
+          	!Array.isArray(data.flatOnlyMaptoolkitBuildingGroups)
+          	|| !Array.isArray(data.roofLossLod21CodeCandidates)
+          ) {
+          	throw new Error("Roof-loss candidate arrays missing.");
+          }
+          if (
+          	data.flatOnlyMaptoolkitBuildingGroups.length
+          	!== Number(counts.flatOnlyMaptoolkitBuildings)
+          ) {
+          	throw new Error("Flat-only building count mismatch.");
+          }
+          if (
+          	data.roofLossLod21CodeCandidates.length
+          	!== Number(counts.roofLossLod21CodeCandidates)
+          ) {
+          	throw new Error("Roof-loss code candidate count mismatch.");
+          }
+          console.log(JSON.stringify({
+          	ogdFeatures: counts.ogdFeatures,
+          	matchedOgdFeatures: counts.matchedOgdFeatures,
+          	missingOgdFeatures: counts.missingOgdFeatures,
+          	lod2Surfaces: counts.lod2SurfaceInteriorPoints,
+          	pitchedLod2Surfaces: counts.lod2PitchedSurfaceInteriorPoints,
+          	flatOnlyMaptoolkitBuildings: counts.flatOnlyMaptoolkitBuildings,
+          	roofLossLod21CodeCandidates: counts.roofLossLod21CodeCandidates,
+          	roofLossLod21CandidateSheets: counts.roofLossLod21CandidateSheets
+          }, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-maptoolkit-roof-loss-analysis
+          path: /tmp/wien-maptoolkit-roof-loss.json
+          if-no-files-found: error
+          retention-days: 7
