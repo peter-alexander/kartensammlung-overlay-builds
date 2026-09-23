@@ -69,16 +69,16 @@ enthält:
 - 7 geometrisch geclippte `hybrid-b-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-c-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
+- 25 kalibrierte und geometrisch auditierte `hybrid-e-height`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.245 Gebäude.
+- insgesamt 2.270 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-1.034 automatisch freigegeben. **29 erfüllen die automatische Höhenprüfung
-nicht**; einer davon (`113842`, Straußengasse 14) ist bereits als manuell
-bestätigte Hybrid-Ausnahme produktiv. Bei den übrigen
-ihnen ist die historische/heutige Grundrissabweichung oder eine andere
-Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
+1.059 automatisch freigegeben. **Vier erfüllen die automatische
+Höhenfreigabe weiterhin nicht**; einer davon (`113842`, Straußengasse 14)
+ist bereits als manuell bestätigte Hybrid-Ausnahme produktiv. Nicht-manuell
+zurückgestellt bleiben damit nur `029048`, `041765` und `074864`.
 
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält nur die für den Client benötigte
@@ -312,3 +312,52 @@ Damit wird die gesamte geometrisch validierte 95–98-%-Gruppe als
 `hybrid-d-clip` produktiv übernommen. Anschließend verbleiben 29 Kandidaten,
 bei denen nicht die Grundrissgeometrie, sondern die Höhenplausibilität die
 automatische Freigabe verhindert.
+
+
+## Hybrid-E height
+
+Die nach Hybrid-D verbleibenden 29 Fälle wurden nicht einfach mit einer
+größeren Höhentoleranz freigegeben. Die bisherige Match-Metrik vergleicht
+nämlich zwei unterschiedliche Größen:
+
+- aktuell: `O_KOTE - T_KOTE`, also die FMZK-Dachtraufe relativ zum Gelände,
+- historisch: höchster LOD2.1-Dachpunkt minus niedrigster Bodenpunkt, also bei
+  geneigten Dächern typischerweise eher Firsthöhe.
+
+Alle 29 Restfälle besitzen geneigte Dachflächen. Deshalb wurde die Höhe
+teilflächenbezogen neu auditiert: Für jede heutige FMZK-Teilfläche werden nur
+jene historischen Dachflächen berücksichtigt, die sie in XY tatsächlich
+überdecken. Als robuster Traufen-Schätzer dient das flächengewichtete
+25-%-Quantil der Minimalhöhen dieser Dachflächen (`roof-min-p25`).
+
+Die Schwelle wurde an einem unabhängigen Kontrollsatz von 240 bereits
+produktiven Gebäuden kalibriert. Für 451 relevante Teilflächen
+(historische Überdeckung mindestens 50 %, Fläche mindestens 10 m²) ergibt
+sich für die absolute P25-Traufenabweichung:
+
+- Median: 0,359 m,
+- 90-%-Quantil: 1,434 m,
+- 95-%-Quantil: 2,774 m,
+- 99-%-Quantil: 6,844 m.
+
+Für die automatische Freigabe wird konservativ **2,5 m** verwendet, also
+noch unterhalb des 95-%-Quantils des bereits akzeptierten Kontrollbestands.
+424 von 451 Kontrollteilflächen (94,0 %) liegen innerhalb dieser Grenze.
+Teilflächen unter 10 m² werden für die Höhenentscheidung ignoriert; sie
+erwiesen sich im Kontrollsatz als deutlich anfälliger für Segmentierungs-
+und Dachaufbauartefakte.
+
+25 der 29 Restfälle bestehen diese kalibrierte Höhenprüfung. Anschließend
+wurden genau diese 25 nochmals gemeinsam durch den vollständigen
+geschlossenen 3D-Clipping-Audit geschickt; **25/25 bestehen** Schnittfläche,
+Dachabdeckung, Wandabdeckung, Außenrand und Restmesh-Prüfung.
+
+Die reproduzierbare Kalibrierung und alle 29 Entscheidungen stehen in
+`height-audit.generated.json`. Automatisch offen bleiben nur:
+
+- `029048`: maximale relevante P25-Traufenabweichung 10,410 m,
+- `041765`: 3,226 m,
+- `074864`: 6,321 m.
+
+`113842` (Straußengasse 14) liegt ebenfalls außerhalb der automatischen
+Höhenregel, bleibt aber die bereits manuell bestätigte Hybrid-Ausnahme.
