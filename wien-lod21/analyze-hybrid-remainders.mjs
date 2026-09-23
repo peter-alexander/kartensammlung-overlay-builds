@@ -182,6 +182,129 @@ function geometryParts(geometry) {
 	return parts;
 }
 
+function translateCoordinates(value, dx, dy) {
+	if (!Array.isArray(value)) return value;
+	if (
+		value.length >= 2
+		&& Number.isFinite(Number(value[0]))
+		&& Number.isFinite(Number(value[1]))
+	) {
+		return [
+			Number(value[0]) + dx,
+			Number(value[1]) + dy,
+			...value.slice(2)
+		];
+	}
+	return value.map((item) => translateCoordinates(item, dx, dy));
+}
+
+function translatedGeometry(geometry, dx, dy, reader, writer) {
+	const geojson = writer.write(geometry);
+	if (!geojson?.coordinates) return null;
+	return repairGeometry(reader.read({
+		...geojson,
+		coordinates: translateCoordinates(geojson.coordinates, dx, dy)
+	}));
+}
+
+function centroidCoordinate(geometry) {
+	const coordinate = geometry?.getCentroid?.()?.getCoordinate?.();
+	if (!coordinate) return null;
+	const x = Number(coordinate.x);
+	const y = Number(coordinate.y);
+	return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null;
+}
+
+function alignmentScore(current, old, reader, writer) {
+	const oldArea = Number(old?.getArea?.() || 0);
+	const currentArea = Number(current?.getArea?.() || 0);
+	if (!(oldArea > 0) || !(currentArea > 0)) return null;
+
+	const currentCentroid = centroidCoordinate(current);
+	const oldCentroid = centroidCoordinate(old);
+	const sourceGeoJson = writer.write(old);
+	if (!sourceGeoJson?.coordinates) return null;
+
+	const evaluate = (dx, dy) => {
+		const shifted = repairGeometry(reader.read({
+			...sourceGeoJson,
+			coordinates: translateCoordinates(sourceGeoJson.coordinates, dx, dy)
+		}));
+		if (!shifted) return null;
+		const intersection = safeOverlay(current, shifted, OverlayOp.INTERSECTION);
+		if (!intersection) return null;
+		const intersectionArea = Number(intersection.getArea?.() || 0);
+		const outsideArea = Math.max(0, oldArea - intersectionArea);
+		const shiftM = Math.hypot(dx, dy);
+		let centroidDistanceM = null;
+		if (currentCentroid && oldCentroid) {
+			centroidDistanceM = Math.hypot(
+				oldCentroid[0] + dx - currentCentroid[0],
+				oldCentroid[1] + dy - currentCentroid[1]
+			);
+		}
+		return {
+			dx,
+			dy,
+			shiftM,
+			intersectionArea,
+			outsideArea,
+			oldCoverage: intersectionArea / oldArea,
+			currentCoverage: intersectionArea / currentArea,
+			centroidDistanceM
+		};
+	};
+
+	const better = (candidate, best) => {
+		if (!candidate) return false;
+		if (!best) return true;
+		const areaDelta = candidate.intersectionArea - best.intersectionArea;
+		if (Math.abs(areaDelta) > 1e-6) return areaDelta > 0;
+		if (Math.abs(candidate.shiftM - best.shiftM) > 1e-9) {
+			return candidate.shiftM < best.shiftM;
+		}
+		return (
+			Math.abs(candidate.dx) + Math.abs(candidate.dy)
+			< Math.abs(best.dx) + Math.abs(best.dy)
+		);
+	};
+
+	let best = evaluate(0, 0);
+	for (let xi = -10; xi <= 10; xi += 1) {
+		for (let yi = -10; yi <= 10; yi += 1) {
+			const candidate = evaluate(xi / 10, yi / 10);
+			if (better(candidate, best)) best = candidate;
+		}
+	}
+	if (!best) return null;
+
+	const coarse = best;
+	for (let xi = -5; xi <= 5; xi += 1) {
+		for (let yi = -5; yi <= 5; yi += 1) {
+			const dx = coarse.dx + xi * 0.02;
+			const dy = coarse.dy + yi * 0.02;
+			if (Math.abs(dx) > 1.001 || Math.abs(dy) > 1.001) continue;
+			const candidate = evaluate(dx, dy);
+			if (better(candidate, best)) best = candidate;
+		}
+	}
+
+	return {
+		dxM: Number(best.dx.toFixed(3)),
+		dyM: Number(best.dy.toFixed(3)),
+		shiftM: Number(best.shiftM.toFixed(3)),
+		outsideAreaM2: Number(best.outsideArea.toFixed(4)),
+		oldCoverage: Number(best.oldCoverage.toFixed(6)),
+		currentCoverage: Number(best.currentCoverage.toFixed(6)),
+		centroidDistanceM: best.centroidDistanceM === null
+			? null
+			: Number(best.centroidDistanceM.toFixed(3)),
+		searchLimitM: 1,
+		coarseStepM: 0.1,
+		refineStepM: 0.02
+	};
+}
+
 function finiteNumber(value) {
 	const number = Number(value);
 	return Number.isFinite(number) ? number : null;
@@ -396,6 +519,7 @@ async function main() {
 			intersectionAreaM2: Number(intersectionArea.toFixed(2)),
 			currentCoverage: Number((intersectionArea / currentArea).toFixed(4)),
 			historicalCoverage: Number((intersectionArea / oldArea).toFixed(4)),
+			alignment: alignmentScore(current, old, reader, writer),
 			bufferM: HISTORICAL_BUFFER_M,
 			remainderAreaM2: Number(remainder.getArea().toFixed(2)),
 			remainderRatio: Number((remainder.getArea() / currentArea).toFixed(4)),
