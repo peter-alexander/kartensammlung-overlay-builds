@@ -1547,12 +1547,20 @@ async function main() {
 			? stats.generatedWallBoundaryLengthM / boundaryLengthM
 			: 0;
 
-		const wallLines = unionJstsGeometries(stats.wallLineGeometries);
-		if (wallLines && boundaryLengthM > 0) {
-			const wallBuffer = BufferOp.bufferOp(
-				wallLines,
-				HYBRID_MAX_SLIVER_MEAN_WIDTH_M
-			);
+		const wallBuffers = stats.wallLineGeometries
+			.map((line) => {
+				try {
+					return BufferOp.bufferOp(
+						line,
+						HYBRID_MAX_SLIVER_MEAN_WIDTH_M
+					);
+				} catch {
+					return null;
+				}
+			})
+			.filter(Boolean);
+		const wallBuffer = unionJstsGeometries(wallBuffers);
+		if (wallBuffer && boundaryLengthM > 0) {
 			const coveredBoundary = intersectionJstsGeometry(
 				clippedHistoricalGround.getBoundary(),
 				wallBuffer,
