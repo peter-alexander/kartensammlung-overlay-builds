@@ -22,21 +22,6 @@ const BEV_SKIP_WORKSPACES = new Set([
 	"INSdataCP"
 ]);
 
-const BEV_FALLBACK_WORKSPACES = [
-	"BEVdataCRS",
-	"BEVdataDLM",
-	"BEVdataGGS",
-	"BEVdataKAT",
-	"BEVdataURMAPPE",
-	"INSdataAD",
-	"INSdataAU",
-	"INSdataCP",
-	"INSdataEL",
-	"INSdataGN",
-	"INSdataLC",
-	"myworkspace"
-];
-
 const WIEN_TITLE_REPLACEMENTS = new Map([
 	["BAUSTELLENLINOGD", "Baustellen - Linien"],
 	["BAUSTELLENPKTOGD", "Baustellen - Punkte"],
