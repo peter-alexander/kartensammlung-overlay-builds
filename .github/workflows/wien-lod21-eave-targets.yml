@@ -1,0 +1,114 @@
+name: Refresh Vienna eave-corrected production targets
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-eave-clip-test
+    paths:
+      - '.github/workflows/wien-lod21-eave-targets.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate production target snapshot
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --output wien-lod21/targets.production.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute \
+            --include-hybrid-b-thin \
+            --include-hybrid-b-clip \
+            --include-hybrid-c-clip \
+            --include-hybrid-d-clip \
+            --include-hybrid-eave-clip
+
+      - name: Verify production target snapshot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          const expected = {
+          	total: 2271,
+          	directStrong: 1209,
+          	hybridA: 614,
+          	hybridBAbsolute: 72,
+          	hybridBThin: 3,
+          	hybridBClip: 7,
+          	hybridCClip: 169,
+          	hybridDClip: 169,
+          	hybridEaveClip: 26,
+          	manualPilotStrong: 1,
+          	manualPilotHybrid: 1
+          };
+          for (const [key, value] of Object.entries(expected)) {
+          	if (Number(data.counts?.[key]) !== value) {
+          		throw new Error(
+          			"Expected " + key + "=" + value
+          			+ ", got " + data.counts?.[key]
+          		);
+          	}
+          }
+          if (Number(data.sourceAnalysis?.hybridCandidatesDeferred) !== 3) {
+          	throw new Error(
+          		"Expected 3 deferred source hybrid candidates, got "
+          		+ data.sourceAnalysis?.hybridCandidatesDeferred
+          	);
+          }
+          const eave = data.buildings.filter(
+          	(item) => item.rolloutMode === "hybrid-eave-clip"
+          );
+          if (eave.length !== 26) throw new Error("Expected 26 eave targets.");
+          for (const item of eave) {
+          	if (item.auditedHistoricalClip !== true) {
+          		throw new Error(item.historicalCode + ": clip audit missing");
+          	}
+          	if (item.auditedHeightMetric !== "median-roof-surface-minimum") {
+          		throw new Error(item.historicalCode + ": height metric mismatch");
+          	}
+          	if (
+          		Number(item.auditedHistoricalEaveDifferenceM)
+          		> Number(item.auditedHistoricalEaveToleranceM) + 1e-9
+          	) {
+          		throw new Error(item.historicalCode + ": eave tolerance exceeded");
+          	}
+          }
+          console.log(JSON.stringify({
+          	counts: data.counts,
+          	deferred: data.sourceAnalysis.hybridCandidatesDeferred,
+          	eaveCodes: eave.map((item) => item.historicalCode)
+          }, null, 2));
+          NODE
+
+      - name: Commit production target snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/targets.production.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote audited Vienna eave-corrected clipping targets"
+          git push
