@@ -4,6 +4,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2 = 0.58;
+const HYBRID_B_THIN_MAX_MEAN_WIDTH_M = 0.05;
+const AUDITED_HYBRID_B_THIN = new Map([
+	["079387", 0.0330],
+	["088019", 0.0306],
+	["123321", 0.0312]
+]);
 
 const MANUAL_PILOT_BANDS = new Map([
 	["006973", "strong"],
@@ -18,7 +24,8 @@ function parseArgs(argv) {
 		pilot: "",
 		output: "",
 		includeHybridA: false,
-		includeHybridBAbsolute: false
+		includeHybridBAbsolute: false,
+		includeHybridBThin: false
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -32,6 +39,8 @@ function parseArgs(argv) {
 			result.includeHybridA = true;
 		} else if (arg === "--include-hybrid-b-absolute") {
 			result.includeHybridBAbsolute = true;
+		} else if (arg === "--include-hybrid-b-thin") {
+			result.includeHybridBThin = true;
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
@@ -41,6 +50,11 @@ function parseArgs(argv) {
 	}
 	if (result.includeHybridBAbsolute && !result.includeHybridA) {
 		throw new Error("--include-hybrid-b-absolute requires --include-hybrid-a.");
+	}
+	if (result.includeHybridBThin && !result.includeHybridBAbsolute) {
+		throw new Error(
+			"--include-hybrid-b-thin requires --include-hybrid-b-absolute."
+		);
 	}
 	return result;
 }
@@ -92,6 +106,21 @@ function isHybridBAbsolute(candidate) {
 		&& hybridHeightOk(candidate)
 		&& outsideM2 !== null
 		&& outsideM2 <= HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2 + 1e-9
+	);
+}
+
+function isHybridBThin(candidate) {
+	if (isHybridA(candidate) || isHybridBAbsolute(candidate)) return false;
+	const code = String(candidate?.historicalCode || "");
+	const auditedMaxWidthM = AUDITED_HYBRID_B_THIN.get(code);
+	const metrics = candidate?.metrics || {};
+	return (
+		auditedMaxWidthM !== undefined
+		&& auditedMaxWidthM <= HYBRID_B_THIN_MAX_MEAN_WIDTH_M + 1e-9
+		&& Number(metrics.oldCoverage) >= 0.995
+		&& Number(metrics.currentCoverage) >= 0.60
+		&& Number(metrics.centroidDistanceM) <= 6
+		&& hybridHeightOk(candidate)
 	);
 }
 
@@ -205,6 +234,22 @@ async function main() {
 		}));
 	}
 
+	const hybridBThin = args.includeHybridBThin
+		? (report.hybridCandidates || []).filter(isHybridBThin)
+		: [];
+	for (const candidate of hybridBThin) {
+		const code = String(candidate.historicalCode);
+		const pilotTarget = pilotByCode.get(code);
+		targets.push({
+			...targetFromCandidate(candidate, {
+				name: pilotTarget?.name || "",
+				rolloutMode: "hybrid-b-thin"
+			}),
+			auditedHistoricalOutsideMaxMeanWidthM:
+				AUDITED_HYBRID_B_THIN.get(code)
+		});
+	}
+
 	const resultsByCode = new Map(
 		(report.results || [])
 			.filter((item) => item.candidateType === "historical-code")
@@ -251,6 +296,9 @@ async function main() {
 	const hybridBAbsoluteCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-b-absolute"
 	).length;
+	const hybridBThinCount = targets.filter(
+		(target) => target.rolloutMode === "hybrid-b-thin"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -268,19 +316,24 @@ async function main() {
 			sheets: Number(report?.counts?.sheets || 0),
 			candidates: Number(report?.counts?.candidates || 0),
 			directProductionEligible: Number(report?.counts?.directProductionEligible || 0),
-			hybridCandidatesSelected: hybridACount + hybridBAbsoluteCount,
+			hybridCandidatesSelected:
+				hybridACount + hybridBAbsoluteCount + hybridBThinCount,
 			hybridCandidatesDeferred:
 				Number(report?.counts?.hybridCandidates || 0)
 				- hybridACount
-				- hybridBAbsoluteCount,
+				- hybridBAbsoluteCount
+				- hybridBThinCount,
 			hybridBAbsoluteMaxHistoricalOutsideCurrentM2:
-				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2
+				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2,
+			hybridBThinMaxHistoricalOutsideMeanWidthM:
+				HYBRID_B_THIN_MAX_MEAN_WIDTH_M
 		},
 		counts: {
 			total: targets.length,
 			directStrong: directCount,
 			hybridA: hybridACount,
 			hybridBAbsolute: hybridBAbsoluteCount,
+			hybridBThin: hybridBThinCount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -303,6 +356,12 @@ async function main() {
 			+ " hybrid-b-absolute targets, got " + hybridBAbsoluteCount
 		);
 	}
+	if (hybridBThinCount !== (args.includeHybridBThin ? 3 : 0)) {
+		throw new Error(
+			"Expected " + (args.includeHybridBThin ? 3 : 0)
+			+ " hybrid-b-thin targets, got " + hybridBThinCount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
@@ -313,11 +372,13 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeHybridBAbsolute
-		? 1897
-		: args.includeHybridA
-			? 1825
-			: 1213;
+	const expectedTargets = args.includeHybridBThin
+		? 1900
+		: args.includeHybridBAbsolute
+			? 1897
+			: args.includeHybridA
+				? 1825
+				: 1213;
 	if (targets.length !== expectedTargets) {
 		throw new Error(
 			"Expected " + expectedTargets
