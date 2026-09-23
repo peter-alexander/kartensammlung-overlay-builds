@@ -1,0 +1,110 @@
+name: Analyze Vienna LOD2.1 eave heights
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-eave-height-analysis
+    paths:
+      - '.github/workflows/wien-lod21-eave-height-analysis.yml'
+      - 'wien-lod21/analyze-eave-heights.mjs'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Determine height-deferred source sheets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/lod21-analysis/wien-lod21-citywide-final.json",
+          		"utf8"
+          	)
+          );
+          const tolerance = (height) => (
+          	Number.isFinite(height) ? Math.max(6, height * 0.30) : 6
+          );
+          const candidates = (report.hybridCandidates || []).filter((candidate) => {
+          	const metrics = candidate.metrics || {};
+          	const currentHeight = metrics.currentHeightM === null
+          		? null
+          		: Number(metrics.currentHeightM);
+          	const difference = metrics.heightDifferenceM === null
+          		? null
+          		: Number(metrics.heightDifferenceM);
+          	return (
+          		Number.isFinite(difference)
+          		&& difference > tolerance(currentHeight)
+          	);
+          });
+          if (candidates.length !== 29) {
+          	throw new Error(
+          		"Expected 29 height-deferred candidates, got "
+          		+ candidates.length
+          	);
+          }
+          const sheets = [...new Set(
+          	candidates.map((item) => String(item.sheet || item.lod21Sheet))
+          )].sort();
+          fs.writeFileSync("/tmp/eave-sheets.txt", sheets.join("\n") + "\n");
+          console.log(JSON.stringify({
+          	candidates: candidates.length,
+          	sheets: sheets.length,
+          	codes: candidates.map((item) => item.historicalCode).sort()
+          }, null, 2));
+          NODE
+
+      - name: Download LOD2.1 source sheets
+        run: |
+          mkdir -p /tmp/lod21-source
+          download_sheet() {
+          	sheet="$1"
+          	zip="/tmp/lod21-source/${sheet}.zip"
+          	dir="/tmp/lod21-source/${sheet}"
+          	curl           		--fail           		--location           		--retry 4           		--retry-all-errors           		--connect-timeout 30           		--max-time 300           		--user-agent "kartensammlung-overlay-builds/wien-lod21-eave-analysis"           		"https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml/${sheet}_lod2_gml.zip"           		-o "$zip"
+          	mkdir -p "$dir"
+          	unzip -q "$zip" -d "$dir"
+          }
+          export -f download_sheet
+          xargs -I{} -P 6 bash -c 'download_sheet "$1"' _ {} < /tmp/eave-sheets.txt
+
+      - name: Analyze historical eave estimators
+        run: |
+          node wien-lod21/analyze-eave-heights.mjs           	--report /tmp/lod21-analysis/wien-lod21-citywide-final.json           	--source /tmp/lod21-source           	--output wien-lod21/eave-height-analysis.generated.json
+
+      - name: Commit analysis
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/eave-height-analysis.generated.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Record Vienna LOD2.1 eave-height analysis"
+          git push
