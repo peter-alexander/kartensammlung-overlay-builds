@@ -104,11 +104,32 @@ async function main() {
 		])
 	);
 
+	const tierDetails = Object.fromEntries(
+		["hybrid-a", "hybrid-b", "hybrid-c", "defer"].map((name) => {
+			const items = enriched.filter((item) => item.hybridTier === name);
+			return [name, {
+				count: items.length,
+				sourceSheets: new Set(
+					items.map((item) => String(item.sheet || item.lod21Sheet || ""))
+						.filter(Boolean)
+				).size,
+				ksIds: items.reduce(
+					(sum, item) => sum + Number(item.ksIdCount || 0),
+					0
+				),
+				bwGebIds: new Set(
+					items.flatMap((item) => item.ownerBwGebIds || []).map(String)
+				).size
+			}];
+		})
+	);
+
 	const output = {
 		generatedAt: new Date().toISOString(),
 		sourceGeneratedAt: report.generatedAt || null,
 		count: enriched.length,
 		tiers,
+		tierDetails,
 		distribution: {
 			oldCoverage: quantiles(enriched.map((item) => Number(item.metrics?.oldCoverage))),
 			currentCoverage: quantiles(enriched.map((item) => Number(item.metrics?.currentCoverage))),
@@ -139,6 +160,7 @@ async function main() {
 	console.log(JSON.stringify({
 		count: output.count,
 		tiers: output.tiers,
+		tierDetails: output.tierDetails,
 		distribution: output.distribution,
 		pilots: output.pilots
 	}, null, 2));
