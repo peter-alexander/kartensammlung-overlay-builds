@@ -1,0 +1,317 @@
+name: Calibrate Vienna LOD2.1 eave metric
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-height-audit
+    paths:
+      - '.github/workflows/wien-lod21-height-control.yml'
+      - 'wien-lod21/audit-height-candidates.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 6
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Prepare deterministic accepted control sample
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const production = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          const quotas = new Map([
+          	["direct-strong", 60],
+          	["hybrid-a", 60],
+          	["hybrid-b-absolute", 30],
+          	["hybrid-b-thin", 3],
+          	["hybrid-b-clip", 7],
+          	["hybrid-c-clip", 40],
+          	["hybrid-d-clip", 40]
+          ]);
+
+          const evenlyTake = (items, count) => {
+          	const sorted = [...items].sort(
+          		(a, b) => String(a.historicalCode).localeCompare(
+          			String(b.historicalCode)
+          		)
+          	);
+          	if (count >= sorted.length) return sorted;
+          	if (count <= 1) return sorted.slice(0, count);
+          	const selected = [];
+          	const used = new Set();
+          	for (let index = 0; index < count; index += 1) {
+          		let position = Math.round(
+          			index * (sorted.length - 1) / (count - 1)
+          		);
+          		while (used.has(position) && position + 1 < sorted.length) {
+          			position += 1;
+          		}
+          		if (used.has(position)) {
+          			position = [...Array(sorted.length).keys()].find(
+          				(value) => !used.has(value)
+          			);
+          		}
+          		used.add(position);
+          		selected.push(sorted[position]);
+          	}
+          	return selected;
+          };
+
+          const selected = [];
+          const counts = {};
+          for (const [mode, quota] of quotas) {
+          	const pool = (production.buildings || []).filter(
+          		(item) => item.rolloutMode === mode
+          	);
+          	const sample = evenlyTake(pool, Math.min(quota, pool.length));
+          	counts[mode] = {
+          		available: pool.length,
+          		selected: sample.length
+          	};
+          	for (const item of sample) {
+          		selected.push({
+          			...item,
+          			auditSourceMode: item.rolloutMode,
+          			rolloutMode: "hybrid-height-control",
+          			knownManualProduction: false
+          		});
+          	}
+          }
+
+          if (selected.length !== 240) {
+          	throw new Error(
+          		"Expected 240 control targets, got " + selected.length
+          	);
+          }
+          fs.writeFileSync("/tmp/height-control-targets.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "height-control",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings: selected
+          }, null, "\t") + "\n");
+
+          console.log(JSON.stringify({
+          	targets: selected.length,
+          	counts,
+          	sourceSheets: new Set(
+          		selected.map((item) => String(item.sheet))
+          	).size
+          }, null, 2));
+          NODE
+
+      - name: Download LOD2.1 source sheets
+        run: |
+          mkdir -p /tmp/lod21-source /tmp/lod21-zips
+          mapfile -t SHEETS < <(
+          	node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const input = JSON.parse(
+          	fs.readFileSync("/tmp/height-control-targets.json", "utf8")
+          );
+          for (const sheet of [...new Set(
+          	input.buildings.map((item) => String(item.sheet))
+          )].sort()) {
+          	console.log(sheet);
+          }
+          NODE
+          )
+          download_sheet() {
+          	local sheet="$1"
+          	curl \
+          		--fail \
+          		--location \
+          		--retry 4 \
+          		--retry-all-errors \
+          		--connect-timeout 30 \
+          		--max-time 300 \
+          		--user-agent "kartensammlung-overlay-builds/wien-lod21-height-control" \
+          		"https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml/${sheet}_lod2_gml.zip" \
+          		-o "/tmp/lod21-zips/${sheet}.zip"
+          }
+          export -f download_sheet
+          printf '%s\n' "${SHEETS[@]}" \
+          	| xargs -I{} -P "$WIEN_LOD21_DOWNLOAD_PARALLEL" bash -c 'download_sheet "$1"' _ {}
+          for sheet in "${SHEETS[@]}"; do
+          	unzip -q "/tmp/lod21-zips/${sheet}.zip" -d /tmp/lod21-source
+          done
+
+      - name: Fetch current FMZK parts
+        run: |
+          node wien-lod21/fetch-hybrid-current.mjs \
+          	--targets /tmp/height-control-targets.json \
+          	--output /tmp/height-control-current.json
+
+      - name: Audit control heights
+        run: |
+          node wien-lod21/audit-height-candidates.mjs \
+          	--input /tmp/lod21-source \
+          	--current /tmp/height-control-current.json \
+          	--targets /tmp/height-control-targets.json \
+          	--output /tmp/height-control-audit.json
+
+      - name: Summarize estimator calibration
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const data = JSON.parse(
+          	fs.readFileSync("/tmp/height-control-audit.json", "utf8")
+          );
+          const targetInput = JSON.parse(
+          	fs.readFileSync("/tmp/height-control-targets.json", "utf8")
+          );
+          const sourceMode = new Map(
+          	targetInput.buildings.map(
+          		(item) => [String(item.historicalCode), item.auditSourceMode]
+          	)
+          );
+
+          const quantile = (values, q) => {
+          	if (!values.length) return null;
+          	const sorted = [...values].sort((a, b) => a - b);
+          	const position = (sorted.length - 1) * q;
+          	const lower = Math.floor(position);
+          	const upper = Math.ceil(position);
+          	if (lower === upper) return sorted[lower];
+          	const weight = position - lower;
+          	return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+          };
+          const round = (value, digits = 3) => (
+          	Number.isFinite(value) ? Number(value.toFixed(digits)) : null
+          );
+
+          const parts = [];
+          for (const row of data.rows || []) {
+          	const totalCurrentArea = (row.currentParts || []).reduce(
+          		(sum, item) => sum + Number(item.areaM2 || 0),
+          		0
+          	);
+          	for (const part of row.partHeightAudit || []) {
+          		parts.push({
+          			historicalCode: row.historicalCode,
+          			sourceMode: sourceMode.get(String(row.historicalCode)),
+          			areaM2: Number(part.areaM2),
+          			areaFraction: totalCurrentArea > 0
+          				? Number(part.areaM2) / totalCurrentArea
+          				: 0,
+          			historicalCoverage: Number(part.historicalCoverage),
+          			p25: Number(part.eaveDifferenceP25M),
+          			p50: Number(part.eaveDifferenceP50M),
+          			p75: Number(part.eaveDifferenceP75M),
+          			p90: Number(part.eaveDifferenceP90M),
+          			largest: Number(part.eaveDifferenceLargestSurfaceM)
+          		});
+          	}
+          }
+
+          const estimators = ["p25", "p50", "p75", "p90", "largest"];
+          const filters = {
+          	coverage50: (part) => part.historicalCoverage >= 0.50,
+          	coverage50_area5: (part) => (
+          		part.historicalCoverage >= 0.50 && part.areaM2 >= 5
+          	),
+          	coverage50_area10: (part) => (
+          		part.historicalCoverage >= 0.50 && part.areaM2 >= 10
+          	),
+          	coverage50_area20: (part) => (
+          		part.historicalCoverage >= 0.50 && part.areaM2 >= 20
+          	),
+          	coverage50_fraction1pct: (part) => (
+          		part.historicalCoverage >= 0.50
+          		&& part.areaFraction >= 0.01
+          	)
+          };
+
+          const statsFor = (subset, estimator) => {
+          	const values = subset
+          		.map((part) => Math.abs(Number(part[estimator])))
+          		.filter(Number.isFinite);
+          	return {
+          		n: values.length,
+          		q50: round(quantile(values, 0.50)),
+          		q90: round(quantile(values, 0.90)),
+          		q95: round(quantile(values, 0.95)),
+          		q99: round(quantile(values, 0.99)),
+          		max: round(values.length ? Math.max(...values) : null),
+          		within1m: values.filter((value) => value <= 1).length,
+          		within2m: values.filter((value) => value <= 2).length,
+          		within3m: values.filter((value) => value <= 3).length
+          	};
+          };
+
+          const calibration = {};
+          for (const [filterName, predicate] of Object.entries(filters)) {
+          	const subset = parts.filter(predicate);
+          	calibration[filterName] = {
+          		totalParts: subset.length,
+          		estimators: Object.fromEntries(
+          			estimators.map(
+          				(estimator) => [estimator, statsFor(subset, estimator)]
+          			)
+          		)
+          	};
+          }
+
+          const byMode = {};
+          for (const mode of [...new Set(parts.map((part) => part.sourceMode))].sort()) {
+          	const subset = parts.filter(
+          		(part) => (
+          			part.sourceMode === mode
+          			&& part.historicalCoverage >= 0.50
+          			&& part.areaM2 >= 10
+          		)
+          	);
+          	byMode[mode] = {
+          		parts: subset.length,
+          		estimators: Object.fromEntries(
+          			estimators.map(
+          				(estimator) => [estimator, statsFor(subset, estimator)]
+          			)
+          		)
+          	};
+          }
+
+          const summary = {
+          	targets: data.targets,
+          	currentParts: parts.length,
+          	calibration,
+          	byMode
+          };
+          fs.writeFileSync(
+          	"/tmp/height-control-summary.json",
+          	JSON.stringify(summary, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-height-control
+          path: |
+            /tmp/height-control-audit.json
+            /tmp/height-control-summary.json
+          if-no-files-found: error
+          retention-days: 5
