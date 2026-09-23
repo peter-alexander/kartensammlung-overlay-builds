@@ -3,7 +3,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const MIN_REMAINDER_AREA_M2 = 2;
 const root = path.resolve(
 	process.argv[2] || "wien-lod21/build/WienBuildingsLOD21"
 );
@@ -101,24 +100,29 @@ for (const target of items) {
 		continue;
 	}
 
-	const expected = Number(target.expectedRemainderM2);
+	const rawRemainderAreaM2 = Number(
+		target.hybridRemainder?.rawRemainderAreaM2 || 0
+	);
+	const discardedSliverAreaM2 = Number(
+		target.hybridRemainder?.discardedSliverAreaM2 || 0
+	);
+	const maxDiscardedSliverWidthM = Number(
+		target.hybridRemainder?.maxDiscardedSliverWidthM || 0
+	);
+	const unaccountedAreaM2 = Math.max(
+		0,
+		rawRemainderAreaM2 - discardedSliverAreaM2
+	);
 	if (
-		target.rolloutMode === "manual-pilot-hybrid"
-		&& !Number.isFinite(expected)
+		unaccountedAreaM2 > 0.01
+		|| maxDiscardedSliverWidthM > 0.0501
 	) {
 		missingMeaningfulRemainders.push({
 			code: target.historicalCode,
-			expectedRemainderM2: null
-		});
-		continue;
-	}
-	if (
-		Number.isFinite(expected)
-		&& expected >= MIN_REMAINDER_AREA_M2
-	) {
-		missingMeaningfulRemainders.push({
-			code: target.historicalCode,
-			expectedRemainderM2: expected
+			rawRemainderAreaM2,
+			discardedSliverAreaM2,
+			maxDiscardedSliverWidthM,
+			unaccountedAreaM2
 		});
 	}
 }
