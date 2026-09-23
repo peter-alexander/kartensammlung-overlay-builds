@@ -1,0 +1,159 @@
+name: Build Vienna roof-loss pilot
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-lod21-roof-loss-pilot.yml'
+      - 'wien-lod21/targets.roof-loss-pilot.json'
+      - 'wien-lod21/build.mjs'
+      - 'wien-lod21/run.sh'
+      - 'wien-lod21/fetch-hybrid-current.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WIEN_LOD21_TARGETS: wien-lod21/targets.roof-loss-pilot.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Build roof-loss pilot
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Validate roof-loss pilot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const release = JSON.parse(
+          	fs.readFileSync(path.join(root, "release.json"), "utf8")
+          );
+          const targets = JSON.parse(
+          	fs.readFileSync(path.join(root, "targets.json"), "utf8")
+          );
+          const expected = new Set([
+          	"030964",
+          	"075028",
+          	"092098",
+          	"097306",
+          	"163184"
+          ]);
+
+          if (Number(release.counts?.targets) !== expected.size) {
+          	throw new Error(
+          		"Expected " + expected.size + " targets, got "
+          		+ release.counts?.targets
+          	);
+          }
+          if ((targets.targets || []).length !== expected.size) {
+          	throw new Error("Pilot target manifest count mismatch.");
+          }
+
+          const built = new Map();
+          const walk = (dir) => {
+          	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          		const full = path.join(dir, entry.name);
+          		if (entry.isDirectory()) {
+          			walk(full);
+          			continue;
+          		}
+          		if (!entry.isFile() || !entry.name.endsWith(".bin")) continue;
+          		const bytes = fs.readFileSync(full);
+          		const view = new DataView(
+          			bytes.buffer,
+          			bytes.byteOffset,
+          			bytes.byteLength
+          		);
+          		const metadataLength = view.getUint32(28, true);
+          		const metadata = JSON.parse(
+          			bytes.subarray(32, 32 + metadataLength).toString("utf8")
+          		);
+          		const padding = (4 - (metadataLength % 4)) % 4;
+          		const vertexOffset = 32 + metadataLength + padding;
+          		const stride = Number(metadata.vertexStride || 16);
+          		for (const building of metadata.buildings || []) {
+          			const code = String(building.historicalCode || "");
+          			if (!expected.has(code)) continue;
+          			if (
+          				String(building.rolloutMode || "")
+          				!== "maptoolkit-roof-replacement-pilot"
+          			) {
+          				throw new Error(code + ": rolloutMode missing in tile metadata.");
+          			}
+          			let pitchedVertices = 0;
+          			const start = Number(building.vertexStart);
+          			const count = Number(building.vertexCount);
+          			for (let index = start; index < start + count; index += 1) {
+          				const kind = view.getUint8(vertexOffset + index * stride + 12);
+          				if (kind === 1) pitchedVertices += 1;
+          			}
+          			if (!pitchedVertices) {
+          				throw new Error(code + ": no pitched-roof vertices in built tile.");
+          			}
+          			built.set(code, {
+          				roofType: String(building.roofType || ""),
+          				pitchedVertices
+          			});
+          		}
+          	}
+          };
+          walk(path.join(root, "tiles"));
+
+          for (const target of targets.targets || []) {
+          	const code = String(target.historicalCode || "");
+          	if (!expected.has(code)) continue;
+          	if (!(target.matches || []).length) {
+          		throw new Error(code + ": no CityGML match in build manifest.");
+          	}
+          	for (const match of target.matches) {
+          		if (
+          			String(match.roofType || "") === "FLACHDACH"
+          			|| !String(match.roofType || "")
+          		) {
+          			throw new Error(
+          				code + ": unexpected pilot roof type "
+          				+ String(match.roofType || "(empty)")
+          			);
+          		}
+          	}
+          }
+
+          if (built.size !== expected.size) {
+          	throw new Error(
+          		"Expected all pilot codes in tile metadata; found "
+          		+ [...built.keys()].sort().join(", ")
+          	);
+          }
+          console.log(JSON.stringify(Object.fromEntries(built), null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-roof-loss-pilot
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
