@@ -1,0 +1,126 @@
+name: Debug Vienna LOD2.1 clip 124241
+
+on:
+  push:
+    branches:
+      - feature/wien-lod21-124241-debug
+    paths:
+      - '.github/workflows/wien-lod21-124241-debug.yml'
+      - 'wien-lod21/build.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Prepare 124241 debug target
+        run: |
+          node wien-lod21/analyze-hybrid-candidates.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --output /tmp/hybrid-candidates.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const input = JSON.parse(
+          	fs.readFileSync("/tmp/hybrid-candidates.json", "utf8")
+          );
+          const candidate = (input.candidates || []).find(
+          	(item) => String(item.historicalCode) === "124241"
+          );
+          if (!candidate) throw new Error("124241 not found.");
+          const owners = candidate.ownerBwGebIds || [];
+          if (owners.length !== 1) throw new Error("124241 must have one owner.");
+          const target = {
+          	name: "Wien LOD2.1 debug 124241",
+          	historicalCode: "124241",
+          	bwGebId: Number(owners[0]),
+          	ksIds: candidate.ksIds,
+          	sheet: String(candidate.sheet || candidate.lod21Sheet),
+          	lng: Number(candidate.lng),
+          	lat: Number(candidate.lat),
+          	rolloutMode: "hybrid-clip-pilot",
+          	expectedHistoricalOutsideM2:
+          		Number(Number(candidate.outsideOldAreaM2).toFixed(3)),
+          	sourceMetrics: candidate.metrics,
+          	debugClipGeometry: true
+          };
+          fs.writeFileSync("/tmp/124241.json", JSON.stringify({
+          	schemaVersion: 1,
+          	status: "debug-124241",
+          	zoom: 15,
+          	extent: 8192,
+          	buildings: [target]
+          }, null, "\t") + "\n");
+          NODE
+
+      - name: Build 124241
+        env:
+          WIEN_LOD21_TARGETS: /tmp/124241.json
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Extract debug geometry
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const manifest = JSON.parse(fs.readFileSync(root + "/targets.json", "utf8"));
+          const target = manifest.targets?.[0];
+          if (!target?.historicalClip?.debugGeometry) {
+          	throw new Error("Debug geometry missing.");
+          }
+          fs.writeFileSync(
+          	"/tmp/124241-debug.json",
+          	JSON.stringify({
+          		historicalCode: target.historicalCode,
+          		sourceMetrics: target.sourceMetrics,
+          		historicalClip: target.historicalClip,
+          		matches: target.matches,
+          		remainder: target.hybridRemainder
+          	}, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify({
+          		clip: {
+          			objects: target.historicalClip.objects,
+          			boundaryLengthM: target.historicalClip.boundaryLengthM,
+          			wallCoverage: target.historicalClip.geometricWallBoundaryCoverageRatio,
+          			uncoveredBoundaryLengthM: target.historicalClip.uncoveredWallBoundaryLengthM,
+          			generatedWallSurfaces: target.historicalClip.generatedWallSurfaces
+          		}
+          }, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-124241-debug
+          path: /tmp/124241-debug.json
+          if-no-files-found: error
+          retention-days: 3
