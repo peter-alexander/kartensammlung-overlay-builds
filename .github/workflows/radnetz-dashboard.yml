@@ -1,0 +1,55 @@
+name: Refresh Radnetz Dashboard
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'radnetz-dashboard/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/radnetz-dashboard.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'radnetz-dashboard/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/radnetz-dashboard.yml'
+  schedule:
+    - cron: '7,37 * * * *'
+
+concurrency:
+  group: radnetz-dashboard
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install PHP runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php-cli php-curl php-mbstring
+
+      - name: Build Radnetz Dashboard GeoJSON
+        run: php radnetz-dashboard/build.php
+
+      - name: Deploy GeoJSON to Lima
+        if: github.event_name != 'pull_request'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            radnetz-dashboard/build/RadnetzDashboard.geojson \
+            "${MAIN_REMOTE_ROOT%/}/RadnetzDashboard.geojson"
