@@ -1485,6 +1485,7 @@ async function main() {
 			geometricWallBoundaryCoverageRatio: 0,
 			uncoveredWallBoundaryLengthM: boundaryLengthM,
 			wallLineGeometries: [],
+			debugObjectClips: [],
 			minWallBoundaryCoverageRatio: 0,
 			sourceRoofSurfaces: 0,
 			clippedRoofSurfaces: 0,
@@ -1505,6 +1506,11 @@ async function main() {
 				|| objectClip.isEmpty()
 				|| Number(objectClip.getArea?.() || 0) <= 1e-6
 			) continue;
+			if (target.debugClipGeometry === true) {
+				try {
+					stats.debugObjectClips.push(geoWriter.write(objectClip));
+				} catch {}
+			}
 
 			const clipped = clipHistoricalSurfacesToFootprint(
 				entry.surfaces,
@@ -1565,8 +1571,9 @@ async function main() {
 			.filter(Boolean);
 		const wallBuffer = unionJstsGeometries(wallBuffers);
 		if (wallBuffer && boundaryLengthM > 0) {
+			const targetBoundary = clippedHistoricalGround.getBoundary();
 			const coveredBoundary = intersectionJstsGeometry(
-				clippedHistoricalGround.getBoundary(),
+				targetBoundary,
 				wallBuffer,
 				code + " wall boundary coverage"
 			);
@@ -1579,8 +1586,31 @@ async function main() {
 				0,
 				boundaryLengthM - coveredLengthM
 			);
+			if (target.debugClipGeometry === true) {
+				const uncoveredBoundary = differenceJstsGeometry(
+					targetBoundary,
+					wallBuffer,
+					code + " uncovered wall boundary"
+				);
+				stats.debugGeometry = {
+					targetFootprint: geoWriter.write(clippedHistoricalGround),
+					targetBoundary: geoWriter.write(targetBoundary),
+					wallBuffer: geoWriter.write(wallBuffer),
+					coveredBoundary: coveredBoundary
+						? geoWriter.write(coveredBoundary)
+						: null,
+					uncoveredBoundary: uncoveredBoundary
+						? geoWriter.write(uncoveredBoundary)
+						: null,
+					wallLines: stats.wallLineGeometries.map((line) => (
+						geoWriter.write(line)
+					)),
+					objectClips: stats.debugObjectClips
+				};
+			}
 		}
 		delete stats.wallLineGeometries;
+		delete stats.debugObjectClips;
 		clipStatsByCode.set(code, stats);
 	}
 
