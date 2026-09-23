@@ -5,6 +5,10 @@ import path from "node:path";
 
 const HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2 = 0.58;
 const HYBRID_B_THIN_MAX_MEAN_WIDTH_M = 0.05;
+const EAVE_AUDIT_PATH = new URL(
+	"./eave-height-analysis.generated.json",
+	import.meta.url
+);
 const AUDITED_HYBRID_B_THIN = new Map([
 	["079387", 0.0330],
 	["088019", 0.0306],
@@ -37,7 +41,8 @@ function parseArgs(argv) {
 		includeHybridBThin: false,
 		includeHybridBClip: false,
 		includeHybridCClip: false,
-		includeHybridDClip: false
+		includeHybridDClip: false,
+		includeHybridEaveClip: false
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		const arg = argv[index];
@@ -59,6 +64,8 @@ function parseArgs(argv) {
 			result.includeHybridCClip = true;
 		} else if (arg === "--include-hybrid-d-clip") {
 			result.includeHybridDClip = true;
+		} else if (arg === "--include-hybrid-eave-clip") {
+			result.includeHybridEaveClip = true;
 		} else {
 			throw new Error("Unknown argument: " + arg);
 		}
@@ -87,6 +94,11 @@ function parseArgs(argv) {
 	if (result.includeHybridDClip && !result.includeHybridCClip) {
 		throw new Error(
 			"--include-hybrid-d-clip requires --include-hybrid-c-clip."
+		);
+	}
+	if (result.includeHybridEaveClip && !result.includeHybridDClip) {
+		throw new Error(
+			"--include-hybrid-eave-clip requires --include-hybrid-d-clip."
 		);
 	}
 	return result;
@@ -207,6 +219,26 @@ function isHybridDClip(candidate) {
 	);
 }
 
+function isHybridEaveClip(candidate, eaveAuditByCode) {
+	if (
+		isHybridA(candidate)
+		|| isHybridBAbsolute(candidate)
+		|| isHybridBThin(candidate)
+		|| isHybridBClip(candidate)
+		|| isHybridCClip(candidate)
+		|| isHybridDClip(candidate)
+	) return false;
+	const code = String(candidate?.historicalCode || "");
+	const audit = eaveAuditByCode.get(code);
+	const metrics = candidate?.metrics || {};
+	return (
+		audit?.surfaceMinMedianHeightMPass === true
+		&& Number(metrics.oldCoverage) >= 0.95
+		&& Number(metrics.currentCoverage) >= 0.60
+		&& Number(metrics.centroidDistanceM) <= 8
+	);
+}
+
 function singleOwner(candidate) {
 	const owners = candidate?.ownerBwGebIds || [];
 	if (owners.length !== 1) {
@@ -273,6 +305,13 @@ async function main() {
 	const args = parseArgs(process.argv);
 	const report = JSON.parse(await fs.readFile(args.report, "utf8"));
 	const pilot = JSON.parse(await fs.readFile(args.pilot, "utf8"));
+	const eaveAudit = JSON.parse(await fs.readFile(EAVE_AUDIT_PATH, "utf8"));
+	const eaveAuditByCode = new Map(
+		(eaveAudit.rows || []).map((item) => [
+			String(item.historicalCode),
+			item
+		])
+	);
 	const pilotByCode = new Map(
 		(pilot.buildings || []).map((item) => [String(item.historicalCode), item])
 	);
@@ -378,6 +417,31 @@ async function main() {
 		});
 	}
 
+	const hybridEaveClip = args.includeHybridEaveClip
+		? (report.hybridCandidates || []).filter((candidate) => (
+			isHybridEaveClip(candidate, eaveAuditByCode)
+		))
+		: [];
+	for (const candidate of hybridEaveClip) {
+		const code = String(candidate.historicalCode);
+		const pilotTarget = pilotByCode.get(code);
+		const audit = eaveAuditByCode.get(code);
+		targets.push({
+			...targetFromCandidate(candidate, {
+				name: pilotTarget?.name || "",
+				rolloutMode: "hybrid-eave-clip"
+			}),
+			auditedHistoricalClip: true,
+			auditedHeightMetric: "median-roof-surface-minimum",
+			auditedHistoricalEaveHeightM:
+				Number(audit.surfaceMinMedianHeightM.toFixed(3)),
+			auditedHistoricalEaveDifferenceM:
+				Number(audit.surfaceMinMedianHeightMDifferenceM.toFixed(3)),
+			auditedHistoricalEaveToleranceM:
+				Number(audit.productionToleranceM.toFixed(3))
+		});
+	}
+
 	const resultsByCode = new Map(
 		(report.results || [])
 			.filter((item) => item.candidateType === "historical-code")
@@ -436,6 +500,9 @@ async function main() {
 	const hybridDClipCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-d-clip"
 	).length;
+	const hybridEaveClipCount = targets.filter(
+		(target) => target.rolloutMode === "hybrid-eave-clip"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -459,7 +526,8 @@ async function main() {
 				+ hybridBThinCount
 				+ hybridBClipCount
 				+ hybridCClipCount
-				+ hybridDClipCount,
+				+ hybridDClipCount
+				+ hybridEaveClipCount,
 			hybridCandidatesDeferred:
 				Number(report?.counts?.hybridCandidates || 0)
 				- hybridACount
@@ -467,11 +535,14 @@ async function main() {
 				- hybridBThinCount
 				- hybridBClipCount
 				- hybridCClipCount
-				- hybridDClipCount,
+				- hybridDClipCount
+				- hybridEaveClipCount,
 			hybridBAbsoluteMaxHistoricalOutsideCurrentM2:
 				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2,
 			hybridBThinMaxHistoricalOutsideMeanWidthM:
-				HYBRID_B_THIN_MAX_MEAN_WIDTH_M
+				HYBRID_B_THIN_MAX_MEAN_WIDTH_M,
+			hybridEaveHeightMetric: "median-roof-surface-minimum",
+			hybridEaveAuditGeneratedAt: eaveAudit.generatedAt || null
 		},
 		counts: {
 			total: targets.length,
@@ -482,6 +553,7 @@ async function main() {
 			hybridBClip: hybridBClipCount,
 			hybridCClip: hybridCClipCount,
 			hybridDClip: hybridDClipCount,
+			hybridEaveClip: hybridEaveClipCount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -528,6 +600,12 @@ async function main() {
 			+ " hybrid-d-clip targets, got " + hybridDClipCount
 		);
 	}
+	if (hybridEaveClipCount !== (args.includeHybridEaveClip ? 26 : 0)) {
+		throw new Error(
+			"Expected " + (args.includeHybridEaveClip ? 26 : 0)
+			+ " hybrid-eave-clip targets, got " + hybridEaveClipCount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
@@ -538,9 +616,11 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeHybridDClip
-		? 2245
-		: args.includeHybridCClip
+	const expectedTargets = args.includeHybridEaveClip
+		? 2271
+		: args.includeHybridDClip
+			? 2245
+			: args.includeHybridCClip
 			? 2076
 			: args.includeHybridBClip
 			? 1907
