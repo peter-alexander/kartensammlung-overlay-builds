@@ -23,7 +23,9 @@ export function isAllowedMtkUrl(value) {
 
 export function resolveUrl(baseUrl, reference) {
 	try {
-		return new URL(reference, baseUrl).href;
+		return new URL(reference, baseUrl).href
+			.replaceAll("%7B", "{")
+			.replaceAll("%7D", "}");
 	} catch {
 		return null;
 	}
