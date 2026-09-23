@@ -65,12 +65,13 @@ enthält:
 - 1.209 automatisch freigegebene `direct-strong`-Gebäude,
 - 614 konservative `hybrid-a`-Gebäude,
 - 72 `hybrid-b-absolute`-Gebäude,
+- 3 geometrisch auditierte `hybrid-b-thin`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 1.897 Gebäude auf 684 benötigten LOD2.1-Quellblättern.
+- insgesamt 1.900 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
-686 automatisch freigegeben. **377 bleiben weiterhin zurückgestellt**; bei
+689 automatisch freigegeben. **374 bleiben weiterhin zurückgestellt**; bei
 ihnen ist die historische/heutige Grundrissabweichung oder eine andere
 Plausibilitätsmetrik für den derzeitigen konservativen Rollout zu groß.
 
@@ -174,3 +175,27 @@ Grundrissabweichung als im bereits produktiv getesteten Hybrid-A-Satz.
 Ein isolierter Build aller 72 Gebäude wurde vor dem Produktionsrollout mit
 denselben exakten FMZK-Geometrien, Restmesh-Regeln und
 5-cm-Sliver-Prüfungen validiert.
+
+
+## Hybrid-B thin
+
+Nach dem absoluten Hybrid-B-Rollout blieben zehn Kandidaten der ursprünglichen
+Hybrid-B-Klasse übrig. Für sie wurde die historische Fläche außerhalb des
+heutigen OGD-Grundrisses komponentenweise nach Fläche, Umfang und mittlerer
+Dicke (`2 × Fläche / Umfang`) geprüft.
+
+Drei Fälle bestehen ausschließlich aus dünnen geometrischen Säumen:
+
+- `123321`: maximale mittlere Dicke 3,12 cm,
+- `079387`: 3,30 cm,
+- `088019`: 3,06 cm.
+
+Sie liegen damit unter derselben **5-cm-Dünnheitsgrenze**, die bereits beim
+Hybrid-Restmesh zum Verwerfen numerischer Sliver verwendet wird. Zusätzlich
+erfüllen alle drei weiterhin die Hybrid-B-Regeln für Überdeckung, Schwerpunkt
+und Höhe. Sie werden als `hybrid-b-thin` geführt.
+
+Die übrigen sieben Hybrid-B-Fälle werden nicht freigegeben: Dort erreichen
+historische Außenkomponenten etwa 11 bis 66 cm mittlere Dicke. Das sind keine
+bloßen numerischen Säume mehr; für diese Gebäude wäre ein echtes Clipping des
+historischen 3D-Modells oder eine andere gezielte Geometriebehandlung nötig.
