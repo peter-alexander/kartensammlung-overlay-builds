@@ -7,6 +7,7 @@ on:
       - feature/wien-lod21-hybrid-remainder
     paths:
       - 'wien-lod21/targets.production.json'
+      - '.github/workflows/wien-lod21.yml'
 
 permissions:
   contents: read
@@ -60,4 +61,4 @@ jobs:
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienLOD21"
           .github/scripts/lftp-upload.sh wien-lod21/build/WienBuildingsLOD21 "$REMOTE_BASE"
 
-# full-build-version: 6
+# full-build-version: 7
