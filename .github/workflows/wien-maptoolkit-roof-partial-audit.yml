@@ -138,6 +138,18 @@ jobs:
           		item
           	])
           );
+          const roofLossSummary = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/roof-loss/wien-roof-loss-summary.json",
+          		"utf8"
+          	)
+          );
+          const strongByCode = new Map(
+          	(roofLossSummary.strongCandidates || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
 
           const rows = (surfaces.reports || []).map((surface) => {
           	const code = String(surface.historicalCode);
@@ -155,6 +167,23 @@ jobs:
           		&& new Set(signatures).size === signatures.length
           		&& signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
           	);
+          	const allFeaturesInterior = (feature?.features || []).every(
+          		(item) => item.touchesTileEdge === false
+          	);
+          	const allRoofSurfacesFlat = (
+          		(feature?.features || []).length > 0
+          		&& (feature.features || []).every((item) => (
+          			Number(item.surfaceKinds?.["pitched-roof"] || 0) === 0
+          			&& Number(item.surfaceKinds?.["flat-roof"] || 0) >= 1
+          		))
+          	);
+          	const strong = strongByCode.get(code);
+          	const metrics = strong?.metrics || {};
+          	const footprintStable = (
+          		Number(metrics.currentCoverage) >= 0.998
+          		&& Number(metrics.oldCoverage) >= 0.998
+          		&& Number(metrics.centroidDistanceM) <= 0.10
+          	);
           	const completeFlatReplacement = (
           		surface.safe === true
           		&& Number(surface.flatHitPercent) === 100
@@ -165,11 +194,28 @@ jobs:
           		Number(surface.maptoolkitFlatVsHistoricalEaveM) >= -0.25
           		&& Number(surface.maptoolkitFlatVsHistoricalRidgeM) <= 0.25
           	);
+          	const exactFootprintFlatOnly = (
+          		surface.safe === true
+          		&& Number(surface.flatHitPercent) >= 80
+          		&& Number(surface.pitchedHitPercent) === 0
+          		&& heightPlausible
+          		&& featureSafe
+          		&& allFeaturesInterior
+          		&& allRoofSurfacesFlat
+          		&& footprintStable
+          	);
           	return {
           		code,
           		completeFlatReplacement,
+          		exactFootprintFlatOnly,
           		heightPlausible,
           		featureSafe,
+          		allFeaturesInterior,
+          		allRoofSurfacesFlat,
+          		footprintStable,
+          		currentCoverage: Number(metrics.currentCoverage),
+          		oldCoverage: Number(metrics.oldCoverage),
+          		centroidDistanceM: Number(metrics.centroidDistanceM),
           		replacementTile: surface.tile,
           		featureTiles,
           		flatHitPercent: surface.flatHitPercent,
@@ -191,11 +237,33 @@ jobs:
           	&& row.heightPlausible
           	&& row.featureSafe
           ));
+          const exactFootprintFlatOnly = rows.filter(
+          	(row) => row.exactFootprintFlatOnly
+          );
+          const expectedExactFootprint = [
+          	"106027",
+          	"108069",
+          	"505549",
+          	"507585"
+          ];
+          if (
+          	JSON.stringify(
+          		exactFootprintFlatOnly.map((row) => row.code).sort()
+          	) !== JSON.stringify(expectedExactFootprint)
+          ) {
+          	throw new Error(
+          		"Unexpected exact-footprint flat-only set: "
+          		+ exactFootprintFlatOnly.map((row) => row.code).join(",")
+          	);
+          }
           const output = {
           	generatedAt: new Date().toISOString(),
           	count: rows.length,
           	promotableCount: promotable.length,
           	promotableCodes: promotable.map((row) => row.code),
+          	exactFootprintFlatOnlyCount: exactFootprintFlatOnly.length,
+          	exactFootprintFlatOnlyCodes:
+          		exactFootprintFlatOnly.map((row) => row.code),
           	rows
           };
           fs.writeFileSync(
