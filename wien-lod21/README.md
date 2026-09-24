@@ -75,10 +75,10 @@ enthält:
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
 - 26 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
 - 2 höhensensitiv geteilte `hybrid-height-split`-Gebäude,
-- 22 streng auditierte `maptoolkit-roof-replacement`-Gebäude,
+- 36 streng auditierte `maptoolkit-roof-replacement`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.295 Gebäude.
+- insgesamt 2.309 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
 **1.062 automatisch freigegeben**. Der einzige nicht automatisch ausgewählte
@@ -88,50 +88,86 @@ Hybrid-Ausnahme produktiv ist. Damit sind alle 1.063 sicheren
 
 ## Maptoolkit-Dachersatz
 
-Die 22 `maptoolkit-roof-replacement`-Fälle sind **kein allgemeiner Vorrang
+Die 36 `maptoolkit-roof-replacement`-Fälle sind **kein allgemeiner Vorrang
 historischer Daten vor Maptoolkit**. Sie wurden zusätzlich zur
 Grundriss-/Identitätsprüfung direkt gegen die aktuell ausgelieferten
-`buildings3d`-Flächen geprüft.
+`buildings3d`-Flächen geprüft. Der Produktionssatz besteht aus drei
+Auditpfaden:
 
-Produktiv aufgenommen werden nur Fälle, bei denen:
+- **30 klassische Roof-Replacements**: Die verwendeten historischen
+  Dach-Samples treffen zu 100 % ausschließlich flache Maptoolkit-Dachflächen.
+  Darin enthalten sind drei vollständig auditierte Cross-Tile-Fälle
+  (`120593`, `137772`, `226564`).
+- **4 `exact-footprint-flat-only`-Fälle**:
+  `106027`, `108069`, `505549`, `507585`. Hier ersetzt die
+  flächenbasierte Auditierung die frühere 100-%-Sample-Regel. Historischer und
+  aktueller Grundriss müssen praktisch identisch sein, die Maptoolkit-Dächer
+  ausschließlich flach und exklusiv sein und die beidseitige Flächenabdeckung
+  die festgelegten Schwellen erfüllen.
+- **2 `current-footprint-clipped-flat-only`-Fälle**:
+  `124800` und `204583`. Bei ihnen hat sich der Grundriss geändert; das
+  historische LOD2.1 wird deshalb vor dem Build auf den heutigen exakten
+  OGD-Grundriss geclippt. Dach- und Wandabdeckung des geclippten Ersatzmodells
+  wurden vollständig geometrisch validiert.
 
-- die historischen geneigten Dachflächen live ausschließlich flache
-  Maptoolkit-Dachflächen treffen und keine geneigte Maptoolkit-Dachfläche,
-- 100 % der verwendeten historischen Dach-Samples von diesen flachen
-  Maptoolkit-Flächen getroffen werden,
-- die aktuelle flache Maptoolkit-Höhe innerhalb des historischen
-  Dachhöhenbereichs mit 25 cm Toleranz liegt,
-- die betroffenen Maptoolkit-Features ausschließlich zur geprüften
-  `BW_GEB_ID` gehören,
-- alle zu ersetzenden Features und das LOD2.1-Ersatzobjekt in derselben
-  Z15-Kachel liegen.
+Für alle drei Pfade gelten weiterhin die gemeinsamen Sicherheitsbedingungen:
 
-Die Datei `maptoolkit-roof-overrides.production.json` hält diese auditierte
-Auswahl und die erwarteten Geometrie-Fingerprints fest. Im Client wird ein
-Ersatz **fail-closed** aktiviert: Nur wenn das gültige LOD2.1-Ersatzobjekt im
-gleichen Tile geladen ist und alle erwarteten Maptoolkit-Feature-Fingerprints
-eindeutig vorhanden sind, werden genau diese Maptoolkit-Features entfernt und
-das historische Dach eingeblendet. Ändert Maptoolkit die Geometrie oder ist
-ein Fingerprint nicht eindeutig, bleibt das aktuelle Maptoolkit-Modell
-unverändert sichtbar.
+- es darf keine zu ersetzende geneigte Maptoolkit-Dachfläche geben,
+- die Maptoolkit-Höhenlage muss zum historischen Dachhöhenbereich mit
+  25 cm Toleranz passen,
+- die betroffenen Maptoolkit-Features müssen exklusiv zum geprüften Gebäude
+  gehören,
+- die zu entfernenden Maptoolkit-Features werden über stabile
+  Geometrie-Fingerprints identifiziert,
+- bei jeder Unklarheit bleibt das aktuelle Maptoolkit-Modell sichtbar.
 
-Die zweite auditierte Welle ergänzt die Codes `143213`, `200497` und `503621`. Alle drei erfüllen dieselben Surface-, Höhen-, Eigentums- und Single-Tile-Kriterien wie die erste Welle.
+Die vier `exact-footprint-flat-only`-Fälle verlangen zusätzlich mindestens
+99,8 % historische/aktuelle Grundrissüberdeckung in beide Richtungen, höchstens
+10 cm Schwerpunktversatz, mindestens 98 % beidseitige Abdeckung zwischen
+heutigem Grundriss und flachen Maptoolkit-Dächern, höchstens 2 m²
+Maptoolkit/Grundriss-Symmetriedifferenz und höchstens 0,25 m²
+historisch/aktuell-Symmetriedifferenz.
+
+Für `current-footprint-clipped-flat-only` müssen die flachen
+Maptoolkit-Dachflächen den heutigen Grundriss in beide Richtungen zu mindestens
+99,5 % decken; die relative Symmetriedifferenz darf höchstens 1 % betragen.
+Zusätzlich muss der historische 3D-Clip mindestens 99,9 % Dach- und
+Wandrandabdeckung erreichen, höchstens 1 cm Rand offenlassen und darf keine
+synthetischen Restobjekte erzeugen.
+
+Die Datei `maptoolkit-roof-overrides.production.json` hält die auditierte
+Auswahl und die erwarteten Geometrie-Fingerprints fest. `release.json`
+publiziert daraus die kleine fail-safe Override-Liste für den Client.
+
+Im Client wird der Ersatz **fail-closed** aktiviert:
+
+- Bei einem Single-Tile-Fall müssen gültiges LOD2.1-Ersatzobjekt und alle
+  erwarteten Maptoolkit-Fingerprints eindeutig vorliegen.
+- Bei einem Cross-Tile-Fall werden zuerst **alle** beteiligten
+  `featureTiles` validiert. Erst danach darf das Ersatzobjekt aktiv werden;
+  bereits geladene Nachbar-Tiles werden atomar neu aufgebaut.
+- Verlässt das Replacement-Tile den aktiven Tile-Plan oder wird der Renderer
+  getrennt, werden Cross-Tile-Aktivierung und Validierung verworfen. Beim
+  erneuten Betreten wird frisch geprüft.
+- Ändert Maptoolkit upstream eine Geometrie, fehlt ein Fingerprint oder ist er
+  nicht eindeutig, wird nichts ersetzt.
+
+Damit kann das historische Dach nur genau die beim Audit identifizierten
+Maptoolkit-Features verdrängen; ein geändertes oder anderes Gebäude wird nicht
+versehentlich ausgeblendet.
 
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält neben Version, Tile-Verfügbarkeit
-und kompakten Zählern auch die kleine fail-safe Fingerprint-Liste für diese
-Dachersatz-Fälle.
+und kompakten Zählern auch die fail-safe Fingerprint-Liste.
 
 Der Snapshot kann mit `make-production-targets.mjs` aus einem erneut
 validierten Stadtbericht regeneriert werden. Ein Rebuild benötigt dadurch
 keine erneute stadtweite Matching-Analyse.
 
-
 Für jedes Produktionsziel werden außerdem die exakten aktuellen OGD-`KS_ID`s
 mitgeführt. LOD2.1 darf damit nur jene heutigen FMZK-Baukörper unterdrücken,
 die der Matcher diesem historischen Dach tatsächlich zugeordnet hat; eine
 pauschale Ausblendung der gesamten `BW_GEB_ID` ist für LOD2.1 nicht zulässig.
-
 
 ## Hybrid-Restflächen
 
