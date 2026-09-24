@@ -1,0 +1,222 @@
+name: Revalidate Vienna roof replacement candidates
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-revalidate.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WIEN_ROOF_OVERRIDE_CODES: "066292,073722,120593,126551,137772,143213,169945,200497,226564,229233,503621"
+      WIEN_ROOF_OVERRIDE_TILE_RADIUS: "1"
+      WIEN_ROOF_OVERRIDE_FETCH_ATTEMPTS: "2"
+      WIEN_LOD21_TARGETS: /tmp/wien-roof-revalidate-targets.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: /tmp/roof-loss
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35913353237
+
+      - name: Build revalidation target manifest
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const summary = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/roof-loss/wien-roof-loss-summary.json",
+          		"utf8"
+          	)
+          );
+          const wanted = new Set(
+          	process.env.WIEN_ROOF_OVERRIDE_CODES.split(",")
+          );
+          const byCode = new Map(
+          	(summary.strongCandidates || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+          const buildings = [...wanted].sort().map((code) => {
+          	const item = byCode.get(code);
+          	if (!item) throw new Error("Missing strong candidate " + code);
+          	return {
+          		name: "Roof replacement revalidation " + code,
+          		historicalCode: code,
+          		bwGebId: String(item.ownerBwGebIds?.[0] || ""),
+          		ksIds: item.ksIds || [],
+          		sheet: String(item.sheet || ""),
+          		lng: Number(item.lng),
+          		lat: Number(item.lat),
+          		rolloutMode: "maptoolkit-roof-replacement"
+          	};
+          });
+          if (buildings.length !== 11) {
+          	throw new Error("Expected 11 targets, got " + buildings.length);
+          }
+          fs.writeFileSync(
+          	process.env.WIEN_LOD21_TARGETS,
+          	JSON.stringify({
+          		schemaVersion: 1,
+          		status: "analysis",
+          		zoom: 15,
+          		extent: 8192,
+          		buildings
+          	}, null, "\t") + "\n"
+          );
+          NODE
+
+      - name: Build historical LOD2.1 meshes
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Revalidate live Maptoolkit roof surfaces
+        run: |
+          node wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs \
+            --root wien-lod21/build/WienBuildingsLOD21 \
+            --output /tmp/wien-roof-revalidate-surfaces.json \
+            --expected-count 11
+
+      - name: Revalidate live Maptoolkit feature ownership
+        run: |
+          node wien-buildings/analyze-maptoolkit-override-pilot.mjs \
+            /tmp/roof-loss/wien-roof-loss-summary.json \
+            /tmp/wien-roof-revalidate-features.json
+
+      - name: Classify current safe candidates
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const surfaces = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/wien-roof-revalidate-surfaces.json",
+          		"utf8"
+          	)
+          );
+          const features = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/wien-roof-revalidate-features.json",
+          		"utf8"
+          	)
+          );
+          const surfaceByCode = new Map(
+          	(surfaces.reports || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+          const rows = [];
+          for (const feature of features.rows || []) {
+          	const code = String(feature.historicalCode);
+          	const surface = surfaceByCode.get(code);
+          	const tiles = [...new Set(
+          		(feature.features || []).map((item) => String(item.tile))
+          	)].sort();
+          	const signatures = (feature.features || []).map(
+          		(item) => String(item.signature || "").toLowerCase()
+          	);
+          	const surfaceSafe = (
+          		surface?.safe === true
+          		&& Number(surface.flatHitPercent) === 100
+          		&& Number(surface.maptoolkitFlatVsHistoricalEaveM) >= -0.25
+          		&& Number(surface.maptoolkitFlatVsHistoricalRidgeM) <= 0.25
+          	);
+          	const featureSafe = (
+          		feature.featureCount > 0
+          		&& feature.sharedFeatureCount === 0
+          		&& signatures.length === feature.featureCount
+          		&& new Set(signatures).size === signatures.length
+          		&& signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+          	);
+          	rows.push({
+          		code,
+          		surfaceSafe,
+          		featureSafe,
+          		singleTile: tiles.length === 1,
+          		tiles,
+          		signatures,
+          		flatHitPercent: surface?.flatHitPercent ?? null,
+          		eaveDeltaM:
+          			surface?.maptoolkitFlatVsHistoricalEaveM ?? null,
+          		ridgeDeltaM:
+          			surface?.maptoolkitFlatVsHistoricalRidgeM ?? null
+          	});
+          }
+          rows.sort((a, b) => a.code.localeCompare(b.code));
+          const safe = rows.filter(
+          	(row) => row.surfaceSafe && row.featureSafe
+          );
+          const singleTile = safe.filter((row) => row.singleTile);
+          const crossTile = safe.filter((row) => !row.singleTile);
+          const output = {
+          	generatedAt: new Date().toISOString(),
+          	count: rows.length,
+          	safeCount: safe.length,
+          	singleTileCount: singleTile.length,
+          	crossTileCount: crossTile.length,
+          	rows
+          };
+          fs.writeFileSync(
+          	"/tmp/wien-roof-revalidate-summary.json",
+          	JSON.stringify(output, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(output, null, 2));
+
+          if (rows.length !== 11) {
+          	throw new Error("Expected 11 rows, got " + rows.length);
+          }
+          if (safe.length !== 11) {
+          	throw new Error(
+          		"Expected all 11 candidates to remain live-safe, got "
+          		+ safe.length
+          	);
+          }
+          if (singleTile.length !== 9 || crossTile.length !== 2) {
+          	throw new Error(
+          		"Expected 9 single-tile and 2 cross-tile candidates, got "
+          		+ singleTile.length + " / " + crossTile.length
+          	);
+          }
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wien-maptoolkit-roof-revalidation
+          path: |
+            /tmp/wien-roof-revalidate-targets.json
+            /tmp/wien-roof-revalidate-surfaces.json
+            /tmp/wien-roof-revalidate-features.json
+            /tmp/wien-roof-revalidate-summary.json
+          if-no-files-found: warn
+          retention-days: 7
