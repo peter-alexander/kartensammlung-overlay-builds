@@ -13,6 +13,7 @@ const targets = JSON.parse(
 	fs.readFileSync(path.join(root, "targets.json"), "utf8")
 );
 const items = Array.isArray(targets.targets) ? targets.targets : [];
+const EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS = 22;
 
 if (release.status !== "production") {
 	throw new Error("Expected production release, got " + release.status);
@@ -135,18 +136,24 @@ if (
 	);
 }
 if (
-	maptoolkitRoofReplacement !== 19
+	maptoolkitRoofReplacement !== EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS
 	|| Number(release.counts.maptoolkitRoofReplacement || 0)
 		!== maptoolkitRoofReplacement
 ) {
 	throw new Error(
-		"Expected 19 audited Maptoolkit roof replacements, got "
+		"Expected " + EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS
+		+ " audited Maptoolkit roof replacements, got "
 		+ maptoolkitRoofReplacement + " / release "
 		+ Number(release.counts.maptoolkitRoofReplacement || 0)
 	);
 }
-if (items.length !== 2292) {
-	throw new Error("Expected 2292 production targets, got " + items.length);
+const expectedProductionTargets =
+	2273 + EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS;
+if (items.length !== expectedProductionTargets) {
+	throw new Error(
+		"Expected " + expectedProductionTargets
+		+ " production targets, got " + items.length
+	);
 }
 
 const releaseRoofOverrides =
@@ -156,10 +163,12 @@ const releaseRoofOverrides =
 if (
 	release.maptoolkitRoofOverrides?.mode
 	!== "fail-safe-feature-fingerprint"
-	|| releaseRoofOverrides.length !== 19
+	|| releaseRoofOverrides.length
+		!== EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS
 ) {
 	throw new Error(
-		"Expected 19 fail-safe Maptoolkit roof override release entries."
+		"Expected " + EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS
+		+ " fail-safe Maptoolkit roof override release entries."
 	);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
