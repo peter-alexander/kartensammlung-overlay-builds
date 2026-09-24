@@ -123,6 +123,41 @@ jobs:
           );
           console.log("LOD21_120593", JSON.stringify(building));
 
+
+          const roofVertices = [];
+          for (let localIndex = 0; localIndex < Number(building.vertexCount); localIndex += 1) {
+          	const sourceIndex = Number(building.vertexStart) + localIndex;
+          	const offset = parsed.vertexOffset + sourceIndex * parsed.vertexStride;
+          	const x = parsed.extent / 2 + parsed.view.getInt16(offset, true) / 4;
+          	const y = parsed.extent / 2 + parsed.view.getInt16(offset + 2, true) / 4;
+          	const z = parsed.view.getUint16(offset + 4, true) / 100;
+          	const nx = parsed.view.getInt16(offset + 6, true) / 32767;
+          	const ny = parsed.view.getInt16(offset + 8, true) / 32767;
+          	const nz = parsed.view.getInt16(offset + 10, true) / 32767;
+          	const surfaceKind = parsed.view.getUint8(offset + 12);
+          	if (surfaceKind !== 1 && surfaceKind !== 2) continue;
+          	const tiltDeg = Math.acos(Math.min(1, Math.abs(nz))) * 180 / Math.PI;
+          	roofVertices.push({ x, y, z, nx, ny, nz, surfaceKind, tiltDeg });
+          }
+          const roofZ = roofVertices.map((item) => item.z);
+          const roofTilts = roofVertices.map((item) => item.tiltDeg);
+          console.log("ROOF_GEOMETRY_120593", JSON.stringify({
+          	vertexCount: roofVertices.length,
+          	minZ: Math.min(...roofZ),
+          	maxZ: Math.max(...roofZ),
+          	minTiltDeg: Math.min(...roofTilts),
+          	maxTiltDeg: Math.max(...roofTilts),
+          	unique: [...new Map(roofVertices.map((item) => [
+          		[item.z.toFixed(2), item.nz.toFixed(5), item.surfaceKind].join("|"),
+          		{
+          			z: item.z,
+          			nz: Number(item.nz.toFixed(5)),
+          			surfaceKind: item.surfaceKind,
+          			tiltDeg: Number(item.tiltDeg.toFixed(3))
+          		}
+          	])).values()]
+          }));
+
           const map = {
           	getTerrain: () => null,
           	getProjection: () => ({ type: "mercator" }),
