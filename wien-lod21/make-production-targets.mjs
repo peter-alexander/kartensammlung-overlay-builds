@@ -3,6 +3,32 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+const MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS =
+	"exact-footprint-flat-only";
+
+function isSafeMaptoolkitRoofCoverageAudit(audit) {
+	if (Number(audit?.flatHitPercent) === 100) return true;
+	if (
+		String(audit?.auditClass || "")
+		!== MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS
+	) return false;
+
+	return (
+		Number(audit?.flatHitPercent) >= 80
+		&& Number(audit?.pitchedHitPercent) === 0
+		&& Number(audit?.currentCoverage) >= 0.998
+		&& Number(audit?.oldCoverage) >= 0.998
+		&& Number(audit?.centroidDistanceM) <= 0.10
+		&& Number(audit?.currentCoverageByFlatRoof) >= 0.98
+		&& Number(audit?.flatRoofInsideCurrent) >= 0.98
+		&& Number(audit?.flatRoofSymmetricDifferenceM2) <= 2
+		&& Number(audit?.footprintSymmetricDifferenceM2) <= 0.25
+		&& audit?.featureOwnershipExclusive === true
+		&& audit?.allFeaturesInterior === true
+		&& audit?.allRoofSurfacesFlat === true
+	);
+}
+
 const HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2 = 0.58;
 const HYBRID_B_THIN_MAX_MEAN_WIDTH_M = 0.05;
 const HYBRID_HEIGHT_SPLIT_TOLERANCE_M = 0.25;
@@ -642,7 +668,7 @@ async function main() {
 				|| allFeatureSignatures.length !== Number(audit?.featureCount)
 				|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
 				|| !featureTilesValid
-				|| Number(audit?.flatHitPercent) !== 100
+				|| !isSafeMaptoolkitRoofCoverageAudit(audit)
 				|| Number(audit?.flatVsHistoricalEaveM) < -0.25
 				|| Number(audit?.flatVsHistoricalRidgeM) > 0.25
 			) {
