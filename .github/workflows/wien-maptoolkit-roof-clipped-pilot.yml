@@ -1,0 +1,152 @@
+name: Test clipped Vienna roof replacements
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-clipped-replacements
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-clipped-pilot.yml'
+      - 'wien-lod21/targets.roof-clipped-pilot.json'
+      - 'wien-lod21/build.mjs'
+      - 'wien-lod21/fetch-hybrid-current.mjs'
+      - 'wien-lod21/run.sh'
+      - 'wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WIEN_LOD21_TARGETS: wien-lod21/targets.roof-clipped-pilot.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Build clipped roof replacement pilot
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Validate clip geometry
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const targets = JSON.parse(
+          	fs.readFileSync(path.join(root, "targets.json"), "utf8")
+          );
+          const expected = new Set(["124800", "204583"]);
+          const rows = [];
+
+          if ((targets.targets || []).length !== 2) {
+          	throw new Error(
+          		"Expected 2 pilot targets, got "
+          		+ (targets.targets || []).length
+          	);
+          }
+
+          for (const target of targets.targets || []) {
+          	const code = String(target.historicalCode || "");
+          	if (!expected.has(code)) {
+          		throw new Error("Unexpected target " + code);
+          	}
+          	if (target.clipHistoricalToCurrentFootprint !== true) {
+          		throw new Error(code + ": clip flag missing.");
+          	}
+          	const clip = target.historicalClip;
+          	if (!clip) {
+          		throw new Error(code + ": historical clip stats missing.");
+          	}
+          	const roofCoverage = Number(clip.minRoofCoverageRatio);
+          	const wallCoverage = Number(
+          		clip.geometricWallBoundaryCoverageRatio
+          	);
+          	const uncoveredBoundaryM = Number(
+          		clip.uncoveredWallBoundaryLengthM
+          	);
+          	const maxSliverHoleWidthM = Number(
+          		clip.maxRemovedInteriorSliverHoleMeanWidthM || 0
+          	);
+          	if (!Number.isFinite(roofCoverage) || roofCoverage < 0.995) {
+          		throw new Error(
+          			code + ": roof coverage " + roofCoverage
+          		);
+          	}
+          	if (!Number.isFinite(wallCoverage) || wallCoverage < 0.999) {
+          		throw new Error(
+          			code + ": wall coverage " + wallCoverage
+          		);
+          	}
+          	if (
+          		!Number.isFinite(uncoveredBoundaryM)
+          		|| uncoveredBoundaryM > 0.01
+          	) {
+          		throw new Error(
+          			code + ": uncovered boundary "
+          			+ uncoveredBoundaryM + " m"
+          		);
+          	}
+          	if (
+          		!Number.isFinite(maxSliverHoleWidthM)
+          		|| maxSliverHoleWidthM > 0.0501
+          	) {
+          		throw new Error(
+          			code + ": removed interior sliver hole width "
+          			+ maxSliverHoleWidthM + " m"
+          		);
+          	}
+          	rows.push({
+          		code,
+          		originalHistoricalAreaM2:
+          			clip.originalHistoricalAreaM2,
+          		clippedHistoricalAreaM2:
+          			clip.clippedHistoricalAreaM2,
+          		removedHistoricalAreaM2:
+          			clip.removedHistoricalAreaM2,
+          		roofCoverage,
+          		wallCoverage,
+          		uncoveredBoundaryM,
+          		remainder: target.hybridRemainder || null
+          	});
+          }
+
+          console.log(JSON.stringify(rows, null, 2));
+          NODE
+
+      - name: Validate against live Maptoolkit
+        run: |
+          node wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs \
+            --root wien-lod21/build/WienBuildingsLOD21 \
+            --output /tmp/wien-roof-clipped-live-audit.json \
+            --expected-count 2 \
+            --require-safe \
+            --tile-radius 1
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wien-lod21-roof-clipped-pilot
+          path: |
+            wien-lod21/build/WienBuildingsLOD21/
+            /tmp/wien-roof-clipped-live-audit.json
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 6
