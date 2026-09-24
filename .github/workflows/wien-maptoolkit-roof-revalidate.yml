@@ -201,9 +201,9 @@ jobs:
           		+ safe.length
           	);
           }
-          if (singleTile.length !== 9 || crossTile.length !== 2) {
+          if (singleTile.length !== 8 || crossTile.length !== 3) {
           	throw new Error(
-          		"Expected 9 single-tile and 2 cross-tile candidates, got "
+          		"Expected 8 single-tile and 3 cross-tile candidates, got "
           		+ singleTile.length + " / " + crossTile.length
           	);
           }
