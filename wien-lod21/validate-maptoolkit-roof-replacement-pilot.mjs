@@ -417,7 +417,7 @@ function replacementPointInTile(point, sourceTile, targetTile) {
 	};
 }
 
-function tileKey(tile) {
+function formatTileKey(tile) {
 	return tile.z + "/" + tile.x + "/" + tile.y;
 }
 
@@ -462,7 +462,7 @@ async function main() {
 				if (args.tileRadius === 0) throw error;
 				console.warn(
 					code + ": skip Maptoolkit neighbour "
-					+ tileKey(auditTile) + ": "
+					+ formatTileKey(auditTile) + ": "
 					+ String(error?.message || error)
 				);
 				continue;
@@ -477,7 +477,7 @@ async function main() {
 				}
 				continue;
 			}
-			auditedTiles.push(tileKey(auditTile));
+			auditedTiles.push(formatTileKey(auditTile));
 			const extent = Number(layer.extent) || 4096;
 			const scale = RENDER_EXTENT / extent;
 			const centerLat = tileCenterLatitude(auditTile) * Math.PI / 180;
@@ -540,7 +540,7 @@ async function main() {
 						);
 						if (height) {
 							flatHitSurfaceHeights.push({
-								tile: tileKey(auditTile),
+								tile: formatTileKey(auditTile),
 								featureIndex,
 								hitPointIndices,
 								minM: Number(height.min.toFixed(3)),
@@ -555,7 +555,7 @@ async function main() {
 					&& !featurePitchedHitPoints.size
 				) continue;
 				matchedFeatures.push({
-					tile: tileKey(auditTile),
+					tile: formatTileKey(auditTile),
 					featureIndex,
 					pitchedSurfaces,
 					flatSurfaces,
