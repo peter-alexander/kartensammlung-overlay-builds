@@ -1,0 +1,149 @@
+name: Audit Vienna roof replacement wave 3
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-wave3-audit.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WIEN_ROOF_OVERRIDE_CODES: "066292,073722,120593,126551,169945,229233"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: /tmp/roof-loss
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35913353237
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-surface-audit
+          path: /tmp/surface-audit
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35920353326
+
+      - name: Audit Maptoolkit feature ownership
+        run: |
+          node wien-buildings/analyze-maptoolkit-override-pilot.mjs \
+            /tmp/roof-loss/wien-roof-loss-summary.json \
+            /tmp/wien-maptoolkit-roof-wave3.json
+
+      - name: Verify wave 3 safety
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const audited = JSON.parse(
+          	fs.readFileSync("/tmp/wien-maptoolkit-roof-wave3.json", "utf8")
+          );
+          const surface = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/surface-audit/wien-roof-loss-surface-audit.json",
+          		"utf8"
+          	)
+          );
+          const expected = new Set([
+          	"066292", "073722", "120593",
+          	"126551", "169945", "229233"
+          ]);
+          const surfaceByCode = new Map(
+          	(surface.reports || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+
+          if (audited.count !== expected.size) {
+          	throw new Error(
+          		"Expected 6 targets, got " + audited.count
+          	);
+          }
+          if (!audited.allTargetsHaveFeatures) {
+          	throw new Error("At least one target has no Maptoolkit feature.");
+          }
+          if (!audited.allFeaturesExclusive || audited.totalSharedFeatures !== 0) {
+          	throw new Error("At least one Maptoolkit feature is shared.");
+          }
+
+          for (const row of audited.rows || []) {
+          	const code = String(row.historicalCode);
+          	if (!expected.has(code)) {
+          		throw new Error("Unexpected target " + code);
+          	}
+          	const s = surfaceByCode.get(code);
+          	if (
+          		!s
+          		|| s.safe !== true
+          		|| Number(s.flatHitPercent) !== 100
+          		|| Number(s.maptoolkitFlatVsHistoricalEaveM) < -0.25
+          		|| Number(s.maptoolkitFlatVsHistoricalRidgeM) > 0.25
+          	) {
+          		throw new Error("Surface/height audit failed for " + code);
+          	}
+          	const featureTiles = [...new Set(
+          		(row.features || []).map((item) => String(item.tile))
+          	)];
+          	if (
+          		featureTiles.length !== 1
+          		|| featureTiles[0] !== String(s.tile)
+          	) {
+          		throw new Error(
+          			"Target is not single-tile atomic: " + code
+          		);
+          	}
+          	const signatures = (row.features || []).map(
+          		(item) => String(item.signature || "")
+          	);
+          	if (
+          		signatures.length !== row.featureCount
+          		|| new Set(signatures).size !== signatures.length
+          		|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+          	) {
+          		throw new Error("Invalid feature signatures for " + code);
+          	}
+          }
+
+          console.log(JSON.stringify({
+          	count: audited.count,
+          	totalFeatures: audited.totalFeatures,
+          	rows: audited.rows.map((row) => ({
+          		code: row.historicalCode,
+          		bwGebId: row.bwGebId,
+          		featureCount: row.featureCount,
+          		tile: row.features?.[0]?.tile,
+          		signatures: row.features?.map((item) => item.signature)
+          	}))
+          }, null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-maptoolkit-roof-wave3-audit
+          path: /tmp/wien-maptoolkit-roof-wave3.json
+          if-no-files-found: error
+          retention-days: 7
