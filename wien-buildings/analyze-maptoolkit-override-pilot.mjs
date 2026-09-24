@@ -467,20 +467,44 @@ async function main() {
 		"KEGELDACH","KUPPELDACH","KRUEPPELWALMDACH","SPITZDACH",
 		"MANSARDENDACH"
 	]);
-	const targets = (summary.strongCandidates || []).filter((item) => {
-		const metrics = item.metrics || {};
-		const roofTypes = new Set(item.lod21?.roofTypes || []);
-		return (
-			Number(metrics.oldCoverage) >= 0.995
-			&& Number(metrics.currentCoverage) >= 0.995
-			&& Number(metrics.centroidDistanceM) <= 1
-			&& Number(metrics.heightDifferenceM) <= 1
-			&& roofTypes.size > 0
-			&& [...roofTypes].every((type) => pitchedTypes.has(type))
+	const requestedCodes = new Set(
+		String(process.env.WIEN_ROOF_OVERRIDE_CODES || "")
+			.split(",")
+			.map((value) => value.trim())
+			.filter(Boolean)
+	);
+	const targets = requestedCodes.size
+		? (summary.strongCandidates || []).filter((item) => (
+			requestedCodes.has(String(item.historicalCode || ""))
+		))
+		: (summary.strongCandidates || []).filter((item) => {
+			const metrics = item.metrics || {};
+			const roofTypes = new Set(item.lod21?.roofTypes || []);
+			return (
+				Number(metrics.oldCoverage) >= 0.995
+				&& Number(metrics.currentCoverage) >= 0.995
+				&& Number(metrics.centroidDistanceM) <= 1
+				&& Number(metrics.heightDifferenceM) <= 1
+				&& roofTypes.size > 0
+				&& [...roofTypes].every((type) => pitchedTypes.has(type))
+			);
+		});
+	const expectedTargets = requestedCodes.size || 27;
+	if (targets.length !== expectedTargets) {
+		throw new Error(
+			`Expected ${expectedTargets} override targets, got ${targets.length}`
 		);
-	});
-	if (targets.length !== 27) {
-		throw new Error(`Expected 27 pilot targets, got ${targets.length}`);
+	}
+	if (
+		requestedCodes.size
+		&& targets.some((item) => (
+			!pitchedTypes.has(String(item.lod21?.roofTypes?.[0] || ""))
+			&& !(item.lod21?.roofTypes || []).some(
+				(type) => pitchedTypes.has(String(type))
+			)
+		))
+	) {
+		throw new Error("Requested override target has no semantic pitched roof.");
 	}
 
 	const release = await (
