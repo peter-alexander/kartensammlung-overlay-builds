@@ -39,10 +39,12 @@ const BEV_KNOWN_WORKSPACES = [
 ];
 
 const WIEN_TITLE_REPLACEMENTS = new Map([
-	["BAUSTELLENLINOGD", "Baustellen - Linien"],
-	["BAUSTELLENPKTOGD", "Baustellen - Punkte"],
-	["DONAUINSFLOGD", "Donauinsel - Flächen"],
-	["DONAUINSPKTOGD", "Donauinsel - Punkte"],
+	["BAUSTELLENLINOGD", "Baustellen – Linien"],
+	["BAUSTELLENPKTOGD", "Baustellen – Punkte"],
+	["BEWEGTEAPOTHEKEOGD", "Bewegte Apotheke"],
+	["DONAUINSFLOGD", "Donauinsel – Flächen"],
+	["DONAUINSPKTOGD", "Donauinsel – Punkte"],
+	["FOERDERUNGGEBAEUDEOGD", "Geförderte Gebäudebegrünungen"],
 	["GENFLWOGD", "Generalisierte Flächenwidmung mit vier Kategorien"],
 	["LADEZONEOGD", "Ladezone"]
 ]);
@@ -63,8 +65,8 @@ const WIEN_TITLE_SUFFIXES = new Map([
 	["HISTWASSERLTGOGD", " (BLAU)"],
 	["HISTWASSERLDETOGD", " (KOMP)"],
 	["ENINNOVPRJV2OGD", " 2"],
-	["WERBETRAEGERLINOGD", " - Linien"],
-	["WERBETRAEGERPKTOGD", " - Punkte"]
+	["WERBETRAEGERLINOGD", " – Linien"],
+	["WERBETRAEGERPKTOGD", " – Punkte"]
 ]);
 
 async function fetchWithRetry(url, { attempts = 3, timeoutMs = 45_000, accept = "*/*" } = {}) {
@@ -176,7 +178,9 @@ function sortObject(object) {
 }
 
 function cleanWienTitle(name, rawTitle) {
-	let title = String(rawTitle || "").trim();
+	let title = String(rawTitle || "")
+		.trim()
+		.replaceAll(" - ", " – ");
 
 	for (const suffix of [" in Wien", " der Stadt Wien", " Wien"]) {
 		if (title.endsWith(suffix)) {
@@ -237,6 +241,36 @@ function buildWienWmsNames(xml, label = "Wien WMS") {
 	return sortObject(result);
 }
 
+const NOE_TITLE_REPLACEMENTS = new Map([
+	["LINIEN_3857", "Verwaltungsgrenzen – Linien"],
+	["noe_edge", "GIP – Abschnitte"],
+	["noe_linearuse", "GIP – Nutzungsstreifen"],
+	["noe_node", "GIP – Knoten"],
+	["noe_plateau", "GIP – Kreuzungsflächen (Plateaus)"],
+	["noe_turnuse", "GIP – Abbiegerelationen"],
+	["VIS_EDGE_INFOLIEFER", "GIP – Abschnitte nach Informationslieferant"]
+]);
+
+function cleanNoeTitle(name, rawTitle) {
+	const localName = String(name || "").split(":").pop();
+	if (NOE_TITLE_REPLACEMENTS.has(localName)) {
+		return NOE_TITLE_REPLACEMENTS.get(localName);
+	}
+
+	return String(rawTitle || "")
+		.replaceAll(" in Niederösterreich", "")
+		.replaceAll(" Niederösterreich", "")
+		.replaceAll(" NÖ", "")
+		.replaceAll("NÖ ", "")
+		.replaceAll(" 1:1000", "")
+		.replaceAll("Intermodales Verkehrsreferenzsystem (GIP.at)", "GIP")
+		.replaceAll("Sieldungsgrenzen", "Siedlungsgrenzen")
+		.replaceAll("NUTS3 Einheiten", "NUTS-3-Einheiten")
+		.replaceAll("UNESCO WORLD HERITAGE", "UNESCO-Welterbe")
+		.replaceAll("Elemente des Straßenquerschnitts_Breite", "Elemente des Straßenquerschnitts – Breite")
+		.replaceAll(" - ", " – ");
+}
+
 function buildNoeWmsNames(xml) {
 	const doc = parseXml(xml, "NÖ WMS");
 	const result = {};
@@ -245,13 +279,7 @@ function buildNoeWmsNames(xml) {
 		const name = firstChildText(layer, "Name");
 		if (!name) continue;
 
-		let title = firstChildText(layer, "Title")
-			.replaceAll(" in Niederösterreich", "")
-			.replaceAll(" Niederösterreich", "")
-			.replaceAll(" NÖ", "")
-			.replaceAll("NÖ ", "")
-			.replaceAll(" 1:1000", "")
-			.replaceAll("Intermodales Verkehrsreferenzsystem (GIP.at)", "GIP");
+		const title = cleanNoeTitle(name, firstChildText(layer, "Title"));
 
 		if (title.includes("lattschnitt") || title.includes(" 1:")) continue;
 		result[name] = title;
@@ -387,6 +415,9 @@ function buildArcGisStyles(data) {
 			target = "OVERLAYS";
 			cat = "Overlays";
 			sec = "Beschriftungen";
+			style.name = String(style.name || "")
+				.replace(/ Labels$/, "")
+				.replace(/ Detail$/, "");
 			arcgisRole = "overlay";
 			arcgisKind = "basemap-style-overlay";
 		} else if (path.includes("hillshade")) {
@@ -463,6 +494,17 @@ function bevDiscoveredWorkspaces(xml) {
 	return [...workspaces];
 }
 
+const BEV_TITLE_REPLACEMENTS = new Map([
+	["Grid Coverage 5m", "Höhenraster 5 m"],
+	["Grid Coverage 25m", "Höhenraster 25 m"],
+	["Grid Coverage 50m", "Höhenraster 50 m"],
+	["Grid Coverage 100m", "Höhenraster 100 m"],
+	["Grid Coverage 250m", "Höhenraster 250 m"],
+	["Grid Coverage 500m", "Höhenraster 500 m"],
+	["Spot Height", "Höhenpunkt"],
+	["Contour Line", "Höhenlinie"]
+]);
+
 function buildBevWorkspace(xml, workspace) {
 	const doc = parseXml(xml, `BEV ${workspace}`);
 	const layers = {};
@@ -478,6 +520,7 @@ function buildBevWorkspace(xml, workspace) {
 			title = "DLM Geographische Namen INSPIRE";
 		}
 
+		title = BEV_TITLE_REPLACEMENTS.get(title) || title;
 		layers[fullName] = title;
 	}
 
