@@ -165,13 +165,76 @@ async function verifyQuarterlyCollection(token) {
 	);
 }
 
-async function readLayers(token) {
-	const result = await request(
-		`${CONFIG_BASE}/wms/instances/${encodeURIComponent(instanceId)}/layers`,
-		{ token }
-	);
+async function readInstances(token) {
+	const result = await request(`${CONFIG_BASE}/wms/instances`, {
+		token,
+		allowFailure: true
+	});
+
+	if (!result.ok) {
+		throw new Error(
+			`Configuration-Liste konnte nicht gelesen werden: HTTP ${result.status}: ${describeErrorBody(result.data)}`
+		);
+	}
 
 	return asArray(result.data);
+}
+
+async function resolveInstance(token) {
+	const instances = await readInstances(token);
+	const target = instances.find((item) => objectId(item) === instanceId);
+	const visible = instances.map((item) => ({
+		id: objectId(item),
+		name: String(item?.name || item?.title || '').trim(),
+		ref: objectRef(item)
+	}));
+
+	console.log(
+		`Configuration API: ${visible.length} Instance(s) für diesen OAuth-Client sichtbar.`
+	);
+	for (const item of visible) {
+		console.log(
+			`- ${item.id === instanceId ? '[Ziel] ' : ''}${item.name || '(ohne Namen)'} · ${item.id || '(ohne ID)'}`
+		);
+	}
+
+	if (!target) {
+		throw new Error(
+			`COPERNICUS_INSTANCE_ID gehört nicht zu den für diesen OAuth-Client sichtbaren Configurations.`
+		);
+	}
+
+	return {
+		item: target,
+		ref: objectRef(target) || `${CONFIG_BASE}/wms/instances/${encodeURIComponent(instanceId)}`
+	};
+}
+
+async function readLayers(token, resolvedInstance) {
+	const instanceRef = String(
+		resolvedInstance?.ref || `${CONFIG_BASE}/wms/instances/${encodeURIComponent(instanceId)}`
+	).replace(/\/$/, '');
+
+	const candidates = [
+		`${instanceRef}/layers`,
+		`${CONFIG_BASE}/wms/instances/${encodeURIComponent(instanceId)}/layers`
+	];
+
+	let last = null;
+	for (const url of [...new Set(candidates)]) {
+		const result = await request(url, {
+			token,
+			allowFailure: true
+		});
+		if (result.ok) {
+			return asArray(result.data);
+		}
+		last = { url, ...result };
+	}
+
+	throw new Error(
+		`Layerliste der Ziel-Configuration konnte nicht gelesen werden: HTTP ${last?.status}: ${describeErrorBody(last?.data)}`
+	);
 }
 
 async function discoverByocDataset(token) {
@@ -351,7 +414,8 @@ async function main() {
 
 	await verifyQuarterlyCollection(token);
 
-	const before = await readLayers(token);
+	const resolvedInstance = await resolveInstance(token);
+	const before = await readLayers(token, resolvedInstance);
 	const existing = before.find((item) => objectId(item).toLowerCase() === LAYER_ID);
 
 	if (existing) {
@@ -362,7 +426,7 @@ async function main() {
 	const discovered = await discoverByocDataset(token);
 	await createLayer(token, payloadCandidates(discovered));
 
-	const after = await readLayers(token);
+	const after = await readLayers(token, resolvedInstance);
 	const created = after.find((item) => objectId(item).toLowerCase() === LAYER_ID);
 	if (!created) {
 		throw new Error(
