@@ -1,7 +1,7 @@
 {
 	"schemaVersion": 1,
 	"status": "audited-production",
-	"generatedAt": "2026-09-24T16:41:13.299Z",
+	"generatedAt": "2026-09-24T17:49:39.918Z",
 	"audit": {
 		"roofLossMatchRunId": 35913353237,
 		"surfaceAuditRunId": 35920353326,
@@ -32,9 +32,29 @@
 		],
 		"revalidationRunId": 36028922421,
 		"revalidationGeneratedAt": "2026-09-24T16:41:13.299Z",
-		"allowAuditedCrossTile": true
+		"allowAuditedCrossTile": true,
+		"exactFootprintFlatOnlyAuditRunId": 36036755696,
+		"exactFootprintFlatOnlyGeneratedAt": "2026-09-24T17:49:39.918Z",
+		"exactFootprintFlatOnlyCodes": [
+			"106027",
+			"108069",
+			"505549",
+			"507585"
+		],
+		"exactFootprintFlatOnlyThresholds": {
+			"minCurrentHistoricalCoverage": 0.998,
+			"maxCentroidDistanceM": 0.1,
+			"minMaptoolkitFlatRoofCoverage": 0.98,
+			"minMaptoolkitFlatRoofInsideCurrent": 0.98,
+			"maxMaptoolkitFlatRoofSymmetricDifferenceM2": 2,
+			"maxHistoricalCurrentSymmetricDifferenceM2": 0.25,
+			"heightEnvelopeToleranceM": 0.25,
+			"requireExclusiveMaptoolkitFeatures": true,
+			"requireInteriorMaptoolkitFeatures": true,
+			"requireFlatOnlyMaptoolkitRoofs": true
+		}
 	},
-	"count": 30,
+	"count": 34,
 	"buildings": [
 		{
 			"name": "Maptoolkit roof replacement 066292",
@@ -165,6 +185,46 @@
 			}
 		},
 		{
+			"name": "Maptoolkit roof replacement 106027",
+			"historicalCode": "106027",
+			"bwGebId": 5509980,
+			"ksIds": [
+				"wien-fmzk:4003540515"
+			],
+			"sheet": "109073",
+			"lng": 16.3992324,
+			"lat": 48.1685201,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"auditClass": "exact-footprint-flat-only",
+				"tile": "15/17876/11367",
+				"featureSignatures": [
+					"73e3a6d8"
+				],
+				"featureCount": 1,
+				"flatHitPercent": 92.308,
+				"pitchedHitPercent": 0,
+				"unmatchedReplacementPoints": 1,
+				"historicalRoofMinM": 5.64,
+				"historicalRoofMaxM": 6.4,
+				"maptoolkitFlatMedianM": 5.95,
+				"flatVsHistoricalEaveM": 0.31,
+				"flatVsHistoricalRidgeM": -0.45,
+				"currentCoverage": 0.999,
+				"oldCoverage": 0.9991,
+				"centroidDistanceM": 0.01,
+				"currentCoverageByFlatRoof": 0.988544,
+				"flatRoofInsideCurrent": 0.990858,
+				"currentUncoveredByFlatRoofM2": 0.783,
+				"flatRoofOutsideCurrentM2": 0.6234,
+				"flatRoofSymmetricDifferenceM2": 1.4064,
+				"footprintSymmetricDifferenceM2": 0.13,
+				"featureOwnershipExclusive": true,
+				"allFeaturesInterior": true,
+				"allRoofSurfacesFlat": true
+			}
+		},
+		{
 			"name": "Maptoolkit roof replacement 106089",
 			"historicalCode": "106089",
 			"bwGebId": 5353112,
@@ -189,6 +249,46 @@
 				"maptoolkitFlatMedianM": 2.3,
 				"flatVsHistoricalEaveM": 0.11,
 				"flatVsHistoricalRidgeM": -0.15
+			}
+		},
+		{
+			"name": "Maptoolkit roof replacement 108069",
+			"historicalCode": "108069",
+			"bwGebId": 5367151,
+			"ksIds": [
+				"wien-fmzk:4002821321"
+			],
+			"sheet": "112096",
+			"lng": 16.417045,
+			"lat": 48.2738991,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"auditClass": "exact-footprint-flat-only",
+				"tile": "15/17878/11353",
+				"featureSignatures": [
+					"665a2ddc"
+				],
+				"featureCount": 1,
+				"flatHitPercent": 90,
+				"pitchedHitPercent": 0,
+				"unmatchedReplacementPoints": 1,
+				"historicalRoofMinM": 3.23,
+				"historicalRoofMaxM": 3.77,
+				"maptoolkitFlatMedianM": 3.525,
+				"flatVsHistoricalEaveM": 0.295,
+				"flatVsHistoricalRidgeM": -0.245,
+				"currentCoverage": 0.998,
+				"oldCoverage": 0.999,
+				"centroidDistanceM": 0.01,
+				"currentCoverageByFlatRoof": 0.996397,
+				"flatRoofInsideCurrent": 0.997817,
+				"currentUncoveredByFlatRoofM2": 0.1989,
+				"flatRoofOutsideCurrentM2": 0.1203,
+				"flatRoofSymmetricDifferenceM2": 0.3193,
+				"footprintSymmetricDifferenceM2": 0.16,
+				"featureOwnershipExclusive": true,
+				"allFeaturesInterior": true,
+				"allRoofSurfacesFlat": true
 			}
 		},
 		{
@@ -801,6 +901,89 @@
 				"maptoolkitFlatMedianM": 2.925,
 				"flatVsHistoricalEaveM": 0.275,
 				"flatVsHistoricalRidgeM": -0.185
+			}
+		},
+		{
+			"name": "Maptoolkit roof replacement 505549",
+			"historicalCode": "505549",
+			"bwGebId": 5396343,
+			"ksIds": [
+				"wien-fmzk:4006530068",
+				"wien-fmzk:4006530081"
+			],
+			"sheet": "110104",
+			"lng": 16.4022017,
+			"lat": 48.3086157,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"auditClass": "exact-footprint-flat-only",
+				"tile": "15/17876/11348",
+				"featureSignatures": [
+					"87f2763a",
+					"d5effa9a"
+				],
+				"featureCount": 2,
+				"flatHitPercent": 80,
+				"pitchedHitPercent": 0,
+				"unmatchedReplacementPoints": 2,
+				"historicalRoofMinM": 2.57,
+				"historicalRoofMaxM": 3.37,
+				"maptoolkitFlatMedianM": 2.7,
+				"flatVsHistoricalEaveM": 0.13,
+				"flatVsHistoricalRidgeM": -0.67,
+				"currentCoverage": 1,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0,
+				"currentCoverageByFlatRoof": 0.982799,
+				"flatRoofInsideCurrent": 0.994689,
+				"currentUncoveredByFlatRoofM2": 1.1483,
+				"flatRoofOutsideCurrentM2": 0.3503,
+				"flatRoofSymmetricDifferenceM2": 1.4987,
+				"footprintSymmetricDifferenceM2": 0,
+				"featureOwnershipExclusive": true,
+				"allFeaturesInterior": true,
+				"allRoofSurfacesFlat": true
+			}
+		},
+		{
+			"name": "Maptoolkit roof replacement 507585",
+			"historicalCode": "507585",
+			"bwGebId": 5325284,
+			"ksIds": [
+				"wien-fmzk:4003131133",
+				"wien-fmzk:4003131181"
+			],
+			"sheet": "124097",
+			"lng": 16.4996798,
+			"lat": 48.2771739,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"auditClass": "exact-footprint-flat-only",
+				"tile": "15/17885/11352",
+				"featureSignatures": [
+					"c2d4c7ef"
+				],
+				"featureCount": 1,
+				"flatHitPercent": 85.714,
+				"pitchedHitPercent": 0,
+				"unmatchedReplacementPoints": 1,
+				"historicalRoofMinM": 1.94,
+				"historicalRoofMaxM": 2.43,
+				"maptoolkitFlatMedianM": 2.1,
+				"flatVsHistoricalEaveM": 0.16,
+				"flatVsHistoricalRidgeM": -0.33,
+				"currentCoverage": 1,
+				"oldCoverage": 1,
+				"centroidDistanceM": 0,
+				"currentCoverageByFlatRoof": 1,
+				"flatRoofInsideCurrent": 0.993844,
+				"currentUncoveredByFlatRoofM2": 0,
+				"flatRoofOutsideCurrentM2": 0.2232,
+				"flatRoofSymmetricDifferenceM2": 0.2232,
+				"footprintSymmetricDifferenceM2": 0,
+				"featureOwnershipExclusive": true,
+				"allFeaturesInterior": true,
+				"allRoofSurfacesFlat": true
 			}
 		},
 		{
