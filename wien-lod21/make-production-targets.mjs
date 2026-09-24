@@ -892,6 +892,11 @@ async function main() {
 	const hybridHeightSplitCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-height-split"
 	).length;
+	const auditedPlausibleEaveClipCount = targets.filter(
+		(target) => AUDITED_PLAUSIBLE_EAVE_CLIP.has(String(target.historicalCode))
+	).length;
+	const analyzedHybridEaveClipCount =
+		hybridEaveClipCount - auditedPlausibleEaveClipCount;
 	const maptoolkitRoofReplacementCount = targets.filter(
 		(target) => target.rolloutMode === "maptoolkit-roof-replacement"
 	).length;
@@ -919,7 +924,7 @@ async function main() {
 				+ hybridBClipCount
 				+ hybridCClipCount
 				+ hybridDClipCount
-				+ hybridEaveClipCount
+				+ analyzedHybridEaveClipCount
 				+ hybridHeightSplitCount,
 			hybridCandidatesDeferred:
 				Number(report?.counts?.hybridCandidates || 0)
@@ -929,8 +934,10 @@ async function main() {
 				- hybridBClipCount
 				- hybridCClipCount
 				- hybridDClipCount
-				- hybridEaveClipCount
+				- analyzedHybridEaveClipCount
 				- hybridHeightSplitCount,
+			auditedPlausibleEaveClipSelected:
+				auditedPlausibleEaveClipCount,
 			hybridBAbsoluteMaxHistoricalOutsideCurrentM2:
 				HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2,
 			hybridBThinMaxHistoricalOutsideMeanWidthM:
