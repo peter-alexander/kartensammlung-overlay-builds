@@ -65,6 +65,24 @@ const AUDITED_HYBRID_B_CLIP = new Set([
 	"088729"
 ]);
 
+const AUDITED_PLAUSIBLE_EAVE_CLIP = new Map([
+	["006944", {
+		bwGebId: 5288572,
+		ksIds: [
+			"wien-fmzk:4002350666",
+			"wien-fmzk:4002350702",
+			"wien-fmzk:4004308520"
+		],
+		minIou: 0.999,
+		minCoverage: 0.999,
+		maxCentroidDistanceM: 0.05,
+		maxHistoricalOutsideM2: 0.10,
+		eaveHeightM: 20.68,
+		eaveDifferenceM: 0.77,
+		eaveToleranceM: 6
+	}]
+]);
+
 const AUDITED_HYBRID_HEIGHT_SPLIT = new Map([
 	["029048", {
 		protectedKsIds: [
@@ -586,6 +604,85 @@ async function main() {
 		});
 	}
 
+	if (args.includeHybridEaveClip) {
+		const reportResultsByCode = new Map(
+			(report.results || [])
+				.filter((item) => item.candidateType === "historical-code")
+				.map((item) => [String(item.historicalCode), item])
+		);
+		for (const [code, audit] of AUDITED_PLAUSIBLE_EAVE_CLIP) {
+			if (targets.some((target) => target.historicalCode === code)) continue;
+			const candidate = reportResultsByCode.get(code);
+			const metrics = candidate?.metrics || {};
+			const currentKsIds = [
+				...new Set(
+					(candidate?.current?.ksIds || candidate?.ksIds || [])
+						.map(String)
+						.filter(Boolean)
+				)
+			].sort();
+			const expectedKsIds = [...audit.ksIds].sort();
+			const owners = [
+				...new Set(
+					(candidate?.ownerBwGebIds || candidate?.current?.ownerBwGebIds || [])
+						.map(String)
+						.filter(Boolean)
+				)
+			].sort();
+			const sameCodeOwners = [
+				...new Set(
+					(candidate?.sameCodeOwnerBwGebIds || [])
+						.map(String)
+						.filter(Boolean)
+				)
+			].sort();
+			const outsideM2 = historicalOutsideCurrentM2(candidate);
+			const eaveMatchesCurrent = (
+				Number.isFinite(Number(metrics.currentHeightM))
+				&& Math.abs(
+					Number(metrics.currentHeightM) - Number(audit.eaveHeightM)
+				) <= Number(audit.eaveToleranceM)
+			);
+			if (
+				!candidate
+				|| candidate.method !== "historical-code"
+				|| candidate.band !== "plausible"
+				|| candidate.lod21?.hasPitchedRoof !== true
+				|| owners.length !== 1
+				|| owners[0] !== String(audit.bwGebId)
+				|| sameCodeOwners.length !== 1
+				|| sameCodeOwners[0] !== String(audit.bwGebId)
+				|| Number(candidate.sameCodeMatchedParts || 0) !== 0
+				|| JSON.stringify(currentKsIds) !== JSON.stringify(expectedKsIds)
+				|| Number(metrics.iou) < Number(audit.minIou)
+				|| Number(metrics.currentCoverage) < Number(audit.minCoverage)
+				|| Number(metrics.oldCoverage) < Number(audit.minCoverage)
+				|| Number(metrics.centroidDistanceM) > Number(audit.maxCentroidDistanceM)
+				|| !Number.isFinite(outsideM2)
+				|| outsideM2 > Number(audit.maxHistoricalOutsideM2)
+				|| !eaveMatchesCurrent
+			) {
+				throw new Error(
+					"Audited plausible eave-clip candidate changed: " + code
+				);
+			}
+			targets.push({
+				...targetFromCandidate({
+					...candidate,
+					ownerBwGebIds: [String(audit.bwGebId)],
+					ksIds: expectedKsIds
+				}, {
+					rolloutMode: "hybrid-eave-clip"
+				}),
+				auditedHistoricalClip: true,
+				auditedHeightMetric: "median-roof-surface-minimum",
+				auditedHistoricalEaveHeightM: Number(audit.eaveHeightM),
+				auditedHistoricalEaveDifferenceM: Number(audit.eaveDifferenceM),
+				auditedHistoricalEaveToleranceM: Number(audit.eaveToleranceM)
+			});
+		}
+	}
+
 	const hybridHeightSplit = args.includeHybridHeightSplit
 		? (report.hybridCandidates || []).filter((candidate) => (
 			isHybridHeightSplit(candidate, eaveAuditByCode)
@@ -904,9 +1001,9 @@ async function main() {
 			+ " hybrid-d-clip targets, got " + hybridDClipCount
 		);
 	}
-	if (hybridEaveClipCount !== (args.includeHybridEaveClip ? 26 : 0)) {
+	if (hybridEaveClipCount !== (args.includeHybridEaveClip ? 27 : 0)) {
 		throw new Error(
-			"Expected " + (args.includeHybridEaveClip ? 26 : 0)
+			"Expected " + (args.includeHybridEaveClip ? 27 : 0)
 			+ " hybrid-eave-clip targets, got " + hybridEaveClipCount
 		);
 	}
@@ -934,11 +1031,11 @@ async function main() {
 		);
 	}
 	const expectedTargets = args.includeMaptoolkitRoofReplacements
-		? 2273 + expectedRoofReplacementCount
+		? 2274 + expectedRoofReplacementCount
 		: args.includeHybridHeightSplit
-			? 2273
+			? 2274
 			: args.includeHybridEaveClip
-			? 2271
+			? 2272
 			: args.includeHybridDClip
 			? 2245
 			: args.includeHybridCClip
