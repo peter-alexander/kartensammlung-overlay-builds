@@ -1,7 +1,7 @@
 {
 	"schemaVersion": 1,
 	"status": "audited-production",
-	"generatedAt": "2026-09-24T12:17:35Z",
+	"generatedAt": "2026-09-24T13:16:47.364Z",
 	"audit": {
 		"roofLossMatchRunId": 35913353237,
 		"surfaceAuditRunId": 35920353326,
@@ -22,9 +22,17 @@
 		],
 		"wave3DeferredEdgeCodes": [
 			"120593"
+		],
+		"crossTileFeatureAuditRunId": 36004512159,
+		"crossTilePromotedSingleTileEdgeCodes": [
+			"137772"
+		],
+		"crossTileDeferredCodes": [
+			"120593",
+			"226564"
 		]
 	},
-	"count": 27,
+	"count": 28,
 	"buildings": [
 		{
 			"name": "Maptoolkit roof replacement 066292",
@@ -282,6 +290,34 @@
 				"maptoolkitFlatMedianM": 2.85,
 				"flatVsHistoricalEaveM": 0.29,
 				"flatVsHistoricalRidgeM": -0.43
+			}
+		},
+		{
+			"name": "Maptoolkit roof replacement 137772",
+			"historicalCode": "137772",
+			"bwGebId": 5284517,
+			"ksIds": [
+				"wien-fmzk:4003129780",
+				"wien-fmzk:4003129781",
+				"wien-fmzk:4003129782"
+			],
+			"sheet": "123099",
+			"lng": 16.4904892,
+			"lat": 48.28704,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17884/11351",
+				"featureSignatures": [
+					"535aaa35",
+					"7381b734"
+				],
+				"featureCount": 2,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 1.87,
+				"historicalRoofMaxM": 2.85,
+				"maptoolkitFlatMedianM": 2.4,
+				"flatVsHistoricalEaveM": 0.53,
+				"flatVsHistoricalRidgeM": -0.45
 			}
 		},
 		{
