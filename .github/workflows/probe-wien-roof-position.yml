@@ -180,3 +180,134 @@ jobs:
           console.log("DIRECT_CANDIDATES", JSON.stringify(report.directCandidates || []));
           console.log("HYBRID_CANDIDATES", JSON.stringify(report.hybridCandidates || []));
           NODE
+
+      - name: Measure historical roof heights 006944
+        run: |
+          mkdir -p /tmp/lod21-105079
+          curl --fail --silent --show-error --location --retry 3 \
+          	"https://www.wien.gv.at/MA41datenviewer/downloads/geodaten/lod2_gml/105079_lod2_gml.zip" \
+          	-o /tmp/105079.zip
+          unzip -q /tmp/105079.zip -d /tmp/lod21-105079
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          import { DOMParser } from "@xmldom/xmldom";
+
+          const GML_NS = "http://www.opengis.net/gml";
+          const BLDG_NS = "http://www.opengis.net/citygml/building/1.0";
+
+          function localName(node) {
+          	return String(node?.localName || node?.nodeName || "").replace(/^.*:/, "");
+          }
+          function children(node) {
+          	const out = [];
+          	for (let child = node?.firstChild; child; child = child.nextSibling) {
+          		if (child.nodeType === 1) out.push(child);
+          	}
+          	return out;
+          }
+          function descendant(node, ns, name) {
+          	return node?.getElementsByTagNameNS?.(ns, name)?.[0] || null;
+          }
+          function text(node) {
+          	return String(node?.textContent || "").trim();
+          }
+          function buildingName(building) {
+          	const direct = children(building).find((child) => localName(child) === "name");
+          	return direct ? text(direct) : text(descendant(building, GML_NS, "name"));
+          }
+          function roofType(building) {
+          	return text(descendant(building, BLDG_NS, "roofType"));
+          }
+          function parseRing(linearRing) {
+          	const posList = descendant(linearRing, GML_NS, "posList");
+          	const values = text(posList).split(/\s+/).map(Number).filter(Number.isFinite);
+          	const out = [];
+          	for (let i = 0; i + 2 < values.length; i += 3) {
+          		out.push([values[i], values[i + 1], values[i + 2]]);
+          	}
+          	if (
+          		out.length > 1
+          		&& out[0][0] === out.at(-1)[0]
+          		&& out[0][1] === out.at(-1)[1]
+          		&& out[0][2] === out.at(-1)[2]
+          	) out.pop();
+          	return out;
+          }
+          function surfaces(building) {
+          	const out = [];
+          	const boundedBy = building.getElementsByTagNameNS(BLDG_NS, "boundedBy");
+          	for (let i = 0; i < boundedBy.length; i += 1) {
+          		const surfaceNode = children(boundedBy[i])[0];
+          		if (!surfaceNode) continue;
+          		const kind = localName(surfaceNode) === "RoofSurface"
+          			? "roof"
+          			: localName(surfaceNode) === "GroundSurface"
+          				? "ground"
+          				: localName(surfaceNode) === "WallSurface"
+          					? "wall"
+          					: "other";
+          		const polygons = surfaceNode.getElementsByTagNameNS(GML_NS, "Polygon");
+          		for (let p = 0; p < polygons.length; p += 1) {
+          			const exterior = descendant(descendant(polygons[p], GML_NS, "exterior"), GML_NS, "LinearRing");
+          			const ring = parseRing(exterior);
+          			if (ring.length >= 3) out.push({ kind, ring });
+          		}
+          	}
+          	return out;
+          }
+          function median(values) {
+          	const a = [...values].sort((x, y) => x - y);
+          	const m = Math.floor(a.length / 2);
+          	return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+          }
+          function quantile(values, q) {
+          	const a = [...values].sort((x, y) => x - y);
+          	const pos = (a.length - 1) * q;
+          	const lo = Math.floor(pos), hi = Math.ceil(pos);
+          	return lo === hi ? a[lo] : a[lo] * (hi - pos) + a[hi] * (pos - lo);
+          }
+          function mode(values, step = 0.1) {
+          	const counts = new Map();
+          	for (const v of values) {
+          		const key = (Math.round(v / step) * step).toFixed(3);
+          		counts.set(key, (counts.get(key) || 0) + 1);
+          	}
+          	return Number([...counts.entries()].sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]))[0][0]);
+          }
+
+          const files = fs.readdirSync("/tmp/lod21-105079", { recursive: true })
+          	.filter((name) => /\.gml$/i.test(String(name)))
+          	.map((name) => path.join("/tmp/lod21-105079", String(name)));
+          const rows = [];
+          for (const file of files) {
+          	const doc = new DOMParser().parseFromString(fs.readFileSync(file, "utf8"), "application/xml");
+          	const buildings = doc.getElementsByTagNameNS(BLDG_NS, "Building");
+          	for (let i = 0; i < buildings.length; i += 1) {
+          		const building = buildings[i];
+          		if (buildingName(building) !== "006944") continue;
+          		const s = surfaces(building);
+          		const ground = s.filter((x) => x.kind === "ground").flatMap((x) => x.ring);
+          		const roofs = s.filter((x) => x.kind === "roof");
+          		const roofPoints = roofs.flatMap((x) => x.ring);
+          		const wallPoints = s.filter((x) => x.kind === "wall").flatMap((x) => x.ring);
+          		const baseZ = Math.min(...ground.map((p) => p[2]));
+          		const roofZ = roofPoints.map((p) => p[2]);
+          		const surfaceMin = roofs.map((r) => Math.min(...r.ring.map((p) => p[2])));
+          		const wallUpper = wallPoints.map((p) => p[2]).filter((z) => z > baseZ + 1);
+          		rows.push({
+          			roofType: roofType(building),
+          			baseZ,
+          			peakHeightM: Math.max(...roofZ) - baseZ,
+          			minRoofHeightM: Math.min(...roofZ) - baseZ,
+          			surfaceMinMedianHeightM: median(surfaceMin) - baseZ,
+          			roofVertexP10HeightM: quantile(roofZ, 0.10) - baseZ,
+          			roofVertexModeHeightM: mode(roofZ, 0.1) - baseZ,
+          			wallUpperModeHeightM: mode(wallUpper, 0.1) - baseZ,
+          			roofRiseM: Math.max(...roofZ) - Math.min(...roofZ),
+          			roofSurfaces: roofs.length
+          		});
+          	}
+          }
+          console.log("HEIGHT_ANALYSIS_006944", JSON.stringify(rows));
+          NODE
