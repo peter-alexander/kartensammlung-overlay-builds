@@ -1346,6 +1346,273 @@ function clipHistoricalSurfacesToFootprint(
 	};
 }
 
+function crossTileKeysForTarget(target, zoom) {
+	const featureTiles = target?.auditedMaptoolkitOverride?.featureTiles;
+	if (!Array.isArray(featureTiles) || featureTiles.length < 2) return [];
+
+	const keys = [...new Set(
+		featureTiles
+			.map((item) => String(item?.tile || "").trim())
+			.filter(Boolean)
+	)].sort();
+	for (const key of keys) {
+		const match = key.match(/^(\d+)\/(\d+)\/(\d+)$/);
+		if (!match || Number(match[1]) !== zoom) {
+			throw new Error(
+				"Invalid cross-tile Maptoolkit roof tile "
+				+ key + " for " + String(target?.historicalCode || "")
+			);
+		}
+	}
+	return keys;
+}
+
+function parseTileKeyValue(key) {
+	const match = String(key || "").match(/^(\d+)\/(\d+)\/(\d+)$/);
+	if (!match) return null;
+	return {
+		z: Number(match[1]),
+		x: Number(match[2]),
+		y: Number(match[3])
+	};
+}
+
+function addBuildingAcrossTiles(tileData, {
+	building,
+	surfaces,
+	target,
+	sourceSheet,
+	extent,
+	zoom,
+	recordKind = "lod21",
+	recordOverrides = {}
+}) {
+	const allowedKeys = crossTileKeysForTarget(target, zoom);
+	if (allowedKeys.length < 2) return null;
+	const allowed = new Set(allowedKeys);
+
+	const points = getSurfacePoints(surfaces);
+	if (!points.length) return null;
+	const groundPoints = surfaces
+		.filter((surface) => surface.semantic === "ground")
+		.flatMap((surface) => surface.rings.flat());
+	const basePoints = groundPoints.length ? groundPoints : points;
+	const baseZ = Math.min(...basePoints.map((point) => point.z));
+	const anchorSource = boundsCenter(points);
+	const referenceTile = tileCoordinateForPoint(anchorSource, zoom);
+	const referenceKey = tileKey(referenceTile);
+	if (!allowed.has(referenceKey)) {
+		throw new Error(
+			"Cross-tile LOD2.1 anchor tile "
+			+ referenceKey + " is not audited for "
+			+ String(target?.historicalCode || "")
+		);
+	}
+	const anchorLngLat = sourcePointToLngLat(anchorSource);
+	const distance = haversineMeters(anchorLngLat, target);
+	const anchorWorldX = worldX(anchorLngLat.lng, zoom);
+	const anchorWorldY = worldY(anchorLngLat.lat, zoom);
+	const groundSurfaces = surfaces.filter(
+		(surface) => surface.semantic === "ground"
+	).length;
+
+	const pieces = new Map();
+	const ensurePiece = (tile) => {
+		const key = tileKey(tile);
+		let piece = pieces.get(key);
+		if (piece) return piece;
+		let data = tileData.get(key);
+		if (!data) {
+			data = { tile, vertices: [], indices: [], buildings: [] };
+			tileData.set(key, data);
+		}
+		piece = {
+			key,
+			tile,
+			data,
+			vertexStart: vertexCount(data),
+			indexStart: data.indices.length,
+			roofSurfaces: new Set(),
+			wallSurfaces: new Set()
+		};
+		pieces.set(key, piece);
+		return piece;
+	};
+
+	for (
+		let surfaceIndex = 0;
+		surfaceIndex < surfaces.length;
+		surfaceIndex += 1
+	) {
+		const surface = surfaces[surfaceIndex];
+		if (surface.semantic === "ground") continue;
+		const triangulated = triangulateSurface(
+			surface,
+			referenceTile,
+			extent,
+			baseZ
+		);
+		if (!triangulated) continue;
+
+		for (
+			let indexOffset = 0;
+			indexOffset + 2 < triangulated.indices.length;
+			indexOffset += 3
+		) {
+			const sourceIndices = [
+				triangulated.indices[indexOffset],
+				triangulated.indices[indexOffset + 1],
+				triangulated.indices[indexOffset + 2]
+			];
+			const triangle = sourceIndices.map(
+				(index) => triangulated.vertices[index]
+			);
+			const centroidX = triangle.reduce(
+				(sum, point) => sum + point.x,
+				0
+			) / 3;
+			const centroidY = triangle.reduce(
+				(sum, point) => sum + point.y,
+				0
+			) / 3;
+			const centroidWorldX =
+				referenceTile.x + centroidX / extent;
+			const centroidWorldY =
+				referenceTile.y + centroidY / extent;
+			const tile = {
+				z: zoom,
+				x: Math.floor(centroidWorldX),
+				y: Math.floor(centroidWorldY)
+			};
+			const key = tileKey(tile);
+			if (!allowed.has(key)) {
+				throw new Error(
+					"Cross-tile LOD2.1 triangle for "
+					+ String(target?.historicalCode || "")
+					+ " fell into unaudited tile " + key
+				);
+			}
+
+			const piece = ensurePiece(tile);
+			const triangleVertexStart = vertexCount(piece.data);
+			for (const point of triangle) {
+				const pointWorldX =
+					referenceTile.x + point.x / extent;
+				const pointWorldY =
+					referenceTile.y + point.y / extent;
+				pushVertex(piece.data, {
+					x: (pointWorldX - tile.x) * extent,
+					y: (pointWorldY - tile.y) * extent,
+					z: point.z,
+					nx: triangulated.normal.x,
+					ny: triangulated.normal.y,
+					nz: triangulated.normal.z,
+					kind: triangulated.kind
+				});
+			}
+			piece.data.indices.push(
+				triangleVertexStart,
+				triangleVertexStart + 1,
+				triangleVertexStart + 2
+			);
+			if (surface.semantic === "roof") {
+				piece.roofSurfaces.add(surfaceIndex);
+			} else if (surface.semantic === "wall") {
+				piece.wallSurfaces.add(surfaceIndex);
+			}
+		}
+	}
+
+	if (pieces.size !== allowed.size) {
+		throw new Error(
+			"Cross-tile LOD2.1 target "
+			+ String(target?.historicalCode || "")
+			+ " produced " + pieces.size + " tile piece(s), expected "
+			+ allowed.size
+		);
+	}
+	for (const key of allowed) {
+		if (!pieces.has(key)) {
+			throw new Error(
+				"Cross-tile LOD2.1 target "
+				+ String(target?.historicalCode || "")
+				+ " produced no geometry in " + key
+			);
+		}
+	}
+
+	const results = [];
+	for (const key of allowedKeys) {
+		const piece = pieces.get(key);
+		const buildingVertexCount =
+			vertexCount(piece.data) - piece.vertexStart;
+		const indexCount =
+			piece.data.indices.length - piece.indexStart;
+		if (!buildingVertexCount || !indexCount) {
+			throw new Error(
+				"Cross-tile LOD2.1 target "
+				+ String(target?.historicalCode || "")
+				+ " has empty geometry in " + key
+			);
+		}
+		const record = {
+			bwGebId: Number(target.bwGebId),
+			historicalCode: String(target.historicalCode),
+			ogdKsIds: [...new Set(
+				(target.ksIds || [])
+					.map((value) => String(value || "").trim())
+					.filter(Boolean)
+			)].sort(),
+			name: String(target.name),
+			rolloutMode: String(
+				target.rolloutMode || "unspecified"
+			),
+			cityGmlId: String(
+				recordOverrides.cityGmlId
+				?? nodeAttribute(building, GML_NS, "id")
+				?? ""
+			),
+			roofType: String(
+				recordOverrides.roofType
+				?? buildingRoofType(building)
+				?? ""
+			),
+			creationDate: String(
+				recordOverrides.creationDate
+				?? buildingCreationDate(building)
+				?? ""
+			),
+			sourceSheet: String(
+				recordOverrides.sourceSheet ?? sourceSheet ?? ""
+			),
+			recordKind,
+			vertexStart: piece.vertexStart,
+			vertexCount: buildingVertexCount,
+			indexStart: piece.indexStart,
+			indexCount,
+			anchorX: Number(
+				((anchorWorldX - piece.tile.x) * extent).toFixed(3)
+			),
+			anchorY: Number(
+				((anchorWorldY - piece.tile.y) * extent).toFixed(3)
+			),
+			sourceBaseZ: Number(baseZ.toFixed(3)),
+			roofSurfaces: piece.roofSurfaces.size,
+			wallSurfaces: piece.wallSurfaces.size,
+			groundSurfaces,
+			crossTilePart: true,
+			crossTileGroupTiles: [...allowedKeys]
+		};
+		piece.data.buildings.push(record);
+		results.push({
+			tile: piece.tile,
+			record,
+			distance
+		});
+	}
+	return results;
+}
+
 function addBuildingToTile(tileData, {
 	building,
 	surfaces,
@@ -1574,15 +1841,32 @@ async function main() {
 					historicalGroundByCode.get(code).push(groundGeometry);
 				}
 			}
-			const added = addBuildingToTile(tileData, {
-				building,
-				surfaces,
+			const crossTileKeys = crossTileKeysForTarget(
 				target,
-				sourceSheet,
-				extent,
 				zoom
-			});
-			if (added) found.get(code).push(added);
+			);
+			const added = crossTileKeys.length > 1
+				? addBuildingAcrossTiles(tileData, {
+					building,
+					surfaces,
+					target,
+					sourceSheet,
+					extent,
+					zoom
+				})
+				: addBuildingToTile(tileData, {
+					building,
+					surfaces,
+					target,
+					sourceSheet,
+					extent,
+					zoom
+				});
+			if (Array.isArray(added)) {
+				found.get(code).push(...added);
+			} else if (added) {
+				found.get(code).push(added);
+			}
 		}
 		xml = null;
 		if (typeof global.gc === "function" && (fileIndex + 1) % 10 === 0) {
