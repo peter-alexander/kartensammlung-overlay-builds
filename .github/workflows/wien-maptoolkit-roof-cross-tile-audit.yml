@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      WIEN_ROOF_OVERRIDE_CODES: "120593"
+      WIEN_ROOF_OVERRIDE_CODES: "120593,137772,226564"
       WIEN_ROOF_OVERRIDE_TILE_RADIUS: "1"
       WIEN_ROOF_OVERRIDE_FETCH_ATTEMPTS: "1"
 
@@ -55,10 +55,13 @@ jobs:
           		"utf8"
           	)
           );
-          if (data.count !== 1) {
-          	throw new Error("Expected one target, got " + data.count);
+          if (data.count !== 3) {
+          	throw new Error("Expected three targets, got " + data.count);
           }
-          console.log(JSON.stringify(data.rows[0], null, 2));
+          if (!data.allTargetsHaveFeatures || !data.allFeaturesExclusive) {
+          	throw new Error("Cross-tile feature ownership is not exclusive.");
+          }
+          console.log(JSON.stringify(data.rows, null, 2));
           NODE
 
       - uses: actions/upload-artifact@v7
