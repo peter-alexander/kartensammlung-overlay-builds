@@ -1,0 +1,219 @@
+name: Audit Vienna partial roof replacements
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-partial-audit.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WIEN_ROOF_OVERRIDE_CODES: "204583,106027,124800,108069,507585,505549"
+      WIEN_ROOF_OVERRIDE_TILE_RADIUS: "1"
+      WIEN_ROOF_OVERRIDE_FETCH_ATTEMPTS: "2"
+      WIEN_LOD21_TARGETS: /tmp/wien-roof-partial-targets.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: /tmp/roof-loss
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35913353237
+
+      - name: Build six partial-hit target manifest
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const summary = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/roof-loss/wien-roof-loss-summary.json",
+          		"utf8"
+          	)
+          );
+          const wanted = new Set(
+          	process.env.WIEN_ROOF_OVERRIDE_CODES.split(",")
+          );
+          const byCode = new Map(
+          	(summary.strongCandidates || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+          const buildings = [...wanted].sort().map((code) => {
+          	const item = byCode.get(code);
+          	if (!item) throw new Error("Missing strong candidate " + code);
+          	return {
+          		name: "Partial roof replacement audit " + code,
+          		historicalCode: code,
+          		bwGebId: String(item.ownerBwGebIds?.[0] || ""),
+          		ksIds: item.ksIds || [],
+          		sheet: String(item.sheet || ""),
+          		lng: Number(item.lng),
+          		lat: Number(item.lat),
+          		rolloutMode: "maptoolkit-roof-replacement"
+          	};
+          });
+          if (buildings.length !== 6) {
+          	throw new Error("Expected 6 targets, got " + buildings.length);
+          }
+          fs.writeFileSync(
+          	process.env.WIEN_LOD21_TARGETS,
+          	JSON.stringify({
+          		schemaVersion: 1,
+          		status: "analysis",
+          		zoom: 15,
+          		extent: 8192,
+          		buildings
+          	}, null, "\t") + "\n"
+          );
+          NODE
+
+      - name: Build historical LOD2.1 meshes
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Audit Maptoolkit surfaces across neighbouring tiles
+        run: |
+          node wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs \
+            --root wien-lod21/build/WienBuildingsLOD21 \
+            --output /tmp/wien-roof-partial-surfaces.json \
+            --expected-count 6 \
+            --tile-radius 1
+
+      - name: Audit Maptoolkit feature ownership across neighbouring tiles
+        run: |
+          node wien-buildings/analyze-maptoolkit-override-pilot.mjs \
+            /tmp/roof-loss/wien-roof-loss-summary.json \
+            /tmp/wien-roof-partial-features.json
+
+      - name: Classify recovered coverage
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const surfaces = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/wien-roof-partial-surfaces.json",
+          		"utf8"
+          	)
+          );
+          const features = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/wien-roof-partial-features.json",
+          		"utf8"
+          	)
+          );
+          const featureByCode = new Map(
+          	(features.rows || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+
+          const rows = (surfaces.reports || []).map((surface) => {
+          	const code = String(surface.historicalCode);
+          	const feature = featureByCode.get(code);
+          	const featureTiles = [...new Set(
+          		(feature?.features || []).map((item) => String(item.tile))
+          	)].sort();
+          	const signatures = (feature?.features || []).map(
+          		(item) => String(item.signature || "").toLowerCase()
+          	);
+          	const featureSafe = (
+          		Number(feature?.featureCount) > 0
+          		&& Number(feature?.sharedFeatureCount) === 0
+          		&& signatures.length === Number(feature?.featureCount)
+          		&& new Set(signatures).size === signatures.length
+          		&& signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+          	);
+          	const completeFlatReplacement = (
+          		surface.safe === true
+          		&& Number(surface.flatHitPercent) === 100
+          		&& Number(surface.pitchedHitPercent) === 0
+          		&& Number(surface.unmatchedReplacementPoints) === 0
+          	);
+          	const heightPlausible = (
+          		Number(surface.maptoolkitFlatVsHistoricalEaveM) >= -0.25
+          		&& Number(surface.maptoolkitFlatVsHistoricalRidgeM) <= 0.25
+          	);
+          	return {
+          		code,
+          		completeFlatReplacement,
+          		heightPlausible,
+          		featureSafe,
+          		replacementTile: surface.tile,
+          		featureTiles,
+          		flatHitPercent: surface.flatHitPercent,
+          		pitchedHitPercent: surface.pitchedHitPercent,
+          		unmatchedReplacementPoints:
+          			surface.unmatchedReplacementPoints,
+          		eaveDeltaM:
+          			surface.maptoolkitFlatVsHistoricalEaveM,
+          		ridgeDeltaM:
+          			surface.maptoolkitFlatVsHistoricalRidgeM,
+          		featureCount: feature?.featureCount ?? 0,
+          		signatures,
+          		auditedTiles: surface.maptoolkitAuditedTiles || []
+          	};
+          }).sort((a, b) => a.code.localeCompare(b.code));
+
+          const promotable = rows.filter((row) => (
+          	row.completeFlatReplacement
+          	&& row.heightPlausible
+          	&& row.featureSafe
+          ));
+          const output = {
+          	generatedAt: new Date().toISOString(),
+          	count: rows.length,
+          	promotableCount: promotable.length,
+          	promotableCodes: promotable.map((row) => row.code),
+          	rows
+          };
+          fs.writeFileSync(
+          	"/tmp/wien-roof-partial-summary.json",
+          	JSON.stringify(output, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify(output, null, 2));
+          if (rows.length !== 6) {
+          	throw new Error("Expected 6 rows, got " + rows.length);
+          }
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wien-maptoolkit-roof-partial-audit
+          path: |
+            /tmp/wien-roof-partial-targets.json
+            /tmp/wien-roof-partial-surfaces.json
+            /tmp/wien-roof-partial-features.json
+            /tmp/wien-roof-partial-summary.json
+          if-no-files-found: warn
+          retention-days: 7
