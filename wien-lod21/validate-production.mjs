@@ -377,6 +377,41 @@ for (const target of items) {
 				&& JSON.stringify(replacementFeatureTile.featureSignatures)
 					=== JSON.stringify(signatures)
 		);
+		const auditClass = String(
+			audit?.auditClass || "complete-flat-hit"
+		);
+		const featureAudit = Array.isArray(audit?.featureAudit)
+			? audit.featureAudit
+			: [];
+		const featureAuditSignatures = featureAudit
+			.map((item) => String(item?.signature || "").toLowerCase())
+			.sort();
+		const exactFootprintFlatOnly = (
+			auditClass === "exact-footprint-flat-only"
+			&& Number(audit?.flatHitPercent) >= 80
+			&& Number(audit?.flatHitPercent) < 100
+			&& Number(audit?.pitchedHitPercent) === 0
+			&& Number(audit?.unmatchedReplacementPoints) >= 1
+			&& Number(audit?.unmatchedReplacementPoints) <= 2
+			&& Number(audit?.currentCoverage) >= 0.998
+			&& Number(audit?.historicalCoverage) >= 0.998
+			&& Number(audit?.centroidDistanceM) <= 0.10
+			&& featureAudit.length === allFeatureSignatures.length
+			&& JSON.stringify(featureAuditSignatures)
+				=== JSON.stringify([...allFeatureSignatures].sort())
+			&& featureAudit.every((item) => (
+				Number(item?.flatRoofSurfaces) >= 1
+				&& Number(item?.pitchedRoofSurfaces) === 0
+				&& item?.touchesTileEdge === false
+			))
+		);
+		const coverageAuditValid = (
+			(
+				auditClass === "complete-flat-hit"
+				&& Number(audit?.flatHitPercent) === 100
+			)
+			|| exactFootprintFlatOnly
+		);
 		if (
 			!audit
 			|| !/^15\/\d+\/\d+$/.test(String(audit.tile || ""))
@@ -384,7 +419,7 @@ for (const target of items) {
 			|| allFeatureSignatures.length !== Number(audit.featureCount)
 			|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
 			|| !featureTilesValid
-			|| Number(audit.flatHitPercent) !== 100
+			|| !coverageAuditValid
 			|| Number(audit.flatVsHistoricalEaveM) < -0.25
 			|| Number(audit.flatVsHistoricalRidgeM) > 0.25
 		) {
