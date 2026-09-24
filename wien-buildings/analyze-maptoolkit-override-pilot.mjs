@@ -4,6 +4,10 @@ import fs from "node:fs/promises";
 import earcut from "earcut";
 import { VectorTile } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
+import GeoJSONReader from "jsts/org/locationtech/jts/io/GeoJSONReader.js";
+import OverlayOp from "jsts/org/locationtech/jts/operation/overlay/OverlayOp.js";
+import UnionOp from "jsts/org/locationtech/jts/operation/union/UnionOp.js";
+import BufferOp from "jsts/org/locationtech/jts/operation/buffer/BufferOp.js";
 
 const RELEASE_URL = "https://tiles.radlobby.at/WienBuildings/release.json";
 const OGD_TILE_URL = "https://tiles.radlobby.at/WienBuildings/tiles/{z}/{x}/{y}.pbf";
@@ -319,6 +323,119 @@ function normalizeSurfacePolygon(surface, extent) {
 	return rings.length ? rings : null;
 }
 
+function polygonToJsts(polygon, reader) {
+	const coordinates = (polygon || [])
+		.map((ring) => {
+			const coordinates = (ring || [])
+				.map((point) => [
+					Number(point?.x) * 8192,
+					Number(point?.y) * 8192
+				])
+				.filter(([x, y]) => (
+					Number.isFinite(x) && Number.isFinite(y)
+				));
+			if (coordinates.length < 3) return null;
+			const first = coordinates[0];
+			const last = coordinates[coordinates.length - 1];
+			if (first[0] !== last[0] || first[1] !== last[1]) {
+				coordinates.push([...first]);
+			}
+			return coordinates.length >= 4 ? coordinates : null;
+		})
+		.filter(Boolean);
+	if (!coordinates.length) return null;
+	try {
+		return reader.read({
+			type: "Polygon",
+			coordinates
+		});
+	} catch {
+		return null;
+	}
+}
+
+function repairJstsGeometry(geometry) {
+	if (!geometry || geometry.isEmpty?.()) return null;
+	try {
+		if (geometry.isValid?.()) return geometry;
+	} catch {}
+	try {
+		const repaired = BufferOp.bufferOp(geometry, 0);
+		if (repaired && !repaired.isEmpty?.()) return repaired;
+	} catch {}
+	return geometry;
+}
+
+function unionJstsPolygons(polygons) {
+	const reader = new GeoJSONReader();
+	let union = null;
+	for (const polygon of polygons || []) {
+		const geometry = repairJstsGeometry(
+			polygonToJsts(polygon, reader)
+		);
+		if (!geometry) continue;
+		try {
+			union = union ? UnionOp.union(union, geometry) : geometry;
+		} catch {
+			const repairedUnion = repairJstsGeometry(union);
+			const repairedGeometry = repairJstsGeometry(geometry);
+			if (!repairedGeometry) continue;
+			union = repairedUnion
+				? UnionOp.union(repairedUnion, repairedGeometry)
+				: repairedGeometry;
+		}
+	}
+	return repairJstsGeometry(union);
+}
+
+function intersectionArea(a, b) {
+	if (!a || !b) return 0;
+	try {
+		const intersection = OverlayOp.overlayOp(
+			a,
+			b,
+			OverlayOp.INTERSECTION
+		);
+		return Number(intersection?.getArea?.() || 0);
+	} catch {
+		const repairedA = repairJstsGeometry(a);
+		const repairedB = repairJstsGeometry(b);
+		if (!repairedA || !repairedB) return 0;
+		try {
+			const intersection = OverlayOp.overlayOp(
+				repairedA,
+				repairedB,
+				OverlayOp.INTERSECTION
+			);
+			return Number(intersection?.getArea?.() || 0);
+		} catch {
+			return 0;
+		}
+	}
+}
+
+function polygonCoverageMetrics(currentPolygons, flatRoofPolygons) {
+	const current = unionJstsPolygons(currentPolygons);
+	const flatRoof = unionJstsPolygons(flatRoofPolygons);
+	const currentArea = Number(current?.getArea?.() || 0);
+	const flatRoofArea = Number(flatRoof?.getArea?.() || 0);
+	const overlapArea = intersectionArea(current, flatRoof);
+	return {
+		currentCoverageByFlatRoof: currentArea > 0
+			? Number((overlapArea / currentArea).toFixed(6))
+			: null,
+		flatRoofInsideCurrent: flatRoofArea > 0
+			? Number((overlapArea / flatRoofArea).toFixed(6))
+			: null,
+		currentAreaRenderUnits2:
+			Number(currentArea.toFixed(3)),
+		flatRoofAreaRenderUnits2:
+			Number(flatRoofArea.toFixed(3)),
+		overlapAreaRenderUnits2:
+			Number(overlapArea.toFixed(3))
+	};
+}
+
 function extractMaptoolkitSurfaces(buffer, tile) {
 	const vectorTile = new VectorTile(new PbfReader(buffer));
 	const layer = vectorTile.layers?.buildings3d;
@@ -466,6 +583,7 @@ async function inspectTile(tile, version) {
 	const signatureByMtkFeature = new Map();
 	const boundsByMtkFeature = new Map();
 	const surfaceKindsByMtkFeature = new Map();
+	const flatRoofPolygonsByMtkFeature = new Map();
 	for (const surface of surfaces) {
 		let kinds = surfaceKindsByMtkFeature.get(surface.featureIndex);
 		if (!kinds) {
@@ -477,6 +595,19 @@ async function inspectTile(tile, version) {
 			surfaceKindsByMtkFeature.set(surface.featureIndex, kinds);
 		}
 		kinds[surface.kind] = (kinds[surface.kind] || 0) + 1;
+		if (surface.kind === "flat-roof") {
+			let polygons = flatRoofPolygonsByMtkFeature.get(
+				surface.featureIndex
+			);
+			if (!polygons) {
+				polygons = [];
+				flatRoofPolygonsByMtkFeature.set(
+					surface.featureIndex,
+					polygons
+				);
+			}
+			polygons.push(surface.polygon);
+		}
 		if (!signatureByMtkFeature.has(surface.featureIndex)) {
 			signatureByMtkFeature.set(surface.featureIndex, surface.signature);
 		}
@@ -535,7 +666,8 @@ async function inspectTile(tile, version) {
 		ownersByMtkFeature,
 		signatureByMtkFeature,
 		boundsByMtkFeature,
-		surfaceKindsByMtkFeature
+		surfaceKindsByMtkFeature,
+		flatRoofPolygonsByMtkFeature
 	};
 }
 
@@ -673,6 +805,51 @@ async function main() {
 			a.tile.localeCompare(b.tile)
 			|| a.featureIndex - b.featureIndex
 		));
+
+		let currentArea = 0;
+		let flatRoofArea = 0;
+		let overlapArea = 0;
+		for (const tile of targetTiles(target)) {
+			const key = tileKey(tile);
+			const tileFeatures = features.filter(
+				(feature) => feature.tile === key
+			);
+			if (!tileFeatures.length) continue;
+			const result = tileResults.get(key);
+			if (!result) continue;
+			const currentPolygons = result.ogd
+				.filter((feature) => feature.bwGebId === owner)
+				.flatMap((feature) => feature.polygons || []);
+			const flatRoofPolygons = tileFeatures.flatMap((feature) => (
+				result.flatRoofPolygonsByMtkFeature.get(
+					feature.featureIndex
+				) || []
+			));
+			const coverage = polygonCoverageMetrics(
+				currentPolygons,
+				flatRoofPolygons
+			);
+			currentArea += Number(
+				coverage.currentAreaRenderUnits2 || 0
+			);
+			flatRoofArea += Number(
+				coverage.flatRoofAreaRenderUnits2 || 0
+			);
+			overlapArea += Number(
+				coverage.overlapAreaRenderUnits2 || 0
+			);
+		}
+		const flatRoofCoverage = {
+			currentCoverageByFlatRoof: currentArea > 0
+				? Number((overlapArea / currentArea).toFixed(6))
+				: null,
+			flatRoofInsideCurrent: flatRoofArea > 0
+				? Number((overlapArea / flatRoofArea).toFixed(6))
+				: null,
+			currentAreaRenderUnits2: Number(currentArea.toFixed(3)),
+			flatRoofAreaRenderUnits2: Number(flatRoofArea.toFixed(3)),
+			overlapAreaRenderUnits2: Number(overlapArea.toFixed(3))
+		};
 		rows.push({
 			historicalCode: String(target.historicalCode),
 			bwGebId: owner,
@@ -686,6 +863,7 @@ async function main() {
 			sharedFeatureCount: features.filter(
 				(item) => !item.exclusive
 			).length,
+			flatRoofCoverage,
 			features
 		});
 	}
