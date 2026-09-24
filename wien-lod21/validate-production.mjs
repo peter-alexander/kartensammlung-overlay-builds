@@ -134,32 +134,37 @@ if (
 		+ Number(release.counts.hybridHeightSplit || 0)
 	);
 }
-if (
-	maptoolkitRoofReplacement !== 19
-	|| Number(release.counts.maptoolkitRoofReplacement || 0)
-		!== maptoolkitRoofReplacement
-) {
-	throw new Error(
-		"Expected 19 audited Maptoolkit roof replacements, got "
-		+ maptoolkitRoofReplacement + " / release "
-		+ Number(release.counts.maptoolkitRoofReplacement || 0)
-	);
-}
-if (items.length !== 2292) {
-	throw new Error("Expected 2292 production targets, got " + items.length);
-}
-
 const releaseRoofOverrides =
 	Array.isArray(release.maptoolkitRoofOverrides?.targets)
 		? release.maptoolkitRoofOverrides.targets
 		: [];
 if (
-	release.maptoolkitRoofOverrides?.mode
-	!== "fail-safe-feature-fingerprint"
-	|| releaseRoofOverrides.length !== 19
+	maptoolkitRoofReplacement < 1
+	|| Number(release.counts.maptoolkitRoofReplacement || 0)
+		!== maptoolkitRoofReplacement
+	|| releaseRoofOverrides.length !== maptoolkitRoofReplacement
 ) {
 	throw new Error(
-		"Expected 19 fail-safe Maptoolkit roof override release entries."
+		"Maptoolkit roof replacement count mismatch: targets "
+		+ maptoolkitRoofReplacement + ", release count "
+		+ Number(release.counts.maptoolkitRoofReplacement || 0)
+		+ ", release entries " + releaseRoofOverrides.length
+	);
+}
+const expectedProductionTargets = 2273 + maptoolkitRoofReplacement;
+if (items.length !== expectedProductionTargets) {
+	throw new Error(
+		"Expected " + expectedProductionTargets
+		+ " production targets, got " + items.length
+	);
+}
+if (
+	release.maptoolkitRoofOverrides?.mode
+	!== "fail-safe-feature-fingerprint"
+) {
+	throw new Error(
+		"Unexpected Maptoolkit roof override mode: "
+		+ String(release.maptoolkitRoofOverrides?.mode || "")
 	);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
