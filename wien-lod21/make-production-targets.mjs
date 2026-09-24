@@ -5,28 +5,42 @@ import path from "node:path";
 
 const MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS =
 	"exact-footprint-flat-only";
+const MAPTOOLKIT_CLIPPED_FOOTPRINT_AUDIT_CLASS =
+	"current-footprint-clipped-flat-only";
 
 function isSafeMaptoolkitRoofCoverageAudit(audit) {
 	if (Number(audit?.flatHitPercent) === 100) return true;
-	if (
-		String(audit?.auditClass || "")
-		!== MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS
-	) return false;
 
-	return (
-		Number(audit?.flatHitPercent) >= 80
-		&& Number(audit?.pitchedHitPercent) === 0
-		&& Number(audit?.currentCoverage) >= 0.998
-		&& Number(audit?.oldCoverage) >= 0.998
-		&& Number(audit?.centroidDistanceM) <= 0.10
-		&& Number(audit?.currentCoverageByFlatRoof) >= 0.98
-		&& Number(audit?.flatRoofInsideCurrent) >= 0.98
-		&& Number(audit?.flatRoofSymmetricDifferenceM2) <= 2
-		&& Number(audit?.footprintSymmetricDifferenceM2) <= 0.25
-		&& audit?.featureOwnershipExclusive === true
-		&& audit?.allFeaturesInterior === true
-		&& audit?.allRoofSurfacesFlat === true
-	);
+	const auditClass = String(audit?.auditClass || "");
+	if (auditClass === MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS) {
+		return (
+			Number(audit?.flatHitPercent) >= 80
+			&& Number(audit?.pitchedHitPercent) === 0
+			&& Number(audit?.currentCoverage) >= 0.998
+			&& Number(audit?.oldCoverage) >= 0.998
+			&& Number(audit?.centroidDistanceM) <= 0.10
+			&& Number(audit?.currentCoverageByFlatRoof) >= 0.98
+			&& Number(audit?.flatRoofInsideCurrent) >= 0.98
+			&& Number(audit?.flatRoofSymmetricDifferenceM2) <= 2
+			&& Number(audit?.footprintSymmetricDifferenceM2) <= 0.25
+			&& audit?.featureOwnershipExclusive === true
+			&& audit?.allFeaturesInterior === true
+			&& audit?.allRoofSurfacesFlat === true
+		);
+	}
+	if (auditClass === MAPTOOLKIT_CLIPPED_FOOTPRINT_AUDIT_CLASS) {
+		return (
+			Number(audit?.flatHitPercent) >= 80
+			&& Number(audit?.pitchedHitPercent) === 0
+			&& Number(audit?.currentCoverageByFlatRoof) >= 0.995
+			&& Number(audit?.flatRoofInsideCurrent) >= 0.995
+			&& Number(audit?.flatRoofSymmetricDifferenceRatio) <= 0.01
+			&& audit?.featureOwnershipExclusive === true
+			&& audit?.allFeaturesInterior === true
+			&& audit?.allRoofSurfacesFlat === true
+		);
+	}
+	return false;
 }
 
 const HYBRID_B_ABSOLUTE_MAX_OUTSIDE_M2 = 0.58;
@@ -657,6 +671,30 @@ async function main() {
 				&& JSON.stringify(replacementFeatureTile.featureSignatures)
 					=== JSON.stringify(signatures)
 			);
+			const clippedFootprintAudit = (
+				String(audit?.auditClass || "")
+				=== MAPTOOLKIT_CLIPPED_FOOTPRINT_AUDIT_CLASS
+			);
+			const clippedFootprintMetadataValid = !clippedFootprintAudit || (
+				replacement?.clipHistoricalToCurrentFootprint === true
+				&& replacement?.auditedHistoricalClip === true
+				&& Number.isFinite(
+					Number(replacement?.auditedOriginalHistoricalAreaM2)
+				)
+				&& Number.isFinite(
+					Number(replacement?.auditedClippedHistoricalAreaM2)
+				)
+				&& Number.isFinite(
+					Number(replacement?.auditedRemovedHistoricalAreaM2)
+				)
+				&& Number(replacement?.auditedRemovedHistoricalAreaM2) > 0
+				&& Number(replacement?.auditedRemainderAreaM2) === 0
+				&& Number.isFinite(
+					Number(replacement?.auditedMaxDiscardedSliverWidthM)
+				)
+				&& Number(replacement?.auditedMaxDiscardedSliverWidthM)
+					<= 0.0101
+			);
 			if (
 				!code
 				|| replacement?.rolloutMode !== "maptoolkit-roof-replacement"
@@ -668,6 +706,7 @@ async function main() {
 				|| allFeatureSignatures.length !== Number(audit?.featureCount)
 				|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
 				|| !featureTilesValid
+				|| !clippedFootprintMetadataValid
 				|| !isSafeMaptoolkitRoofCoverageAudit(audit)
 				|| Number(audit?.flatVsHistoricalEaveM) < -0.25
 				|| Number(audit?.flatVsHistoricalRidgeM) > 0.25
