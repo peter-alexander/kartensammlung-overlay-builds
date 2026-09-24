@@ -27,12 +27,13 @@
 		"crossTilePromotedSingleTileEdgeCodes": [
 			"137772"
 		],
-		"crossTileDeferredCodes": [
+		"crossTileDeferredCodes": [],
+		"crossTilePromotedCodes": [
 			"120593",
 			"226564"
 		]
 	},
-	"count": 28,
+	"count": 30,
 	"buildings": [
 		{
 			"name": "Maptoolkit roof replacement 066292",
@@ -187,6 +188,49 @@
 				"maptoolkitFlatMedianM": 2.3,
 				"flatVsHistoricalEaveM": 0.11,
 				"flatVsHistoricalRidgeM": -0.15
+			}
+		},
+		{
+			"name": "Maptoolkit roof replacement 120593",
+			"historicalCode": "120593",
+			"bwGebId": 5517424,
+			"ksIds": [
+				"wien-fmzk:4004857496",
+				"wien-fmzk:4006206858"
+			],
+			"sheet": "108091",
+			"lng": 16.3916405,
+			"lat": 48.251982,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17876/11356",
+				"featureSignatures": [
+					"5ea2937f",
+					"7b137c6a"
+				],
+				"featureTiles": [
+					{
+						"tile": "15/17875/11356",
+						"featureSignatures": [
+							"0eea1f27",
+							"f29b822c"
+						]
+					},
+					{
+						"tile": "15/17876/11356",
+						"featureSignatures": [
+							"5ea2937f",
+							"7b137c6a"
+						]
+					}
+				],
+				"featureCount": 4,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 1.98,
+				"historicalRoofMaxM": 2.38,
+				"maptoolkitFlatMedianM": 2.075,
+				"flatVsHistoricalEaveM": 0.095,
+				"flatVsHistoricalRidgeM": -0.305
 			}
 		},
 		{
@@ -626,6 +670,45 @@
 				"maptoolkitFlatMedianM": 5,
 				"flatVsHistoricalEaveM": 0.16,
 				"flatVsHistoricalRidgeM": -0.63
+			}
+		},
+		{
+			"name": "Maptoolkit roof replacement 226564",
+			"historicalCode": "226564",
+			"bwGebId": 5291185,
+			"ksIds": [
+				"wien-fmzk:4001627661"
+			],
+			"sheet": "123091",
+			"lng": 16.4905013,
+			"lat": 48.2484644,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17885/11356",
+				"featureSignatures": [
+					"9a341d55"
+				],
+				"featureTiles": [
+					{
+						"tile": "15/17884/11356",
+						"featureSignatures": [
+							"695fe8e7"
+						]
+					},
+					{
+						"tile": "15/17885/11356",
+						"featureSignatures": [
+							"9a341d55"
+						]
+					}
+				],
+				"featureCount": 2,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 4.91,
+				"historicalRoofMaxM": 5.7,
+				"maptoolkitFlatMedianM": 5.05,
+				"flatVsHistoricalEaveM": 0.14,
+				"flatVsHistoricalRidgeM": -0.65
 			}
 		},
 		{
