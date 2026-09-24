@@ -15,11 +15,11 @@
 		"hybridEaveHeightMetric": "median-roof-surface-minimum",
 		"hybridEaveAuditGeneratedAt": "2026-09-23T18:51:35.384Z",
 		"hybridHeightSplitToleranceM": 0.25,
-		"maptoolkitRoofReplacementSelected": 22,
-		"maptoolkitRoofReplacementAuditGeneratedAt": "2026-09-24T10:20:10.208Z"
+		"maptoolkitRoofReplacementSelected": 27,
+		"maptoolkitRoofReplacementAuditGeneratedAt": "2026-09-24T12:17:35Z"
 	},
 	"counts": {
-		"total": 2295,
+		"total": 2300,
 		"directStrong": 1209,
 		"hybridA": 614,
 		"hybridBAbsolute": 72,
@@ -29,7 +29,7 @@
 		"hybridDClip": 169,
 		"hybridEaveClip": 26,
 		"hybridHeightSplit": 2,
-		"maptoolkitRoofReplacement": 22,
+		"maptoolkitRoofReplacement": 27,
 		"manualPilotStrong": 1,
 		"manualPilotHybrid": 1,
 		"sourceSheets": 733
@@ -9443,6 +9443,32 @@
 			"historicalOutsideCurrentM2": 2.15
 		},
 		{
+			"name": "Maptoolkit roof replacement 066292",
+			"historicalCode": "066292",
+			"bwGebId": 5372230,
+			"ksIds": [
+				"wien-fmzk:4006257954"
+			],
+			"sheet": "108096",
+			"lng": 16.3864061,
+			"lat": 48.27272,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17875/11353",
+				"featureSignatures": [
+					"3267ed5c",
+					"844ad223"
+				],
+				"featureCount": 2,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 8.06,
+				"historicalRoofMaxM": 8.91,
+				"maptoolkitFlatMedianM": 8.5,
+				"flatVsHistoricalEaveM": 0.44,
+				"flatVsHistoricalRidgeM": -0.41
+			}
+		},
+		{
 			"name": "Wien LOD2.1 066316",
 			"historicalCode": "066316",
 			"bwGebId": 5511096,
@@ -10555,6 +10581,31 @@
 			"expectedRemainderM2": 165.22,
 			"historicalOutsideCurrentM2": 3.65,
 			"auditedHistoricalClip": true
+		},
+		{
+			"name": "Maptoolkit roof replacement 073722",
+			"historicalCode": "073722",
+			"bwGebId": 5449829,
+			"ksIds": [
+				"wien-fmzk:4005579905"
+			],
+			"sheet": "113086",
+			"lng": 16.4235896,
+			"lat": 48.2289843,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17878/11359",
+				"featureSignatures": [
+					"5793be82"
+				],
+				"featureCount": 1,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 5.84,
+				"historicalRoofMaxM": 6.4,
+				"maptoolkitFlatMedianM": 5.9,
+				"flatVsHistoricalEaveM": 0.06,
+				"flatVsHistoricalRidgeM": -0.5
+			}
 		},
 		{
 			"name": "Wien LOD2.1 073891",
@@ -20663,6 +20714,32 @@
 			"historicalOutsideCurrentM2": 0.02
 		},
 		{
+			"name": "Maptoolkit roof replacement 126551",
+			"historicalCode": "126551",
+			"bwGebId": 5499236,
+			"ksIds": [
+				"wien-fmzk:4006252581"
+			],
+			"sheet": "109095",
+			"lng": 16.3953352,
+			"lat": 48.2678246,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17876/11354",
+				"featureSignatures": [
+					"0a857d23",
+					"f655195c"
+				],
+				"featureCount": 2,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 2.17,
+				"historicalRoofMaxM": 2.72,
+				"maptoolkitFlatMedianM": 2.3,
+				"flatVsHistoricalEaveM": 0.13,
+				"flatVsHistoricalRidgeM": -0.42
+			}
+		},
+		{
 			"name": "Wien LOD2.1 126557",
 			"historicalCode": "126557",
 			"bwGebId": 5536844,
@@ -28029,6 +28106,32 @@
 			"rolloutMode": "hybrid-a",
 			"expectedRemainderM2": 14.38,
 			"historicalOutsideCurrentM2": 0.03
+		},
+		{
+			"name": "Maptoolkit roof replacement 169945",
+			"historicalCode": "169945",
+			"bwGebId": 5555921,
+			"ksIds": [
+				"wien-fmzk:4000698329"
+			],
+			"sheet": "118091",
+			"lng": 16.4578106,
+			"lat": 48.2484519,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17882/11356",
+				"featureSignatures": [
+					"039534ff",
+					"2fd98781"
+				],
+				"featureCount": 2,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 5.37,
+				"historicalRoofMaxM": 6.13,
+				"maptoolkitFlatMedianM": 5.55,
+				"flatVsHistoricalEaveM": 0.18,
+				"flatVsHistoricalRidgeM": -0.58
+			}
 		},
 		{
 			"name": "Wien LOD2.1 170101",
@@ -35764,6 +35867,31 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0,
 			"historicalOutsideCurrentM2": 0
+		},
+		{
+			"name": "Maptoolkit roof replacement 229233",
+			"historicalCode": "229233",
+			"bwGebId": 5550116,
+			"ksIds": [
+				"wien-fmzk:4006257685"
+			],
+			"sheet": "108096",
+			"lng": 16.3863699,
+			"lat": 48.2708954,
+			"rolloutMode": "maptoolkit-roof-replacement",
+			"auditedMaptoolkitOverride": {
+				"tile": "15/17875/11353",
+				"featureSignatures": [
+					"9ee6e568"
+				],
+				"featureCount": 1,
+				"flatHitPercent": 100,
+				"historicalRoofMinM": 5.54,
+				"historicalRoofMaxM": 6.83,
+				"maptoolkitFlatMedianM": 6.2,
+				"flatVsHistoricalEaveM": 0.66,
+				"flatVsHistoricalRidgeM": -0.63
+			}
 		},
 		{
 			"name": "Wien LOD2.1 229780",
