@@ -1,0 +1,124 @@
+name: Validate Vienna roof edge 137772 production
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-edge-137772
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-edge-137772.yml'
+      - 'wien-lod21/maptoolkit-roof-overrides.production.json'
+      - 'wien-lod21/make-production-targets.mjs'
+      - 'wien-lod21/build.mjs'
+      - 'wien-lod21/validate-production.mjs'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      WIEN_LOD21_TARGETS: wien-lod21/targets.production.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Regenerate production target snapshot
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --roof-replacements wien-lod21/maptoolkit-roof-overrides.production.json \
+            --output wien-lod21/targets.production.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute \
+            --include-hybrid-b-thin \
+            --include-hybrid-b-clip \
+            --include-hybrid-c-clip \
+            --include-hybrid-d-clip \
+            --include-hybrid-eave-clip \
+            --include-hybrid-height-split \
+            --include-maptoolkit-roof-replacements
+
+      - name: Verify target counts
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          if (Number(data.counts?.total) !== 2301) {
+          	throw new Error(
+          		"Expected 2301 production targets, got "
+          		+ data.counts?.total
+          	);
+          }
+          if (Number(data.counts?.maptoolkitRoofReplacement) !== 28) {
+          	throw new Error(
+          		"Expected 28 roof replacements, got "
+          		+ data.counts?.maptoolkitRoofReplacement
+          	);
+          }
+          const edge = data.buildings.find(
+          	(item) => String(item.historicalCode) === "137772"
+          );
+          if (
+          	!edge
+          	|| edge.rolloutMode !== "maptoolkit-roof-replacement"
+          	|| edge.auditedMaptoolkitOverride?.tile
+          		!== "15/17884/11351"
+          ) {
+          	throw new Error("137772 is missing or malformed.");
+          }
+          console.log(JSON.stringify(data.counts, null, 2));
+          NODE
+
+      - name: Commit regenerated target snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/targets.production.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Regenerate Vienna LOD2.1 targets for roof edge 137772"
+            git push
+          fi
+
+      - name: Build production package
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Validate production package
+        run: |
+          node wien-lod21/validate-production.mjs \
+            wien-lod21/build/WienBuildingsLOD21
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-production-edge-137772
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 5
+          compression-level: 6
