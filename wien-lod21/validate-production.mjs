@@ -338,12 +338,52 @@ for (const target of items) {
 					.filter(Boolean)
 			)].sort()
 			: [];
+		const featureTiles = Array.isArray(audit?.featureTiles)
+			? audit.featureTiles
+				.map((item) => ({
+					tile: String(item?.tile || "").trim(),
+					featureSignatures: [...new Set(
+						Array.isArray(item?.featureSignatures)
+							? item.featureSignatures
+								.map((value) => (
+									String(value || "").trim().toLowerCase()
+								))
+								.filter(Boolean)
+							: []
+					)].sort()
+				}))
+				.sort((a, b) => a.tile.localeCompare(b.tile))
+			: [];
+		const allFeatureSignatures = featureTiles.length
+			? featureTiles.flatMap((item) => item.featureSignatures)
+			: signatures;
+		const replacementFeatureTile = featureTiles.find(
+			(item) => item.tile === String(audit?.tile || "")
+		);
+		const featureTilesValid = !featureTiles.length || (
+			featureTiles.length >= 2
+				&& new Set(featureTiles.map((item) => item.tile)).size
+					=== featureTiles.length
+				&& featureTiles.every((item) => (
+					/^15\/\d+\/\d+$/.test(item.tile)
+					&& item.featureSignatures.length >= 1
+					&& item.featureSignatures.every(
+						(value) => /^[0-9a-f]{8}$/.test(value)
+					)
+				))
+				&& new Set(allFeatureSignatures).size
+					=== allFeatureSignatures.length
+				&& replacementFeatureTile
+				&& JSON.stringify(replacementFeatureTile.featureSignatures)
+					=== JSON.stringify(signatures)
+		);
 		if (
 			!audit
 			|| !/^15\/\d+\/\d+$/.test(String(audit.tile || ""))
 			|| signatures.length < 1
-			|| signatures.length !== Number(audit.featureCount)
+			|| allFeatureSignatures.length !== Number(audit.featureCount)
 			|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+			|| !featureTilesValid
 			|| Number(audit.flatHitPercent) !== 100
 			|| Number(audit.flatVsHistoricalEaveM) < -0.25
 			|| Number(audit.flatVsHistoricalRidgeM) > 0.25
@@ -358,6 +398,22 @@ for (const target of items) {
 				String(item.historicalCode) === String(target.historicalCode)
 			)
 		);
+		const releaseFeatureTiles = Array.isArray(releaseEntry?.featureTiles)
+			? releaseEntry.featureTiles
+				.map((item) => ({
+					tile: String(item?.tile || ""),
+					featureSignatures: [...new Set(
+						item?.featureSignatures || []
+					)].map(String).sort()
+				}))
+				.sort((a, b) => a.tile.localeCompare(b.tile))
+			: [];
+		const expectedOgdKsIds = [...new Set(target.ksIds || [])]
+			.map(String)
+			.sort();
+		const releaseOgdKsIds = [...new Set(releaseEntry?.ogdKsIds || [])]
+			.map(String)
+			.sort();
 		if (
 			!releaseEntry
 			|| String(releaseEntry.tile) !== String(audit.tile)
@@ -365,6 +421,16 @@ for (const target of items) {
 			|| JSON.stringify(
 				[...(releaseEntry.featureSignatures || [])].map(String).sort()
 			) !== JSON.stringify(signatures)
+			|| (
+				featureTiles.length
+				&& JSON.stringify(releaseFeatureTiles)
+					!== JSON.stringify(featureTiles)
+			)
+			|| (
+				featureTiles.length
+				&& JSON.stringify(releaseOgdKsIds)
+					!== JSON.stringify(expectedOgdKsIds)
+			)
 		) {
 			throw new Error(
 				"Maptoolkit roof replacement release fingerprint mismatch for "

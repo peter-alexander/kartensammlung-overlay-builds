@@ -2115,16 +2115,32 @@ async function main() {
 		.filter((target) => (
 			target.rolloutMode === "maptoolkit-roof-replacement"
 		))
-		.map((target) => ({
-			historicalCode: String(target.historicalCode),
-			bwGebId: Number(target.bwGebId),
-			tile: String(target.auditedMaptoolkitOverride?.tile || ""),
-			featureSignatures: [
-				...new Set(
-					target.auditedMaptoolkitOverride?.featureSignatures || []
-				)
-			].map(String).sort()
-		}))
+		.map((target) => {
+			const audit = target.auditedMaptoolkitOverride || {};
+			const featureSignatures = [
+				...new Set(audit.featureSignatures || [])
+			].map(String).sort();
+			const featureTiles = Array.isArray(audit.featureTiles)
+				? audit.featureTiles.map((item) => ({
+					tile: String(item?.tile || ""),
+					featureSignatures: [
+						...new Set(item?.featureSignatures || [])
+					].map(String).sort()
+				})).sort((a, b) => a.tile.localeCompare(b.tile))
+				: [];
+			return {
+				historicalCode: String(target.historicalCode),
+				bwGebId: Number(target.bwGebId),
+				tile: String(audit.tile || ""),
+				featureSignatures,
+				...(featureTiles.length ? {
+					featureTiles,
+					ogdKsIds: [...new Set(target.ksIds || [])]
+						.map(String)
+						.sort()
+				} : {})
+			};
+		})
 		.sort((a, b) => (
 			a.tile.localeCompare(b.tile)
 			|| a.historicalCode.localeCompare(b.historicalCode)
