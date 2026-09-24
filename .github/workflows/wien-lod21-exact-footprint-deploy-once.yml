@@ -1,0 +1,106 @@
+name: Deploy Vienna exact-footprint roofs once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wien-lod21-exact-footprint-deploy-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+      LFTP_PARALLEL: 6
+      WIEN_LOD21_TARGETS: wien-lod21/targets.production.json
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y lftp unzip
+
+      - name: Build Vienna LOD2.1 production fallback
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate production output
+        run: |
+          node wien-lod21/validate-production.mjs \
+            wien-lod21/build/WienBuildingsLOD21
+
+      - name: Verify exact-footprint production release
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const release = JSON.parse(
+          	fs.readFileSync(root + "/release.json", "utf8")
+          );
+          const targets = JSON.parse(
+          	fs.readFileSync(root + "/targets.json", "utf8")
+          );
+          if (Number(release.counts?.targets) !== 2307) {
+          	throw new Error("Expected 2307 production targets.");
+          }
+          if (Number(release.counts?.maptoolkitRoofReplacement) !== 34) {
+          	throw new Error("Expected 34 roof replacements.");
+          }
+          const expected = ["106027","108069","505549","507585"];
+          const byCode = new Map(
+          	(targets.targets || []).map(
+          		(item) => [String(item.historicalCode), item]
+          	)
+          );
+          const overrides = new Map(
+          	(release.maptoolkitRoofOverrides?.targets || []).map(
+          		(item) => [String(item.historicalCode), item]
+          	)
+          );
+          for (const code of expected) {
+          	const target = byCode.get(code);
+          	const override = overrides.get(code);
+          	if (
+          		target?.auditedMaptoolkitOverride?.auditClass
+          			!== "exact-footprint-flat-only"
+          		|| !override
+          		|| !Array.isArray(override.featureSignatures)
+          		|| !override.featureSignatures.length
+          	) {
+          		throw new Error(code + ": release metadata missing.");
+          	}
+          }
+          console.log("Exact-footprint release metadata: OK");
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-production-exact-footprint-live
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
+
+      - name: Deploy Vienna LOD2.1 production fallback
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienLOD21"
+          .github/scripts/lftp-upload.sh \
+            wien-lod21/build/WienBuildingsLOD21 "$REMOTE_BASE"
