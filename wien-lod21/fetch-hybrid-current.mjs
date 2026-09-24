@@ -80,15 +80,18 @@ async function fetchFeatures(ids) {
 async function main() {
 	const args = parseArgs(process.argv);
 	const targetsJson = JSON.parse(await fs.readFile(args.targets, "utf8"));
-	const hybridTargets = (targetsJson.buildings || []).filter((target) => (
-		String(target.rolloutMode || "").includes("hybrid")
-	));
+	const currentGeometryTargets = (targetsJson.buildings || []).filter(
+		(target) => (
+			String(target.rolloutMode || "").includes("hybrid")
+			|| target?.clipHistoricalToCurrentFootprint === true
+		)
+	);
 	const requested = new Map();
-	for (const target of hybridTargets) {
+	for (const target of currentGeometryTargets) {
 		for (const ksId of target.ksIds || []) {
 			const value = String(ksId || "").trim();
 			const match = value.match(/^wien-fmzk:(\d+)$/);
-			if (!match) throw new Error("Invalid hybrid KS_ID: " + value);
+			if (!match) throw new Error("Invalid current-geometry KS_ID: " + value);
 			requested.set(match[1], {
 				ksId: value,
 				historicalCode: String(target.historicalCode),
@@ -103,7 +106,7 @@ async function main() {
 			type: "FeatureCollection",
 			features: []
 		}, null, "\t") + "\n");
-		console.log("No hybrid targets configured.");
+		console.log("No targets requiring current geometry configured.");
 		return;
 	}
 
@@ -138,7 +141,7 @@ async function main() {
 	await fs.mkdir(path.dirname(args.output), { recursive: true });
 	await fs.writeFile(args.output, JSON.stringify(output, null, "\t") + "\n", "utf8");
 	console.log(JSON.stringify({
-		hybridTargets: hybridTargets.length,
+		currentGeometryTargets: currentGeometryTargets.length,
 		requestedFeatures: requested.size,
 		returnedFeatures: output.features.length
 	}));

@@ -5,28 +5,42 @@ import path from "node:path";
 
 const MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS =
 	"exact-footprint-flat-only";
+const MAPTOOLKIT_CLIPPED_FOOTPRINT_AUDIT_CLASS =
+	"current-footprint-clipped-flat-only";
 
 function isSafeMaptoolkitRoofCoverageAudit(audit) {
 	if (Number(audit?.flatHitPercent) === 100) return true;
-	if (
-		String(audit?.auditClass || "")
-		!== MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS
-	) return false;
 
-	return (
-		Number(audit?.flatHitPercent) >= 80
-		&& Number(audit?.pitchedHitPercent) === 0
-		&& Number(audit?.currentCoverage) >= 0.998
-		&& Number(audit?.oldCoverage) >= 0.998
-		&& Number(audit?.centroidDistanceM) <= 0.10
-		&& Number(audit?.currentCoverageByFlatRoof) >= 0.98
-		&& Number(audit?.flatRoofInsideCurrent) >= 0.98
-		&& Number(audit?.flatRoofSymmetricDifferenceM2) <= 2
-		&& Number(audit?.footprintSymmetricDifferenceM2) <= 0.25
-		&& audit?.featureOwnershipExclusive === true
-		&& audit?.allFeaturesInterior === true
-		&& audit?.allRoofSurfacesFlat === true
-	);
+	const auditClass = String(audit?.auditClass || "");
+	if (auditClass === MAPTOOLKIT_EXACT_FOOTPRINT_AUDIT_CLASS) {
+		return (
+			Number(audit?.flatHitPercent) >= 80
+			&& Number(audit?.pitchedHitPercent) === 0
+			&& Number(audit?.currentCoverage) >= 0.998
+			&& Number(audit?.oldCoverage) >= 0.998
+			&& Number(audit?.centroidDistanceM) <= 0.10
+			&& Number(audit?.currentCoverageByFlatRoof) >= 0.98
+			&& Number(audit?.flatRoofInsideCurrent) >= 0.98
+			&& Number(audit?.flatRoofSymmetricDifferenceM2) <= 2
+			&& Number(audit?.footprintSymmetricDifferenceM2) <= 0.25
+			&& audit?.featureOwnershipExclusive === true
+			&& audit?.allFeaturesInterior === true
+			&& audit?.allRoofSurfacesFlat === true
+		);
+	}
+	if (auditClass === MAPTOOLKIT_CLIPPED_FOOTPRINT_AUDIT_CLASS) {
+		return (
+			Number(audit?.flatHitPercent) >= 80
+			&& Number(audit?.pitchedHitPercent) === 0
+			&& Number(audit?.currentCoverageByFlatRoof) >= 0.995
+			&& Number(audit?.flatRoofInsideCurrent) >= 0.995
+			&& Number(audit?.flatRoofSymmetricDifferenceRatio) <= 0.01
+			&& audit?.featureOwnershipExclusive === true
+			&& audit?.allFeaturesInterior === true
+			&& audit?.allRoofSurfacesFlat === true
+		);
+	}
+	return false;
 }
 
 const root = path.resolve(
@@ -419,6 +433,83 @@ for (const target of items) {
 				+ target.historicalCode
 			);
 		}
+		if (
+			String(audit?.auditClass || "")
+			=== MAPTOOLKIT_CLIPPED_FOOTPRINT_AUDIT_CLASS
+		) {
+			if (
+				target.clipHistoricalToCurrentFootprint !== true
+				|| target.auditedHistoricalClip !== true
+			) {
+				throw new Error(
+					"Clipped roof replacement flag missing for "
+					+ target.historicalCode
+				);
+			}
+			const clip = target.historicalClip;
+			const originalAreaM2 = Number(clip?.originalHistoricalAreaM2);
+			const clippedAreaM2 = Number(clip?.clippedHistoricalAreaM2);
+			const removedAreaM2 = Number(clip?.removedHistoricalAreaM2);
+			const roofCoverage = Number(clip?.minRoofCoverageRatio);
+			const wallCoverage = Number(
+				clip?.geometricWallBoundaryCoverageRatio
+			);
+			const uncoveredBoundaryM = Number(
+				clip?.uncoveredWallBoundaryLengthM
+			);
+			const expectedOriginalAreaM2 = Number(
+				target.auditedOriginalHistoricalAreaM2
+			);
+			const expectedClippedAreaM2 = Number(
+				target.auditedClippedHistoricalAreaM2
+			);
+			const expectedRemovedAreaM2 = Number(
+				target.auditedRemovedHistoricalAreaM2
+			);
+			const remainderAreaM2 = Number(
+				target.hybridRemainder?.remainderAreaM2
+			);
+			const syntheticObjects = Number(
+				target.hybridRemainder?.syntheticObjects || 0
+			);
+			const maxDiscardedSliverWidthM = Number(
+				target.hybridRemainder?.maxDiscardedSliverWidthM || 0
+			);
+			if (
+				!Number.isFinite(originalAreaM2)
+				|| !Number.isFinite(clippedAreaM2)
+				|| !Number.isFinite(removedAreaM2)
+				|| Math.abs(
+					originalAreaM2 - expectedOriginalAreaM2
+				) > 0.05
+				|| Math.abs(
+					clippedAreaM2 - expectedClippedAreaM2
+				) > 0.05
+				|| Math.abs(
+					removedAreaM2 - expectedRemovedAreaM2
+				) > 0.05
+				|| !Number.isFinite(roofCoverage)
+				|| roofCoverage < 0.999
+				|| !Number.isFinite(wallCoverage)
+				|| wallCoverage < 0.999
+				|| !Number.isFinite(uncoveredBoundaryM)
+				|| uncoveredBoundaryM > 0.01
+				|| remainderAreaM2 !== Number(
+					target.auditedRemainderAreaM2
+				)
+				|| syntheticObjects !== 0
+				|| !Number.isFinite(maxDiscardedSliverWidthM)
+				|| maxDiscardedSliverWidthM > 0.0101
+				|| maxDiscardedSliverWidthM
+					> Number(target.auditedMaxDiscardedSliverWidthM) + 0.0001
+			) {
+				throw new Error(
+					"Clipped roof replacement geometry changed for "
+					+ target.historicalCode
+				);
+			}
+		}
+
 		const releaseEntry = releaseRoofOverrides.find(
 			(item) => (
 				String(item.historicalCode) === String(target.historicalCode)
