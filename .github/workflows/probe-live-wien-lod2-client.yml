@@ -158,6 +158,67 @@ jobs:
           	])).values()]
           }));
 
+          const sourceVertices = [];
+          for (let localIndex = 0; localIndex < Number(building.vertexCount); localIndex += 1) {
+          	const sourceIndex = Number(building.vertexStart) + localIndex;
+          	const offset = parsed.vertexOffset + sourceIndex * parsed.vertexStride;
+          	sourceVertices.push({
+          		x: parsed.extent / 2 + parsed.view.getInt16(offset, true) / 4,
+          		y: parsed.extent / 2 + parsed.view.getInt16(offset + 2, true) / 4,
+          		z: parsed.view.getUint16(offset + 4, true) / 100,
+          		nx: parsed.view.getInt16(offset + 6, true) / 32767,
+          		ny: parsed.view.getInt16(offset + 8, true) / 32767,
+          		nz: parsed.view.getInt16(offset + 10, true) / 32767,
+          		kind: parsed.view.getUint8(offset + 12)
+          	});
+          }
+          const triangles = [];
+          for (let localIndex = 0; localIndex < Number(building.indexCount); localIndex += 3) {
+          	const ids = [0, 1, 2].map((offsetIndex) => (
+          		parsed.view.getUint32(
+          			parsed.indexOffset
+          				+ (Number(building.indexStart) + localIndex + offsetIndex) * 4,
+          			true
+          		) - Number(building.vertexStart)
+          	));
+          	const points = ids.map((id) => sourceVertices[id]);
+          	if (points.some((point) => !point)) continue;
+          	const kind = points[0].kind;
+          	if (kind !== 1 && kind !== 2) continue;
+          	const [a, b, c] = points;
+          	const area2 = Math.abs(
+          		(b.x - a.x) * (c.y - a.y)
+          		- (b.y - a.y) * (c.x - a.x)
+          	);
+          	triangles.push({
+          		kind,
+          		projectedArea: area2 / 2,
+          		minX: Math.min(a.x, b.x, c.x),
+          		maxX: Math.max(a.x, b.x, c.x),
+          		minY: Math.min(a.y, b.y, c.y),
+          		maxY: Math.max(a.y, b.y, c.y),
+          		minZ: Math.min(a.z, b.z, c.z),
+          		maxZ: Math.max(a.z, b.z, c.z)
+          	});
+          }
+          const summarizeTriangles = (kind) => {
+          	const items = triangles.filter((item) => item.kind === kind);
+          	return {
+          		triangles: items.length,
+          		projectedArea: Number(items.reduce((sum, item) => sum + item.projectedArea, 0).toFixed(3)),
+          		minX: Math.min(...items.map((item) => item.minX)),
+          		maxX: Math.max(...items.map((item) => item.maxX)),
+          		minY: Math.min(...items.map((item) => item.minY)),
+          		maxY: Math.max(...items.map((item) => item.maxY)),
+          		minZ: Math.min(...items.map((item) => item.minZ)),
+          		maxZ: Math.max(...items.map((item) => item.maxZ))
+          	};
+          };
+          console.log("ROOF_TRIANGLES_120593", JSON.stringify({
+          	pitched: summarizeTriangles(1),
+          	flat: summarizeTriangles(2)
+          }));
+
           const map = {
           	getTerrain: () => null,
           	getProjection: () => ({ type: "mercator" }),
