@@ -2409,20 +2409,56 @@ async function main() {
 		.filter((target) => (
 			target.rolloutMode === "maptoolkit-roof-replacement"
 		))
-		.map((target) => ({
-			historicalCode: String(target.historicalCode),
-			bwGebId: Number(target.bwGebId),
-			tile: String(target.auditedMaptoolkitOverride?.tile || ""),
-			featureSignatures: [
-				...new Set(
-					target.auditedMaptoolkitOverride?.featureSignatures || []
-				)
-			].map(String).sort()
-		}))
-		.sort((a, b) => (
-			a.tile.localeCompare(b.tile)
-			|| a.historicalCode.localeCompare(b.historicalCode)
-		));
+		.map((target) => {
+			const audit = target.auditedMaptoolkitOverride || {};
+			const featureTiles = Array.isArray(audit.featureTiles)
+				? audit.featureTiles
+					.map((item) => ({
+						tile: String(item?.tile || "").trim(),
+						featureSignatures: [
+							...new Set(
+								Array.isArray(item?.featureSignatures)
+									? item.featureSignatures
+									: []
+							)
+						].map(String).sort()
+					}))
+					.filter((item) => (
+						item.tile && item.featureSignatures.length
+					))
+					.sort((a, b) => a.tile.localeCompare(b.tile))
+				: [];
+			const base = {
+				historicalCode: String(target.historicalCode),
+				bwGebId: Number(target.bwGebId)
+			};
+			if (featureTiles.length > 1) {
+				return {
+					...base,
+					featureTiles
+				};
+			}
+			if (featureTiles.length === 1) {
+				return {
+					...base,
+					tile: featureTiles[0].tile,
+					featureSignatures: featureTiles[0].featureSignatures
+				};
+			}
+			return {
+				...base,
+				tile: String(audit.tile || ""),
+				featureSignatures: [
+					...new Set(audit.featureSignatures || [])
+				].map(String).sort()
+			};
+		})
+		.sort((a, b) => {
+			const tileA = String(a.tile || a.featureTiles?.[0]?.tile || "");
+			const tileB = String(b.tile || b.featureTiles?.[0]?.tile || "");
+			return tileA.localeCompare(tileB)
+				|| a.historicalCode.localeCompare(b.historicalCode);
+		});
 
 	const release = {
 		schemaVersion: 1,
@@ -2455,7 +2491,7 @@ async function main() {
 			presentTilesZ15
 		},
 		maptoolkitRoofOverrides: {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			mode: "fail-safe-feature-fingerprint",
 			targets: maptoolkitRoofOverrideTargets
 		},
