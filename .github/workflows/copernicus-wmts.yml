@@ -6,6 +6,7 @@ on:
     paths:
       - 'copernicus-wmts/**'
       - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/scripts/copernicus-sync-config.mjs'
       - '.github/workflows/copernicus-wmts.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'copernicus-wmts/**'
       - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/scripts/copernicus-sync-config.mjs'
       - '.github/workflows/copernicus-wmts.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -34,6 +36,8 @@ jobs:
     timeout-minutes: 15
     env:
       COPERNICUS_INSTANCE_ID: ${{ secrets.COPERNICUS_INSTANCE_ID }}
+      COPERNICUS_CLIENT_ID: ${{ secrets.COPERNICUS_CLIENT_ID }}
+      COPERNICUS_CLIENT_SECRET: ${{ secrets.COPERNICUS_CLIENT_SECRET }}
       MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
       MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
       MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
@@ -53,9 +57,16 @@ jobs:
       - name: Test Copernicus WMTS parser
         run: node copernicus-wmts/test.mjs
 
-      - name: Require Copernicus secret outside pull requests
+      - name: Require Copernicus secrets outside pull requests
         if: github.event_name != 'pull_request'
-        run: test -n "$COPERNICUS_INSTANCE_ID"
+        run: |
+          test -n "$COPERNICUS_INSTANCE_ID"
+          test -n "$COPERNICUS_CLIENT_ID"
+          test -n "$COPERNICUS_CLIENT_SECRET"
+
+      - name: Sync managed Sentinel Hub layers
+        if: github.event_name != 'pull_request' && github.event_name != 'schedule'
+        run: node .github/scripts/copernicus-sync-config.mjs
 
       - name: Build live Copernicus WMTS catalog
         if: env.COPERNICUS_INSTANCE_ID != ''
