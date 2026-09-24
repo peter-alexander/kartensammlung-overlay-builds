@@ -1,12 +1,7 @@
 name: Audit Vienna roof replacement wave 2
 
 on:
-  push:
-    branches:
-      - feature/wien-maptoolkit-roof-loss-analysis
-    paths:
-      - '.github/workflows/wien-maptoolkit-roof-wave2-audit.yml'
-      - 'wien-buildings/analyze-maptoolkit-override-pilot.mjs'
+  workflow_dispatch:
 
 permissions:
   contents: read
