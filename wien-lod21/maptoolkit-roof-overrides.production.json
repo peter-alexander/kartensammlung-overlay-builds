@@ -1,7 +1,7 @@
 {
 	"schemaVersion": 1,
 	"status": "audited-production",
-	"generatedAt": "2026-09-24T13:16:47.364Z",
+	"generatedAt": "2026-09-24T15:27:50.745Z",
 	"audit": {
 		"roofLossMatchRunId": 35913353237,
 		"surfaceAuditRunId": 35920353326,
@@ -10,7 +10,7 @@
 		"requireFlatHitPercent": 100,
 		"heightEnvelopeToleranceM": 0.25,
 		"requireExclusiveMaptoolkitFeatures": true,
-		"requireSingleMaptoolkitTile": true,
+		"requireSingleMaptoolkitTile": false,
 		"wave2FeatureAuditRunId": 35986557844,
 		"wave3FeatureAuditRunId": 35998089782,
 		"wave3PromotedCodes": [
@@ -24,14 +24,15 @@
 			"120593"
 		],
 		"crossTileFeatureAuditRunId": 36004512159,
-		"crossTilePromotedSingleTileEdgeCodes": [
-			"137772"
-		],
 		"crossTileDeferredCodes": [],
 		"crossTilePromotedCodes": [
 			"120593",
+			"137772",
 			"226564"
-		]
+		],
+		"revalidationRunId": 36020186358,
+		"revalidationGeneratedAt": "2026-09-24T15:27:50.745Z",
+		"allowAuditedCrossTile": true
 	},
 	"count": 30,
 	"buildings": [
@@ -355,7 +356,23 @@
 					"535aaa35",
 					"7381b734"
 				],
-				"featureCount": 2,
+				"featureTiles": [
+					{
+						"tile": "15/17884/11351",
+						"featureSignatures": [
+							"535aaa35",
+							"7381b734"
+						]
+					},
+					{
+						"tile": "15/17885/11351",
+						"featureSignatures": [
+							"b0e5f225",
+							"e29f96c2"
+						]
+					}
+				],
+				"featureCount": 4,
 				"flatHitPercent": 100,
 				"historicalRoofMinM": 1.87,
 				"historicalRoofMaxM": 2.85,
