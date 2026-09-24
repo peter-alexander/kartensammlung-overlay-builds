@@ -1,0 +1,172 @@
+name: Test Vienna roof replacement wave 4
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-exact-footprint-wave4
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-wave4-production-test.yml'
+      - 'wien-lod21/maptoolkit-roof-overrides.production.json'
+      - 'wien-lod21/make-production-targets.mjs'
+      - 'wien-lod21/validate-production.mjs'
+      - 'wien-lod21/build.mjs'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      WIEN_LOD21_TARGETS: /tmp/wien-lod21-targets-wave4.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 4
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate wave 4 production targets
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --roof-replacements wien-lod21/maptoolkit-roof-overrides.production.json \
+            --output "$WIEN_LOD21_TARGETS" \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute \
+            --include-hybrid-b-thin \
+            --include-hybrid-b-clip \
+            --include-hybrid-c-clip \
+            --include-hybrid-d-clip \
+            --include-hybrid-eave-clip \
+            --include-hybrid-height-split \
+            --include-maptoolkit-roof-replacements
+
+      - name: Verify wave 4 target manifest
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync(process.env.WIEN_LOD21_TARGETS, "utf8")
+          );
+          if (Number(data.counts?.total) !== 2307) {
+          	throw new Error(
+          		"Expected 2307 targets, got " + data.counts?.total
+          	);
+          }
+          if (Number(data.counts?.maptoolkitRoofReplacement) !== 34) {
+          	throw new Error(
+          		"Expected 34 roof replacements, got "
+          		+ data.counts?.maptoolkitRoofReplacement
+          	);
+          }
+          const expected = new Set([
+          	"106027",
+          	"108069",
+          	"505549",
+          	"507585"
+          ]);
+          const wave4 = (data.buildings || []).filter(
+          	(item) => expected.has(String(item.historicalCode))
+          );
+          if (
+          	wave4.length !== 4
+          	|| wave4.some((item) => (
+          		item.auditedMaptoolkitOverride?.auditClass
+          		!== "exact-footprint-flat-only"
+          	))
+          ) {
+          	throw new Error("Wave 4 target audit class mismatch.");
+          }
+          console.log(JSON.stringify(
+          	wave4.map((item) => ({
+          		code: item.historicalCode,
+          		tile: item.auditedMaptoolkitOverride.tile,
+          		flatHitPercent:
+          			item.auditedMaptoolkitOverride.flatHitPercent,
+          		signatures:
+          			item.auditedMaptoolkitOverride.featureSignatures
+          	})),
+          	null,
+          	2
+          ));
+          NODE
+
+      - name: Build Vienna LOD2.1 production candidate
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate full production candidate
+        run: |
+          node wien-lod21/validate-production.mjs \
+            wien-lod21/build/WienBuildingsLOD21
+
+      - name: Verify wave 4 release fingerprints
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const release = JSON.parse(
+          	fs.readFileSync(
+          		"wien-lod21/build/WienBuildingsLOD21/release.json",
+          		"utf8"
+          	)
+          );
+          if (Number(release.counts?.targets) !== 2307) {
+          	throw new Error("Expected 2307 built targets.");
+          }
+          if (Number(release.counts?.maptoolkitRoofReplacement) !== 34) {
+          	throw new Error("Expected 34 built roof replacements.");
+          }
+          const byCode = new Map(
+          	(release.maptoolkitRoofOverrides?.targets || []).map(
+          		(item) => [String(item.historicalCode), item]
+          	)
+          );
+          const expected = {
+          	"106027": ["73e3a6d8"],
+          	"108069": ["665a2ddc"],
+          	"505549": ["87f2763a", "d5effa9a"],
+          	"507585": ["c2d4c7ef"]
+          };
+          for (const [code, signatures] of Object.entries(expected)) {
+          	const item = byCode.get(code);
+          	const actual = [...(item?.featureSignatures || [])].sort();
+          	if (
+          		!item
+          		|| JSON.stringify(actual)
+          			!== JSON.stringify([...signatures].sort())
+          	) {
+          		throw new Error(code + ": release fingerprint mismatch.");
+          	}
+          }
+          console.log("Wave 4 release fingerprints: OK");
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-production-wave4-test
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
