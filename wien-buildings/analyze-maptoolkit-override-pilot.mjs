@@ -217,6 +217,44 @@ function getSurfaceGroups(groups) {
 	return metadata.length === 2 ? groups.slice(1) : groups;
 }
 
+function tileCenterLatitude(tile) {
+	const n = 2 ** tile.z;
+	const worldY = (tile.y + 0.5) / n;
+	return Math.atan(Math.sinh(Math.PI * (1 - 2 * worldY))) * 180 / Math.PI;
+}
+
+function normalUpFraction(ring, xyMetersPerExtentUnit) {
+	const points = openRing(ring);
+	if (points.length < 3) return 0;
+	let nx = 0;
+	let ny = 0;
+	let nz = 0;
+	for (let index = 0; index < points.length; index += 1) {
+		const current = {
+			x: points[index].x * xyMetersPerExtentUnit,
+			y: points[index].y * xyMetersPerExtentUnit,
+			z: points[index].z / 10
+		};
+		const rawNext = points[(index + 1) % points.length];
+		const next = {
+			x: rawNext.x * xyMetersPerExtentUnit,
+			y: rawNext.y * xyMetersPerExtentUnit,
+			z: rawNext.z / 10
+		};
+		nx += (current.y - next.y) * (current.z + next.z);
+		ny += (current.z - next.z) * (current.x + next.x);
+		nz += (current.x - next.x) * (current.y + next.y);
+	}
+	const length = Math.hypot(nx, ny, nz);
+	return length > 1e-9 ? Math.abs(nz) / length : 0;
+}
+
+function surfaceKind(surface, xyMetersPerExtentUnit) {
+	const up = normalUpFraction(surface?.[0], xyMetersPerExtentUnit);
+	if (up < 0.2) return "wall";
+	return up >= 0.985 ? "flat-roof" : "pitched-roof";
+}
+
 function featureGeometrySignature(groups) {
 	let hash = 0x811c9dc5;
 	const update = (value) => {
@@ -281,17 +319,22 @@ function normalizeSurfacePolygon(surface, extent) {
 	return rings.length ? rings : null;
 }
 
-function extractMaptoolkitSurfaces(buffer) {
+function extractMaptoolkitSurfaces(buffer, tile) {
 	const vectorTile = new VectorTile(new PbfReader(buffer));
 	const layer = vectorTile.layers?.buildings3d;
 	if (!layer?.length) return [];
 	const extent = Number(layer.extent) || 4096;
+	const centerLat = tileCenterLatitude(tile) * Math.PI / 180;
+	const tileWidthM =
+		EARTH_CIRCUMFERENCE_METERS * Math.cos(centerLat) / 2 ** tile.z;
+	const xyMetersPerExtentUnit = tileWidthM / extent;
 	const surfaces = [];
 	for (let featureIndex = 0; featureIndex < layer.length; featureIndex += 1) {
 		const feature = layer.feature(featureIndex);
 		const groups = decodeGeometry3D(feature);
 		const signature = featureGeometrySignature(groups);
 		for (const surface of getSurfaceGroups(groups)) {
+			const kind = surfaceKind(surface, xyMetersPerExtentUnit);
 			const polygon = normalizeSurfacePolygon(surface, extent);
 			if (!polygon) continue;
 			const point = interiorPolygonPoint(polygon);
@@ -299,6 +342,7 @@ function extractMaptoolkitSurfaces(buffer) {
 			surfaces.push({
 				featureIndex,
 				signature,
+				kind,
 				point,
 				polygon,
 				bounds: polygonBounds([polygon])
@@ -408,7 +452,7 @@ async function inspectTile(tile, version) {
 		fetchBuffer(tileUrl(MTK_TILE_URL, tile), true)
 	]);
 	const ogd = decodeOgdFeatures(ogdBuffer);
-	const surfaces = mtkBuffer ? extractMaptoolkitSurfaces(mtkBuffer) : [];
+	const surfaces = mtkBuffer ? extractMaptoolkitSurfaces(mtkBuffer, tile) : [];
 	const ogdGrid = new Map();
 	for (let index = 0; index < ogd.length; index += 1) {
 		addFeatureToGrid(ogdGrid, index, ogd[index].bounds);
@@ -421,7 +465,18 @@ async function inspectTile(tile, version) {
 	const ownersByMtkFeature = new Map();
 	const signatureByMtkFeature = new Map();
 	const boundsByMtkFeature = new Map();
+	const surfaceKindsByMtkFeature = new Map();
 	for (const surface of surfaces) {
+		let kinds = surfaceKindsByMtkFeature.get(surface.featureIndex);
+		if (!kinds) {
+			kinds = {
+				wall: 0,
+				"flat-roof": 0,
+				"pitched-roof": 0
+			};
+			surfaceKindsByMtkFeature.set(surface.featureIndex, kinds);
+		}
+		kinds[surface.kind] = (kinds[surface.kind] || 0) + 1;
 		if (!signatureByMtkFeature.has(surface.featureIndex)) {
 			signatureByMtkFeature.set(surface.featureIndex, surface.signature);
 		}
@@ -479,7 +534,8 @@ async function inspectTile(tile, version) {
 		ogd,
 		ownersByMtkFeature,
 		signatureByMtkFeature,
-		boundsByMtkFeature
+		boundsByMtkFeature,
+		surfaceKindsByMtkFeature
 	};
 }
 
@@ -590,6 +646,12 @@ async function main() {
 						),
 					owners: [...owners].sort(),
 					exclusive: owners.size === 1,
+					surfaceKinds: {
+						...(
+							result.surfaceKindsByMtkFeature.get(featureIndex)
+							|| {}
+						)
+					},
 					edgeClearance:
 						Number.isFinite(edgeClearance)
 							? Number(edgeClearance.toFixed(8))
