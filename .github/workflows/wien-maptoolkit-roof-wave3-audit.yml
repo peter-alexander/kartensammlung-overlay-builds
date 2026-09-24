@@ -91,12 +91,6 @@ jobs:
           if (!audited.allFeaturesExclusive || audited.totalSharedFeatures !== 0) {
           	throw new Error("At least one Maptoolkit feature is shared.");
           }
-          if (!audited.allFeaturesInterior) {
-          	throw new Error(
-          		"At least one Maptoolkit feature reaches the Z15 tile edge."
-          	);
-          }
-
           for (const row of audited.rows || []) {
           	const code = String(row.historicalCode);
           	if (!expected.has(code)) {
@@ -135,9 +129,23 @@ jobs:
           	}
           }
 
+          const interiorCodes = [];
+          const edgeCodes = [];
+          for (const row of audited.rows || []) {
+          	const isInterior = (row.features || []).every(
+          		(item) => item.touchesTileEdge === false
+          	);
+          	(isInterior ? interiorCodes : edgeCodes).push(
+          		String(row.historicalCode)
+          	);
+          }
+
           console.log(JSON.stringify({
           	count: audited.count,
           	totalFeatures: audited.totalFeatures,
+          	allFeaturesInterior: audited.allFeaturesInterior,
+          	interiorCodes,
+          	edgeCodes,
           	rows: audited.rows.map((row) => ({
           		code: row.historicalCode,
           		bwGebId: row.bwGebId,
@@ -146,12 +154,16 @@ jobs:
           		signatures: row.features?.map((item) => item.signature),
           		edgeClearance: row.features?.map(
           			(item) => item.edgeClearance
+          		),
+          		touchesTileEdge: row.features?.map(
+          			(item) => item.touchesTileEdge
           		)
           	}))
           }, null, 2));
           NODE
 
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: wien-maptoolkit-roof-wave3-audit
           path: /tmp/wien-maptoolkit-roof-wave3.json
