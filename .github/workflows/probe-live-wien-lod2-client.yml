@@ -13,28 +13,154 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
 
     steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install diagnostic dependencies
+        run: npm install --no-save --package-lock=false @mapbox/vector-tile pbf three
+
       - name: Fetch live client
         run: |
           URL="https://fahrrad.lima-city.de/maplibre/Components/WienLOD2Buildings.js?probe=${GITHUB_SHA}"
           curl --fail --silent --show-error --location --retry 2 "$URL" -o /tmp/WienLOD2Buildings.js
           test -s /tmp/WienLOD2Buildings.js
           sha256sum /tmp/WienLOD2Buildings.js
-          wc -c /tmp/WienLOD2Buildings.js
 
-      - name: Inspect cross-tile support
+      - name: Reproduce 120593 through live loadTile
         run: |
-          echo "validateCrossTileRoofOverride:"
-          grep -n -m1 'validateCrossTileRoofOverride' /tmp/WienLOD2Buildings.js || true
-          echo "crossTileRoofOverrideActiveCodes:"
-          grep -n -m1 'crossTileRoofOverrideActiveCodes' /tmp/WienLOD2Buildings.js || true
-          echo "Set normalization fix:"
-          grep -n -m1 'Array.from(activeCrossTileCodes' /tmp/WienLOD2Buildings.js || true
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import vm from "node:vm";
+          import Pbf from "pbf";
+          import { VectorTile } from "@mapbox/vector-tile";
+          import * as THREE from "three";
+          import { performance } from "node:perf_hooks";
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: live-wien-lod2-client
-          path: /tmp/WienLOD2Buildings.js
-          retention-days: 1
+          const source = fs.readFileSync("/tmp/WienLOD2Buildings.js", "utf8");
+          const context = {
+          	console,
+          	Map,
+          	Set,
+          	URL,
+          	ArrayBuffer,
+          	DataView,
+          	TextDecoder,
+          	AbortController,
+          	Float32Array,
+          	Uint8Array,
+          	performance,
+          	setTimeout,
+          	clearTimeout,
+          	requestAnimationFrame: () => 1,
+          	cancelAnimationFrame: () => {},
+          	CustomEvent: class CustomEvent {
+          		constructor(type, options) {
+          			this.type = type;
+          			this.detail = options?.detail;
+          		}
+          	},
+          	getSettingValue: (key) => key === "MAP_WIEN_BUILDINGS_MODE"
+          		? "hybrid"
+          		: null,
+          	maplibregl: {
+          		MercatorCoordinate: {
+          			fromLngLat() {
+          				return {
+          					x: 0.5,
+          					y: 0.5,
+          					z: 0,
+          					meterInMercatorCoordinateUnits: () => 1e-7
+          				};
+          			}
+          		}
+          	},
+          	dispatchEvent() {}
+          };
+          context.window = context;
+          context.globalThis = context;
+          vm.runInNewContext(source, context, {
+          	filename: "Components/WienLOD2Buildings.js"
+          });
+
+          const releaseResponse = await fetch(
+          	"https://tiles.radlobby.at/WienLOD21/release.json?probe=" + Date.now()
+          );
+          if (!releaseResponse.ok) {
+          	throw new Error("release HTTP " + releaseResponse.status);
+          }
+          const release = await releaseResponse.json();
+          const releaseTarget = (release.maptoolkitRoofOverrides?.targets || [])
+          	.find((item) => String(item.historicalCode) === "120593");
+          console.log("LIVE_RELEASE_120593", JSON.stringify(releaseTarget));
+
+          const {
+          	WienLOD2BuildingsController,
+          	parseLod21Tile,
+          	getLod21RoofReplacementCodes
+          } = context.KSWienLOD2Buildings.__test;
+
+          const tileResponse = await fetch(
+          	"https://tiles.radlobby.at/WienLOD21/tiles/15/17876/11356.bin?v="
+          	+ encodeURIComponent(release.generatedAt)
+          );
+          if (!tileResponse.ok) {
+          	throw new Error("LOD21 tile HTTP " + tileResponse.status);
+          }
+          const parsed = parseLod21Tile(await tileResponse.arrayBuffer());
+          console.log(
+          	"LOD21_REPLACEMENT_CODES",
+          	JSON.stringify(getLod21RoofReplacementCodes(parsed))
+          );
+          const building = parsed.metadata.buildings.find(
+          	(item) => String(item.historicalCode) === "120593"
+          );
+          console.log("LOD21_120593", JSON.stringify(building));
+
+          const map = {
+          	getTerrain: () => null,
+          	getProjection: () => ({ type: "mercator" }),
+          	getLayer: () => null,
+          	getCenter: () => ({ lng: 16.3916405, lat: 48.251982 }),
+          	getBearing: () => 0,
+          	getPitch: () => 61.58
+          };
+          const controller = new WienLOD2BuildingsController({
+          	map,
+          	runtime: {
+          		THREE,
+          		VectorTile,
+          		Protobuf: Pbf
+          	},
+          	lod21ReleaseMetadata: release
+          });
+          controller.attached = true;
+          controller.material = new THREE.MeshBasicMaterial();
+          controller.desiredKeys = new Set(["15/17876/11356"]);
+          controller.updateFallback = () => {};
+          controller.pumpQueue = () => {};
+          controller.requestRepaint = () => {};
+          controller.scheduleSync = () => {};
+
+          await controller.loadTile({ z: 15, x: 17876, y: 11356 });
+
+          const entry = controller.entries.get("15/17876/11356");
+          console.log("RESULT", JSON.stringify({
+          	entry: Boolean(entry),
+          	replacementCodes: entry?.maptoolkitRoofReplacementCodes || [],
+          	excludedFeatureSignatures:
+          		entry?.maptoolkitExcludedFeatureSignatures || [],
+          	lod21HistoricalCodes:
+          		entry?.lod21Mesh?.geometry?.userData?.ksLOD21HistoricalCodes || [],
+          	validated: [...controller.crossTileRoofOverrideValidatedCodes],
+          	active: [...controller.crossTileRoofOverrideActiveCodes],
+          	lastError: context.KSWienLOD2Buildings.getLastError()
+          }));
+
+          controller.material.dispose();
+          NODE
