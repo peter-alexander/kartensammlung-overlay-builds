@@ -21,7 +21,8 @@ function parseArgs(argv) {
 		root: "",
 		output: "",
 		requireSafe: false,
-		expectedCount: null
+		expectedCount: null,
+		tileRadius: 0
 	};
 	for (let index = 2; index < argv.length; index += 1) {
 		if (argv[index] === "--root") {
@@ -32,6 +33,8 @@ function parseArgs(argv) {
 			result.requireSafe = true;
 		} else if (argv[index] === "--expected-count") {
 			result.expectedCount = Number(argv[++index]);
+		} else if (argv[index] === "--tile-radius") {
+			result.tileRadius = Number(argv[++index]);
 		} else {
 			throw new Error("Unknown argument: " + argv[index]);
 		}
@@ -42,6 +45,13 @@ function parseArgs(argv) {
 		&& (!Number.isInteger(result.expectedCount) || result.expectedCount < 1)
 	) {
 		throw new Error("--expected-count must be a positive integer.");
+	}
+	if (
+		!Number.isInteger(result.tileRadius)
+		|| result.tileRadius < 0
+		|| result.tileRadius > 1
+	) {
+		throw new Error("--tile-radius must be 0 or 1.");
 	}
 	return result;
 }
@@ -386,6 +396,31 @@ async function fetchMtkTile(tile) {
 	return new Uint8Array(await response.arrayBuffer());
 }
 
+function tileNeighborhood(tile, radius = 0) {
+	const result = [];
+	for (let dy = -radius; dy <= radius; dy += 1) {
+		for (let dx = -radius; dx <= radius; dx += 1) {
+			result.push({
+				z: tile.z,
+				x: tile.x + dx,
+				y: tile.y + dy
+			});
+		}
+	}
+	return result;
+}
+
+function replacementPointInTile(point, sourceTile, targetTile) {
+	return {
+		x: point.x + (sourceTile.x - targetTile.x) * RENDER_EXTENT,
+		y: point.y + (sourceTile.y - targetTile.y) * RENDER_EXTENT
+	};
+}
+
+function tileKey(tile) {
+	return tile.z + "/" + tile.x + "/" + tile.y;
+}
+
 async function main() {
 	const args = parseArgs(process.argv);
 	const manifest = JSON.parse(
@@ -413,79 +448,123 @@ async function main() {
 		const replacementPoints = replacementPointsForBuilding(tileData, code);
 		const historicalRoof = historicalPitchedRoofStats(tileData, code);
 
-		const mtkBuffer = await fetchMtkTile(tile);
-		const vectorTile = new VectorTile(new PbfReader(mtkBuffer));
-		const layer = vectorTile.layers?.buildings3d;
-		if (!layer?.length) {
-			throw new Error(code + ": Maptoolkit tile has no buildings3d layer");
-		}
-		const extent = Number(layer.extent) || 4096;
-		const scale = RENDER_EXTENT / extent;
-		const centerLat = tileCenterLatitude(tile) * Math.PI / 180;
-		const tileWidthM =
-			EARTH_CIRCUMFERENCE_METERS * Math.cos(centerLat) / 2 ** tile.z;
-		const xyMetersPerExtentUnit = tileWidthM / extent;
 		const matchedFeatures = [];
 		const flatHitPoints = new Set();
 		const pitchedHitPoints = new Set();
 		const flatHitSurfaceHeights = [];
+		const auditedTiles = [];
 
-		for (let featureIndex = 0; featureIndex < layer.length; featureIndex += 1) {
-			const feature = layer.feature(featureIndex);
-			const groups = decodeGeometry3D(feature);
-			const baseDecimeters = getFeatureBaseDecimeters(groups);
-			const surfaces = getSurfaceGroups(groups);
-			const featureFlatHitPoints = new Set();
-			const featurePitchedHitPoints = new Set();
-			let pitchedSurfaces = 0;
-			let flatSurfaces = 0;
-			for (const surface of surfaces) {
-				const kind = surfaceKind(surface, xyMetersPerExtentUnit);
-				if (kind === "pitched-roof") pitchedSurfaces += 1;
-				if (kind === "flat-roof") flatSurfaces += 1;
-				if (kind === "wall") continue;
-				const hitPointIndices = [];
-				for (let pointIndex = 0; pointIndex < replacementPoints.length; pointIndex += 1) {
-					if (
-						!surfaceContainsPoint(
-							surface,
-							replacementPoints[pointIndex],
-							scale
-						)
-					) continue;
-					hitPointIndices.push(pointIndex);
-					if (kind === "pitched-roof") {
-						pitchedHitPoints.add(pointIndex);
-						featurePitchedHitPoints.add(pointIndex);
-					} else if (kind === "flat-roof") {
-						flatHitPoints.add(pointIndex);
-						featureFlatHitPoints.add(pointIndex);
-					}
-				}
-				if (kind === "flat-roof" && hitPointIndices.length) {
-					const height = surfaceRelativeHeightMeters(
-						surface,
-						baseDecimeters
-					);
-					if (height) {
-						flatHitSurfaceHeights.push({
-							featureIndex,
-							hitPointIndices,
-							minM: Number(height.min.toFixed(3)),
-							medianM: Number(height.median.toFixed(3)),
-							maxM: Number(height.max.toFixed(3))
-						});
-					}
-				}
+		for (const auditTile of tileNeighborhood(tile, args.tileRadius)) {
+			let mtkBuffer = null;
+			try {
+				mtkBuffer = await fetchMtkTile(auditTile);
+			} catch (error) {
+				if (args.tileRadius === 0) throw error;
+				console.warn(
+					code + ": skip Maptoolkit neighbour "
+					+ tileKey(auditTile) + ": "
+					+ String(error?.message || error)
+				);
+				continue;
 			}
-			if (!featureFlatHitPoints.size && !featurePitchedHitPoints.size) continue;
-			matchedFeatures.push({
-				featureIndex,
-				pitchedSurfaces,
-				flatSurfaces,
-				flatHitPoints: [...featureFlatHitPoints].sort((a, b) => a - b),
-				pitchedHitPoints: [...featurePitchedHitPoints].sort((a, b) => a - b)
-			});
+			const vectorTile = new VectorTile(new PbfReader(mtkBuffer));
+			const layer = vectorTile.layers?.buildings3d;
+			if (!layer?.length) {
+				if (args.tileRadius === 0) {
+					throw new Error(
+						code + ": Maptoolkit tile has no buildings3d layer"
+					);
+				}
+				continue;
+			}
+			auditedTiles.push(tileKey(auditTile));
+			const extent = Number(layer.extent) || 4096;
+			const scale = RENDER_EXTENT / extent;
+			const centerLat = tileCenterLatitude(auditTile) * Math.PI / 180;
+			const tileWidthM =
+				EARTH_CIRCUMFERENCE_METERS
+				* Math.cos(centerLat)
+				/ 2 ** auditTile.z;
+			const xyMetersPerExtentUnit = tileWidthM / extent;
+			const auditPoints = replacementPoints.map(
+				(point) => replacementPointInTile(point, tile, auditTile)
+			);
+
+			for (
+				let featureIndex = 0;
+				featureIndex < layer.length;
+				featureIndex += 1
+			) {
+				const feature = layer.feature(featureIndex);
+				const groups = decodeGeometry3D(feature);
+				const baseDecimeters = getFeatureBaseDecimeters(groups);
+				const surfaces = getSurfaceGroups(groups);
+				const featureFlatHitPoints = new Set();
+				const featurePitchedHitPoints = new Set();
+				let pitchedSurfaces = 0;
+				let flatSurfaces = 0;
+				for (const surface of surfaces) {
+					const kind = surfaceKind(
+						surface,
+						xyMetersPerExtentUnit
+					);
+					if (kind === "pitched-roof") pitchedSurfaces += 1;
+					if (kind === "flat-roof") flatSurfaces += 1;
+					if (kind === "wall") continue;
+					const hitPointIndices = [];
+					for (
+						let pointIndex = 0;
+						pointIndex < auditPoints.length;
+						pointIndex += 1
+					) {
+						if (
+							!surfaceContainsPoint(
+								surface,
+								auditPoints[pointIndex],
+								scale
+							)
+						) continue;
+						hitPointIndices.push(pointIndex);
+						if (kind === "pitched-roof") {
+							pitchedHitPoints.add(pointIndex);
+							featurePitchedHitPoints.add(pointIndex);
+						} else if (kind === "flat-roof") {
+							flatHitPoints.add(pointIndex);
+							featureFlatHitPoints.add(pointIndex);
+						}
+					}
+					if (kind === "flat-roof" && hitPointIndices.length) {
+						const height = surfaceRelativeHeightMeters(
+							surface,
+							baseDecimeters
+						);
+						if (height) {
+							flatHitSurfaceHeights.push({
+								tile: tileKey(auditTile),
+								featureIndex,
+								hitPointIndices,
+								minM: Number(height.min.toFixed(3)),
+								medianM: Number(height.median.toFixed(3)),
+								maxM: Number(height.max.toFixed(3))
+							});
+						}
+					}
+				}
+				if (
+					!featureFlatHitPoints.size
+					&& !featurePitchedHitPoints.size
+				) continue;
+				matchedFeatures.push({
+					tile: tileKey(auditTile),
+					featureIndex,
+					pitchedSurfaces,
+					flatSurfaces,
+					flatHitPoints:
+						[...featureFlatHitPoints].sort((a, b) => a - b),
+					pitchedHitPoints:
+						[...featurePitchedHitPoints].sort((a, b) => a - b)
+				});
+			}
 		}
 
 		const unmatchedReplacementPoints = Math.max(
@@ -549,6 +628,8 @@ async function main() {
 				: 0,
 			currentOgdParts: Array.isArray(target.ksIds) ? target.ksIds.length : 0,
 			maptoolkitMatchedFeatures: matchedFeatures.length,
+			maptoolkitTileRadius: args.tileRadius,
+			maptoolkitAuditedTiles: auditedTiles,
 			historicalPitchedRoof: historicalRoof,
 			maptoolkitFlatHitSurfaces: flatHitSurfaceHeights,
 			maptoolkitFlatMedianM: Number.isFinite(maptoolkitFlatMedianM)
