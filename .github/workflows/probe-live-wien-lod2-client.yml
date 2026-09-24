@@ -1,0 +1,40 @@
+name: Probe live Wien LOD2 client
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/probe-live-wien-lod2-client.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Fetch live client
+        run: |
+          URL="https://fahrrad.lima-city.de/maplibre/Components/WienLOD2Buildings.js?probe=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location --retry 2 "$URL" -o /tmp/WienLOD2Buildings.js
+          test -s /tmp/WienLOD2Buildings.js
+          sha256sum /tmp/WienLOD2Buildings.js
+          wc -c /tmp/WienLOD2Buildings.js
+
+      - name: Inspect cross-tile support
+        run: |
+          echo "validateCrossTileRoofOverride:"
+          grep -n -m1 'validateCrossTileRoofOverride' /tmp/WienLOD2Buildings.js || true
+          echo "crossTileRoofOverrideActiveCodes:"
+          grep -n -m1 'crossTileRoofOverrideActiveCodes' /tmp/WienLOD2Buildings.js || true
+          echo "Set normalization fix:"
+          grep -n -m1 'Array.from(activeCrossTileCodes' /tmp/WienLOD2Buildings.js || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: live-wien-lod2-client
+          path: /tmp/WienLOD2Buildings.js
+          retention-days: 1
