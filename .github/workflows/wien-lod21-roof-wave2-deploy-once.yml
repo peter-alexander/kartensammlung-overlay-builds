@@ -1,4 +1,4 @@
-name: Deploy Vienna LOD2.1 roof replacements wave 2 once
+name: Deploy Vienna LOD2.1 roof replacements wave 3 once
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
       - name: Upload production artifact
         uses: actions/upload-artifact@v7
         with:
-          name: wien-lod21-production-roof-wave2-live
+          name: wien-lod21-production-roof-wave3-live
           path: wien-lod21/build/WienBuildingsLOD21/
           if-no-files-found: error
           retention-days: 7
