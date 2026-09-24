@@ -57,6 +57,18 @@ if (xml.length < 1000) {
 
 const catalog = parseCopernicusCapabilities(xml);
 
+const displayNames = Object.freeze({
+	cop_true_color: "Satellitenbild"
+});
+
+for (const [key, name] of Object.entries(displayNames)) {
+	const layer = catalog.layers?.[key];
+	if (!layer) continue;
+
+	layer.wmtsTitle = layer.name;
+	layer.name = name;
+}
+
 if (catalog.meta.count < 1) {
 	throw new Error("Copernicus WMTS: keine Layer gefunden.");
 }
