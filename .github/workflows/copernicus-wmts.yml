@@ -6,7 +6,7 @@ on:
     paths:
       - 'copernicus-wmts/**'
       - '.github/scripts/main-ftp-upload-file.sh'
-      - '.github/scripts/copernicus-sync-config.mjs'
+      - '.github/scripts/write-copernicus-oauth-config.mjs'
       - '.github/workflows/copernicus-wmts.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -16,7 +16,7 @@ on:
     paths:
       - 'copernicus-wmts/**'
       - '.github/scripts/main-ftp-upload-file.sh'
-      - '.github/scripts/copernicus-sync-config.mjs'
+      - '.github/scripts/write-copernicus-oauth-config.mjs'
       - '.github/workflows/copernicus-wmts.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -64,9 +64,29 @@ jobs:
           test -n "$COPERNICUS_CLIENT_ID"
           test -n "$COPERNICUS_CLIENT_SECRET"
 
-      - name: Sync managed Sentinel Hub layers
+      - name: Deploy server-side Copernicus OAuth credentials
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
-        run: node .github/scripts/copernicus-sync-config.mjs
+        run: |
+          set -euo pipefail
+          case "${MAIN_REMOTE_ROOT%/}" in
+            */Maps)
+              MAIN_APP_REMOTE_ROOT="${MAIN_REMOTE_ROOT%/Maps}"
+              ;;
+            *)
+              echo "MAIN_REMOTE_ROOT must end in /Maps" >&2
+              exit 1
+              ;;
+          esac
+
+          mkdir -p .tmp
+          node .github/scripts/write-copernicus-oauth-config.mjs .tmp/CopernicusOAuth.local.php
+
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            .tmp/CopernicusOAuth.local.php \
+            "${MAIN_APP_REMOTE_ROOT%/}/Php/Config/CopernicusOAuth.local.php"
+
+          rm -f .tmp/CopernicusOAuth.local.php
 
       - name: Build live Copernicus WMTS catalog
         if: env.COPERNICUS_INSTANCE_ID != ''
