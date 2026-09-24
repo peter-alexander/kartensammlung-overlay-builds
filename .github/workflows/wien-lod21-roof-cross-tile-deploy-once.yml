@@ -1,0 +1,104 @@
+name: Deploy Vienna LOD2.1 cross-tile roofs once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wien-lod21-roof-cross-tile-deploy-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+      LFTP_PARALLEL: 6
+      WIEN_LOD21_TARGETS: wien-lod21/targets.production.json
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y lftp unzip
+
+      - name: Build Vienna LOD2.1 production fallback
+        run: |
+          chmod +x wien-lod21/run.sh
+          /usr/bin/time -v bash wien-lod21/run.sh
+
+      - name: Validate production output
+        run: node wien-lod21/validate-production.mjs wien-lod21/build/WienBuildingsLOD21
+
+      - name: Verify three cross-tile roof overrides
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const release = JSON.parse(
+          	fs.readFileSync(
+          		"wien-lod21/build/WienBuildingsLOD21/release.json",
+          		"utf8"
+          	)
+          );
+          if (Number(release.counts?.targets) !== 2303) {
+          	throw new Error("Expected 2303 targets.");
+          }
+          if (Number(release.counts?.maptoolkitRoofReplacement) !== 30) {
+          	throw new Error("Expected 30 roof replacements.");
+          }
+          const byCode = new Map(
+          	(release.maptoolkitRoofOverrides?.targets || []).map(
+          		(item) => [String(item.historicalCode), item]
+          	)
+          );
+          const expected = {
+          	"120593": ["15/17875/11356", "15/17876/11356"],
+          	"137772": ["15/17884/11351", "15/17885/11351"],
+          	"226564": ["15/17884/11356", "15/17885/11356"]
+          };
+          for (const [code, tiles] of Object.entries(expected)) {
+          	const target = byCode.get(code);
+          	const actualTiles = (target?.featureTiles || [])
+          		.map((item) => String(item.tile))
+          		.sort();
+          	if (
+          		!target
+          		|| JSON.stringify(actualTiles)
+          			!== JSON.stringify([...tiles].sort())
+          		|| !Array.isArray(target.ogdKsIds)
+          		|| !target.ogdKsIds.length
+          	) {
+          		throw new Error(code + ": invalid cross-tile metadata.");
+          	}
+          }
+          console.log("Cross-tile roof release metadata: OK");
+          NODE
+
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-production-cross-tile-live
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
+
+      - name: Deploy Vienna LOD2.1 production fallback
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienLOD21"
+          .github/scripts/lftp-upload.sh wien-lod21/build/WienBuildingsLOD21 "$REMOTE_BASE"
