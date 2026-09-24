@@ -1,0 +1,181 @@
+name: Deploy clipped Vienna roofs once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wien-lod21-clipped-deploy-once.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+      LFTP_PARALLEL: 6
+      EXPECTED_GENERATED_AT: "2026-09-24T18:46:33.931Z"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install deploy dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Download validated Vienna production artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-clipped-production-validation
+          path: /tmp/WienLOD21
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 36042326867
+
+      - name: Verify validated artifact
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const root = "/tmp/WienLOD21";
+          const release = JSON.parse(
+          	fs.readFileSync(root + "/release.json", "utf8")
+          );
+          const targets = JSON.parse(
+          	fs.readFileSync(root + "/targets.json", "utf8")
+          );
+
+          if (release.generatedAt !== process.env.EXPECTED_GENERATED_AT) {
+          	throw new Error(
+          		"Unexpected generatedAt: " + release.generatedAt
+          	);
+          }
+          if (
+          	release.status !== "production"
+          	|| Number(release.counts?.targets) !== 2309
+          	|| Number(release.counts?.maptoolkitRoofReplacement) !== 36
+          	|| Number(release.counts?.tiles) !== 419
+          ) {
+          	throw new Error(
+          		"Unexpected production release counts: "
+          		+ JSON.stringify(release.counts)
+          	);
+          }
+
+          const byCode = new Map(
+          	(targets.targets || []).map(
+          		(item) => [String(item.historicalCode), item]
+          	)
+          );
+          const overrides = new Map(
+          	(release.maptoolkitRoofOverrides?.targets || []).map(
+          		(item) => [String(item.historicalCode), item]
+          	)
+          );
+          for (const code of ["124800", "204583"]) {
+          	const target = byCode.get(code);
+          	const override = overrides.get(code);
+          	if (
+          		target?.rolloutMode !== "maptoolkit-roof-replacement"
+          		|| target?.clipHistoricalToCurrentFootprint !== true
+          		|| target?.auditedHistoricalClip !== true
+          		|| target?.auditedMaptoolkitOverride?.auditClass
+          			!== "current-footprint-clipped-flat-only"
+          		|| !override
+          		|| !Array.isArray(override.featureSignatures)
+          		|| override.featureSignatures.length !== 2
+          		|| Number(target?.historicalClip?.minRoofCoverageRatio) !== 1
+          		|| Number(
+          			target?.historicalClip
+          				?.geometricWallBoundaryCoverageRatio
+          		) !== 1
+          		|| Number(
+          			target?.historicalClip
+          				?.uncoveredWallBoundaryLengthM
+          		) !== 0
+          		|| Number(target?.hybridRemainder?.remainderAreaM2) !== 0
+          		|| Number(target?.hybridRemainder?.syntheticObjects) !== 0
+          	) {
+          		throw new Error(
+          			code + ": clipped roof release metadata invalid."
+          		);
+          	}
+          }
+
+          console.log(JSON.stringify({
+          	generatedAt: release.generatedAt,
+          	targets: release.counts.targets,
+          	roofReplacements:
+          		release.counts.maptoolkitRoofReplacement,
+          	tiles: release.counts.tiles
+          }, null, 2));
+          NODE
+
+          TILE_COUNT="$(
+          	find /tmp/WienLOD21/tiles -type f -name '*.bin' | wc -l
+          )"
+          test "$TILE_COUNT" -eq 419
+
+      - name: Deploy validated Vienna LOD2.1 artifact
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienLOD21"
+          .github/scripts/lftp-upload.sh /tmp/WienLOD21 "$REMOTE_BASE"
+
+      - name: Verify live Vienna LOD2.1 release
+        run: |
+          LIVE="/tmp/wien-lod21-live-release.json"
+          SUCCESS=0
+          for ATTEMPT in 1 2 3 4 5; do
+          	if curl \
+          		--fail \
+          		--silent \
+          		--show-error \
+          		--location \
+          		"https://tiles.radlobby.at/WienLOD21/release.json?v=${GITHUB_RUN_ID}-${ATTEMPT}" \
+          		-o "$LIVE"
+          	then
+          		if node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const release = JSON.parse(
+          	fs.readFileSync("/tmp/wien-lod21-live-release.json", "utf8")
+          );
+          if (
+          	release.generatedAt !== process.env.EXPECTED_GENERATED_AT
+          	|| Number(release.counts?.targets) !== 2309
+          	|| Number(release.counts?.maptoolkitRoofReplacement) !== 36
+          ) {
+          	process.exit(1);
+          }
+          console.log(JSON.stringify({
+          	liveGeneratedAt: release.generatedAt,
+          	targets: release.counts.targets,
+          	roofReplacements:
+          		release.counts.maptoolkitRoofReplacement
+          }, null, 2));
+          NODE
+          		then
+          			SUCCESS=1
+          			break
+          		fi
+          	fi
+          	sleep 3
+          done
+
+          if [ "$SUCCESS" -ne 1 ]; then
+          	echo "Live WienLOD21 release did not reach the validated version." >&2
+          	cat "$LIVE" >&2 || true
+          	exit 1
+          fi
