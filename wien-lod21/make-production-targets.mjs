@@ -385,6 +385,44 @@ function targetFromCandidate(candidate, {
 	};
 }
 
+function normalizeMaptoolkitAuditFeatureTiles(audit) {
+	const grouped = Array.isArray(audit?.featureTiles);
+	const rawTiles = grouped
+		? audit.featureTiles
+		: [{
+			tile: audit?.tile,
+			featureSignatures: audit?.featureSignatures
+		}];
+	if (!rawTiles.length) return null;
+
+	const featureTiles = [];
+	const seenTiles = new Set();
+	for (const item of rawTiles) {
+		const tile = String(item?.tile || "").trim();
+		const rawSignatures = Array.isArray(item?.featureSignatures)
+			? item.featureSignatures
+			: [];
+		const signatures = [...new Set(
+			rawSignatures
+				.map((value) => String(value || "").trim().toLowerCase())
+				.filter((value) => /^[0-9a-f]{8}$/.test(value))
+		)].sort();
+		if (
+			!/^15\/\d+\/\d+$/.test(tile)
+			|| seenTiles.has(tile)
+			|| !signatures.length
+			|| signatures.length !== rawSignatures.length
+		) return null;
+		seenTiles.add(tile);
+		featureTiles.push({
+			tile,
+			featureSignatures: signatures
+		});
+	}
+	featureTiles.sort((a, b) => a.tile.localeCompare(b.tile));
+	return { grouped, featureTiles };
+}
+
 async function main() {
 	const args = parseArgs(process.argv);
 	const report = JSON.parse(await fs.readFile(args.report, "utf8"));
@@ -585,23 +623,20 @@ async function main() {
 		for (const replacement of replacements) {
 			const code = String(replacement?.historicalCode || "").trim();
 			const audit = replacement?.auditedMaptoolkitOverride;
-			const signatures = Array.isArray(audit?.featureSignatures)
-				? [...new Set(
-					audit.featureSignatures
-						.map((value) => String(value || "").trim().toLowerCase())
-						.filter(Boolean)
-				)].sort()
-				: [];
+			const normalizedAudit =
+				normalizeMaptoolkitAuditFeatureTiles(audit);
+			const signatureCount = normalizedAudit?.featureTiles.reduce(
+				(sum, item) => sum + item.featureSignatures.length,
+				0
+			) || 0;
 			if (
 				!code
 				|| replacement?.rolloutMode !== "maptoolkit-roof-replacement"
 				|| !String(replacement?.sheet || "").trim()
 				|| !Number.isFinite(Number(replacement?.lng))
 				|| !Number.isFinite(Number(replacement?.lat))
-				|| !String(audit?.tile || "").match(/^15\/\d+\/\d+$/)
-				|| signatures.length < 1
-				|| signatures.length !== Number(audit?.featureCount)
-				|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+				|| !normalizedAudit
+				|| signatureCount !== Number(audit?.featureCount)
 				|| Number(audit?.flatHitPercent) !== 100
 				|| Number(audit?.flatVsHistoricalEaveM) < -0.25
 				|| Number(audit?.flatVsHistoricalRidgeM) > 0.25
@@ -610,6 +645,22 @@ async function main() {
 					"Invalid audited Maptoolkit roof replacement: " + code
 				);
 			}
+			const normalizedOverride = {
+				...audit,
+				featureCount: signatureCount
+			};
+			if (normalizedAudit.grouped) {
+				delete normalizedOverride.tile;
+				delete normalizedOverride.featureSignatures;
+				normalizedOverride.featureTiles =
+					normalizedAudit.featureTiles;
+			} else {
+				delete normalizedOverride.featureTiles;
+				normalizedOverride.tile =
+					normalizedAudit.featureTiles[0].tile;
+				normalizedOverride.featureSignatures =
+					normalizedAudit.featureTiles[0].featureSignatures;
+			}
 			targets.push({
 				...replacement,
 				historicalCode: code,
@@ -617,10 +668,7 @@ async function main() {
 				ksIds: [...new Set(
 					(replacement.ksIds || []).map(String).filter(Boolean)
 				)].sort(),
-				auditedMaptoolkitOverride: {
-					...audit,
-					featureSignatures: signatures
-				}
+				auditedMaptoolkitOverride: normalizedOverride
 			});
 		}
 	}
