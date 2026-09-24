@@ -1,13 +1,17 @@
 # Wien LOD2.1 Fallback
 
-Das Wiener LOD2.1 dient ausschließlich als **sekundärer Dach-Fallback** für
-Gebäude, für die das aktuelle Maptoolkit/Stadtplan-LOD2 vollständig fehlt.
+Das Wiener LOD2.1 dient primär als **sekundärer Dach-Fallback** für Gebäude,
+für die das aktuelle Maptoolkit/Stadtplan-LOD2 vollständig fehlt. Zusätzlich
+dürfen wenige streng auditierte Fälle ein nachweislich verlorenes geneigtes
+Maptoolkit-Dach ersetzen.
 
 Priorität:
 
 1. aktuelles Maptoolkit/Stadtplan-LOD2
-2. geprüftes Wiener LOD2.1
-3. aktuelles OGD-Baukörpermodell LOD1
+2. für explizit auditierte Dachverlust-Fälle: geprüftes Wiener LOD2.1 statt
+   des exakt identifizierten fehlerhaften Maptoolkit-Features
+3. geprüftes Wiener LOD2.1 als Fallback bei vollständig fehlendem Maptoolkit
+4. aktuelles OGD-Baukörpermodell LOD1
 
 ## Matching
 
@@ -71,9 +75,10 @@ enthält:
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
 - 26 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
 - 2 höhensensitiv geteilte `hybrid-height-split`-Gebäude,
+- 19 streng auditierte `maptoolkit-roof-replacement`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.273 Gebäude.
+- insgesamt 2.292 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
 **1.062 automatisch freigegeben**. Der einzige nicht automatisch ausgewählte
@@ -81,9 +86,39 @@ Kandidat ist `113842` (Straußengasse 14), der bereits als manuell bestätigte
 Hybrid-Ausnahme produktiv ist. Damit sind alle 1.063 sicheren
 `legacy-subset`-Kandidaten im Produktionsmodell vertreten.
 
+## Maptoolkit-Dachersatz
+
+Die 19 `maptoolkit-roof-replacement`-Fälle sind **kein allgemeiner Vorrang
+historischer Daten vor Maptoolkit**. Sie wurden zusätzlich zur
+Grundriss-/Identitätsprüfung direkt gegen die aktuell ausgelieferten
+`buildings3d`-Flächen geprüft.
+
+Produktiv aufgenommen werden nur Fälle, bei denen:
+
+- die historischen geneigten Dachflächen live ausschließlich flache
+  Maptoolkit-Dachflächen treffen und keine geneigte Maptoolkit-Dachfläche,
+- 100 % der verwendeten historischen Dach-Samples von diesen flachen
+  Maptoolkit-Flächen getroffen werden,
+- die aktuelle flache Maptoolkit-Höhe innerhalb des historischen
+  Dachhöhenbereichs mit 25 cm Toleranz liegt,
+- die betroffenen Maptoolkit-Features ausschließlich zur geprüften
+  `BW_GEB_ID` gehören,
+- alle zu ersetzenden Features und das LOD2.1-Ersatzobjekt in derselben
+  Z15-Kachel liegen.
+
+Die Datei `maptoolkit-roof-overrides.production.json` hält diese auditierte
+Auswahl und die erwarteten Geometrie-Fingerprints fest. Im Client wird ein
+Ersatz **fail-closed** aktiviert: Nur wenn das gültige LOD2.1-Ersatzobjekt im
+gleichen Tile geladen ist und alle erwarteten Maptoolkit-Feature-Fingerprints
+eindeutig vorhanden sind, werden genau diese Maptoolkit-Features entfernt und
+das historische Dach eingeblendet. Ändert Maptoolkit die Geometrie oder ist
+ein Fingerprint nicht eindeutig, bleibt das aktuelle Maptoolkit-Modell
+unverändert sichtbar.
+
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
-`targets.json`. `release.json` enthält nur die für den Client benötigte
-Version, Tile-Verfügbarkeit und kompakte Zähler.
+`targets.json`. `release.json` enthält neben Version, Tile-Verfügbarkeit
+und kompakten Zählern auch die kleine fail-safe Fingerprint-Liste für diese
+Dachersatz-Fälle.
 
 Der Snapshot kann mit `make-production-targets.mjs` aus einem erneut
 validierten Stadtbericht regeneriert werden. Ein Rebuild benötigt dadurch
