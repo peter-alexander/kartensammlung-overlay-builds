@@ -549,10 +549,16 @@ async function main() {
 		const replacements = Array.isArray(roofReplacements?.buildings)
 			? roofReplacements.buildings
 			: [];
-		if (replacements.length !== 19) {
+		const declaredCount = Number(roofReplacements?.count);
+		if (
+			!Number.isInteger(declaredCount)
+			|| declaredCount < 1
+			|| replacements.length !== declaredCount
+		) {
 			throw new Error(
-				"Expected 19 audited Maptoolkit roof replacements, got "
-				+ replacements.length
+				"Maptoolkit roof replacement manifest count mismatch: "
+				+ replacements.length + " buildings vs declared "
+				+ roofReplacements?.count
 			);
 		}
 		for (const replacement of replacements) {
@@ -783,13 +789,17 @@ async function main() {
 			+ " hybrid-height-split targets, got " + hybridHeightSplitCount
 		);
 	}
+	const expectedMaptoolkitRoofReplacementCount =
+		args.includeMaptoolkitRoofReplacements
+			? Number(roofReplacements?.count)
+			: 0;
 	if (
 		maptoolkitRoofReplacementCount
-		!== (args.includeMaptoolkitRoofReplacements ? 19 : 0)
+		!== expectedMaptoolkitRoofReplacementCount
 	) {
 		throw new Error(
 			"Expected "
-			+ (args.includeMaptoolkitRoofReplacements ? 19 : 0)
+			+ expectedMaptoolkitRoofReplacementCount
 			+ " Maptoolkit roof replacements, got "
 			+ maptoolkitRoofReplacementCount
 		);
@@ -804,11 +814,9 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeMaptoolkitRoofReplacements
-		? 2292
-		: args.includeHybridHeightSplit
-			? 2273
-			: args.includeHybridEaveClip
+	const expectedBaseTargets = args.includeHybridHeightSplit
+		? 2273
+		: args.includeHybridEaveClip
 			? 2271
 			: args.includeHybridDClip
 			? 2245
@@ -823,6 +831,8 @@ async function main() {
 			: args.includeHybridA
 				? 1825
 				: 1213;
+	const expectedTargets =
+		expectedBaseTargets + expectedMaptoolkitRoofReplacementCount;
 	if (targets.length !== expectedTargets) {
 		throw new Error(
 			"Expected " + expectedTargets
