@@ -177,11 +177,11 @@ if (
 	);
 }
 if (
-	hybridEaveClip !== 26
+	hybridEaveClip !== 27
 	|| Number(release.counts.hybridEaveClip || 0) !== hybridEaveClip
 ) {
 	throw new Error(
-		"Expected 26 audited eave-corrected clip targets, got "
+		"Expected 27 audited eave-corrected clip targets, got "
 		+ hybridEaveClip + " / release "
 		+ Number(release.counts.hybridEaveClip || 0)
 	);
@@ -209,7 +209,7 @@ if (
 	);
 }
 const expectedProductionTargets =
-	2273 + EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS;
+	2274 + EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS;
 if (items.length !== expectedProductionTargets) {
 	throw new Error(
 		"Expected " + expectedProductionTargets
