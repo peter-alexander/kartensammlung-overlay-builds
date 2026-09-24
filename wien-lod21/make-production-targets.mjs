@@ -69,6 +69,8 @@ function parseArgs(argv) {
 		report: "",
 		pilot: "",
 		output: "",
+		roofReplacements: "",
+		includeMaptoolkitRoofReplacements: false,
 		includeHybridA: false,
 		includeHybridBAbsolute: false,
 		includeHybridBThin: false,
@@ -86,6 +88,10 @@ function parseArgs(argv) {
 			result.pilot = path.resolve(argv[++index]);
 		} else if (arg === "--output") {
 			result.output = path.resolve(argv[++index]);
+		} else if (arg === "--roof-replacements") {
+			result.roofReplacements = path.resolve(argv[++index]);
+		} else if (arg === "--include-maptoolkit-roof-replacements") {
+			result.includeMaptoolkitRoofReplacements = true;
 		} else if (arg === "--include-hybrid-a") {
 			result.includeHybridA = true;
 		} else if (arg === "--include-hybrid-b-absolute") {
@@ -108,6 +114,14 @@ function parseArgs(argv) {
 	}
 	if (!result.report || !result.pilot || !result.output) {
 		throw new Error("--report, --pilot and --output are required.");
+	}
+	if (
+		result.includeMaptoolkitRoofReplacements
+		&& !result.roofReplacements
+	) {
+		throw new Error(
+			"--include-maptoolkit-roof-replacements requires --roof-replacements."
+		);
 	}
 	if (result.includeHybridBAbsolute && !result.includeHybridA) {
 		throw new Error("--include-hybrid-b-absolute requires --include-hybrid-a.");
@@ -366,6 +380,9 @@ async function main() {
 	const args = parseArgs(process.argv);
 	const report = JSON.parse(await fs.readFile(args.report, "utf8"));
 	const pilot = JSON.parse(await fs.readFile(args.pilot, "utf8"));
+	const roofReplacements = args.includeMaptoolkitRoofReplacements
+		? JSON.parse(await fs.readFile(args.roofReplacements, "utf8"))
+		: { buildings: [] };
 	const eaveAudit = JSON.parse(await fs.readFile(EAVE_AUDIT_PATH, "utf8"));
 	const eaveAuditByCode = new Map(
 		(eaveAudit.rows || []).map((item) => [
@@ -528,7 +545,60 @@ async function main() {
 		});
 	}
 
-	const resultsByCode = new Map(
+	if (args.includeMaptoolkitRoofReplacements) {
+		const replacements = Array.isArray(roofReplacements?.buildings)
+			? roofReplacements.buildings
+			: [];
+		if (replacements.length !== 19) {
+			throw new Error(
+				"Expected 19 audited Maptoolkit roof replacements, got "
+				+ replacements.length
+			);
+		}
+		for (const replacement of replacements) {
+			const code = String(replacement?.historicalCode || "").trim();
+			const audit = replacement?.auditedMaptoolkitOverride;
+			const signatures = Array.isArray(audit?.featureSignatures)
+				? [...new Set(
+					audit.featureSignatures
+						.map((value) => String(value || "").trim().toLowerCase())
+						.filter(Boolean)
+				)].sort()
+				: [];
+			if (
+				!code
+				|| replacement?.rolloutMode !== "maptoolkit-roof-replacement"
+				|| !String(replacement?.sheet || "").trim()
+				|| !Number.isFinite(Number(replacement?.lng))
+				|| !Number.isFinite(Number(replacement?.lat))
+				|| !String(audit?.tile || "").match(/^15\/\d+\/\d+$/)
+				|| signatures.length < 1
+				|| signatures.length !== Number(audit?.featureCount)
+				|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+				|| Number(audit?.flatHitPercent) !== 100
+				|| Number(audit?.flatVsHistoricalEaveM) < -0.25
+				|| Number(audit?.flatVsHistoricalRidgeM) > 0.25
+			) {
+				throw new Error(
+					"Invalid audited Maptoolkit roof replacement: " + code
+				);
+			}
+			targets.push({
+				...replacement,
+				historicalCode: code,
+				bwGebId: Number(replacement.bwGebId),
+				ksIds: [...new Set(
+					(replacement.ksIds || []).map(String).filter(Boolean)
+				)].sort(),
+				auditedMaptoolkitOverride: {
+					...audit,
+					featureSignatures: signatures
+				}
+			});
+		}
+	}
+
+		const resultsByCode = new Map(
 		(report.results || [])
 			.filter((item) => item.candidateType === "historical-code")
 			.map((item) => [String(item.historicalCode), item])
@@ -592,6 +662,9 @@ async function main() {
 	const hybridHeightSplitCount = targets.filter(
 		(target) => target.rolloutMode === "hybrid-height-split"
 	).length;
+	const maptoolkitRoofReplacementCount = targets.filter(
+		(target) => target.rolloutMode === "maptoolkit-roof-replacement"
+	).length;
 	const manualStrongCount = targets.filter(
 		(target) => target.rolloutMode === "manual-pilot-strong"
 	).length;
@@ -634,7 +707,11 @@ async function main() {
 				HYBRID_B_THIN_MAX_MEAN_WIDTH_M,
 			hybridEaveHeightMetric: "median-roof-surface-minimum",
 			hybridEaveAuditGeneratedAt: eaveAudit.generatedAt || null,
-			hybridHeightSplitToleranceM: HYBRID_HEIGHT_SPLIT_TOLERANCE_M
+			hybridHeightSplitToleranceM: HYBRID_HEIGHT_SPLIT_TOLERANCE_M,
+			maptoolkitRoofReplacementSelected:
+				maptoolkitRoofReplacementCount,
+			maptoolkitRoofReplacementAuditGeneratedAt:
+				roofReplacements?.generatedAt || null
 		},
 		counts: {
 			total: targets.length,
@@ -647,6 +724,7 @@ async function main() {
 			hybridDClip: hybridDClipCount,
 			hybridEaveClip: hybridEaveClipCount,
 			hybridHeightSplit: hybridHeightSplitCount,
+			maptoolkitRoofReplacement: maptoolkitRoofReplacementCount,
 			manualPilotStrong: manualStrongCount,
 			manualPilotHybrid: manualHybridCount,
 			sourceSheets: new Set(targets.map((target) => target.sheet)).size
@@ -705,6 +783,17 @@ async function main() {
 			+ " hybrid-height-split targets, got " + hybridHeightSplitCount
 		);
 	}
+	if (
+		maptoolkitRoofReplacementCount
+		!== (args.includeMaptoolkitRoofReplacements ? 19 : 0)
+	) {
+		throw new Error(
+			"Expected "
+			+ (args.includeMaptoolkitRoofReplacements ? 19 : 0)
+			+ " Maptoolkit roof replacements, got "
+			+ maptoolkitRoofReplacementCount
+		);
+	}
 	if (manualStrongCount !== 1) {
 		throw new Error("Expected 1 manual strong pilot target, got " + manualStrongCount);
 	}
@@ -715,9 +804,11 @@ async function main() {
 			+ " manual hybrid pilot targets, got " + manualHybridCount
 		);
 	}
-	const expectedTargets = args.includeHybridHeightSplit
-		? 2273
-		: args.includeHybridEaveClip
+	const expectedTargets = args.includeMaptoolkitRoofReplacements
+		? 2292
+		: args.includeHybridHeightSplit
+			? 2273
+			: args.includeHybridEaveClip
 			? 2271
 			: args.includeHybridDClip
 			? 2245
