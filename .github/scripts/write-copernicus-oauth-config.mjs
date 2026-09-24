@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 
 const clientId = String(process.env.COPERNICUS_CLIENT_ID || '').trim();
 const clientSecret = String(process.env.COPERNICUS_CLIENT_SECRET || '').trim();
@@ -18,7 +19,7 @@ function phpString(value) {
 		.replace(/'/g, "\\'") + "'";
 }
 
-const content = [
+const php = [
 	'<?php',
 	'declare(strict_types=1);',
 	'',
@@ -29,5 +30,5 @@ const content = [
 	''
 ].join('\n');
 
-fs.mkdirSync(new URL('.', `file://${output.startsWith('/') ? '' : '/'}${output}`), { recursive: true });
-fs.writeFileSync(output, content, { encoding: 'utf8', mode: 0o600 });
+fs.mkdirSync(path.dirname(output), { recursive: true });
+fs.writeFileSync(output, php, { encoding: 'utf8', mode: 0o600 });
