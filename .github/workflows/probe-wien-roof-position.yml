@@ -25,6 +25,8 @@ jobs:
 
       - run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - run: npm install --no-save --package-lock=false @mapbox/vector-tile pbf
+
       - name: Probe current OGD and Maptoolkit
         run: |
           node --input-type=module <<'NODE'
