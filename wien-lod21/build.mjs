@@ -1346,9 +1346,9 @@ function clipHistoricalSurfacesToFootprint(
 	};
 }
 
-function crossTileKeysForTarget(target, zoom) {
+function auditedFeatureTileKeysForTarget(target, zoom) {
 	const featureTiles = target?.auditedMaptoolkitOverride?.featureTiles;
-	if (!Array.isArray(featureTiles) || featureTiles.length < 2) return [];
+	if (!Array.isArray(featureTiles) || !featureTiles.length) return [];
 
 	const keys = [...new Set(
 		featureTiles
@@ -1387,7 +1387,7 @@ function addBuildingAcrossTiles(tileData, {
 	recordKind = "lod21",
 	recordOverrides = {}
 }) {
-	const allowedKeys = crossTileKeysForTarget(target, zoom);
+	const allowedKeys = auditedFeatureTileKeysForTarget(target, zoom);
 	if (allowedKeys.length < 2) return null;
 	const allowed = new Set(allowedKeys);
 
@@ -1621,7 +1621,8 @@ function addBuildingToTile(tileData, {
 	extent,
 	zoom,
 	recordKind = "lod21",
-	recordOverrides = {}
+	recordOverrides = {},
+	tileOverride = null
 }) {
 	const points = getSurfacePoints(surfaces);
 	if (!points.length) return null;
@@ -1631,7 +1632,13 @@ function addBuildingToTile(tileData, {
 	const basePoints = groundPoints.length ? groundPoints : points;
 	const baseZ = Math.min(...basePoints.map((point) => point.z));
 	const anchorSource = boundsCenter(points);
-	const tile = tileCoordinateForPoint(anchorSource, zoom);
+	const tile = tileOverride || tileCoordinateForPoint(anchorSource, zoom);
+	if (Number(tile?.z) !== zoom) {
+		throw new Error(
+			"LOD2.1 tile override has wrong zoom for "
+			+ String(target?.historicalCode || "")
+		);
+	}
 	const anchorLngLat = sourcePointToLngLat(anchorSource);
 	const distance = haversineMeters(anchorLngLat, target);
 
@@ -1841,11 +1848,11 @@ async function main() {
 					historicalGroundByCode.get(code).push(groundGeometry);
 				}
 			}
-			const crossTileKeys = crossTileKeysForTarget(
+			const auditedTileKeys = auditedFeatureTileKeysForTarget(
 				target,
 				zoom
 			);
-			const added = crossTileKeys.length > 1
+			const added = auditedTileKeys.length > 1
 				? addBuildingAcrossTiles(tileData, {
 					building,
 					surfaces,
@@ -1860,7 +1867,10 @@ async function main() {
 					target,
 					sourceSheet,
 					extent,
-					zoom
+					zoom,
+					tileOverride: auditedTileKeys.length === 1
+						? parseTileKeyValue(auditedTileKeys[0])
+						: null
 				});
 			if (Array.isArray(added)) {
 				found.get(code).push(...added);
