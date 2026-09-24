@@ -6,6 +6,8 @@ on:
       - feature/wien-maptoolkit-roof-loss-analysis
     paths:
       - '.github/workflows/wien-maptoolkit-roof-partial-audit.yml'
+      - 'wien-lod21/validate-maptoolkit-roof-replacement-pilot.mjs'
+      - 'wien-buildings/analyze-maptoolkit-override-pilot.mjs'
 
 permissions:
   contents: read
