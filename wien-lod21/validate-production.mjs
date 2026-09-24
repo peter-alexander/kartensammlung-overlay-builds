@@ -13,7 +13,28 @@ const targets = JSON.parse(
 	fs.readFileSync(path.join(root, "targets.json"), "utf8")
 );
 const items = Array.isArray(targets.targets) ? targets.targets : [];
-const EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS = 22;
+const roofReplacementManifest = JSON.parse(
+	fs.readFileSync(
+		new URL("./maptoolkit-roof-overrides.production.json", import.meta.url),
+		"utf8"
+	)
+);
+const auditedRoofReplacementBuildings =
+	Array.isArray(roofReplacementManifest?.buildings)
+		? roofReplacementManifest.buildings
+		: [];
+const EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS =
+	auditedRoofReplacementBuildings.length;
+if (
+	Number(roofReplacementManifest?.count)
+	!== EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS
+) {
+	throw new Error(
+		"Roof replacement manifest count mismatch: "
+		+ roofReplacementManifest?.count + " vs "
+		+ EXPECTED_MAPTOOLKIT_ROOF_REPLACEMENTS
+	);
+}
 
 if (release.status !== "production") {
 	throw new Error("Expected production release, got " + release.status);
