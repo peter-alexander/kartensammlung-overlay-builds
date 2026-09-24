@@ -194,6 +194,63 @@ jobs:
           		Number(surface.maptoolkitFlatVsHistoricalEaveM) >= -0.25
           		&& Number(surface.maptoolkitFlatVsHistoricalRidgeM) <= 0.25
           	);
+          	const coverage = feature?.flatRoofCoverage || {};
+          	const currentAreaM2 = Number(metrics.currentArea);
+          	const oldAreaM2 = Number(metrics.oldArea);
+          	const intersectionAreaM2 = Number(metrics.intersectionArea);
+          	const currentAreaRenderUnits2 = Number(
+          		coverage.currentAreaRenderUnits2
+          	);
+          	const areaScaleM2 = (
+          		Number.isFinite(currentAreaM2)
+          		&& currentAreaM2 > 0
+          		&& Number.isFinite(currentAreaRenderUnits2)
+          		&& currentAreaRenderUnits2 > 0
+          	)
+          		? currentAreaM2 / currentAreaRenderUnits2
+          		: null;
+          	const currentUncoveredByFlatRoofM2 =
+          		areaScaleM2 === null
+          			? null
+          			: Math.max(
+          				0,
+          				currentAreaRenderUnits2
+          				- Number(coverage.overlapAreaRenderUnits2)
+          			) * areaScaleM2;
+          	const flatRoofOutsideCurrentM2 =
+          		areaScaleM2 === null
+          			? null
+          			: Math.max(
+          				0,
+          				Number(coverage.flatRoofAreaRenderUnits2)
+          				- Number(coverage.overlapAreaRenderUnits2)
+          			) * areaScaleM2;
+          	const flatRoofSymmetricDifferenceM2 = (
+          		Number.isFinite(currentUncoveredByFlatRoofM2)
+          		&& Number.isFinite(flatRoofOutsideCurrentM2)
+          	)
+          		? currentUncoveredByFlatRoofM2
+          			+ flatRoofOutsideCurrentM2
+          		: null;
+          	const historicalOutsideCurrentM2 = (
+          		Number.isFinite(oldAreaM2)
+          		&& Number.isFinite(intersectionAreaM2)
+          	)
+          		? Math.max(0, oldAreaM2 - intersectionAreaM2)
+          		: null;
+          	const currentOutsideHistoricalM2 = (
+          		Number.isFinite(currentAreaM2)
+          		&& Number.isFinite(intersectionAreaM2)
+          	)
+          		? Math.max(0, currentAreaM2 - intersectionAreaM2)
+          		: null;
+          	const footprintSymmetricDifferenceM2 = (
+          		Number.isFinite(historicalOutsideCurrentM2)
+          		&& Number.isFinite(currentOutsideHistoricalM2)
+          	)
+          		? historicalOutsideCurrentM2
+          			+ currentOutsideHistoricalM2
+          		: null;
           	const exactFootprintFlatOnly = (
           		surface.safe === true
           		&& Number(surface.flatHitPercent) >= 80
@@ -203,6 +260,12 @@ jobs:
           		&& allFeaturesInterior
           		&& allRoofSurfacesFlat
           		&& footprintStable
+          		&& Number(coverage.currentCoverageByFlatRoof) >= 0.98
+          		&& Number(coverage.flatRoofInsideCurrent) >= 0.98
+          		&& Number.isFinite(flatRoofSymmetricDifferenceM2)
+          		&& flatRoofSymmetricDifferenceM2 <= 2
+          		&& Number.isFinite(footprintSymmetricDifferenceM2)
+          		&& footprintSymmetricDifferenceM2 <= 0.25
           	);
           	return {
           		code,
@@ -216,6 +279,26 @@ jobs:
           		currentCoverage: Number(metrics.currentCoverage),
           		oldCoverage: Number(metrics.oldCoverage),
           		centroidDistanceM: Number(metrics.centroidDistanceM),
+          		currentCoverageByFlatRoof:
+          			Number(coverage.currentCoverageByFlatRoof),
+          		flatRoofInsideCurrent:
+          			Number(coverage.flatRoofInsideCurrent),
+          		currentUncoveredByFlatRoofM2:
+          			Number.isFinite(currentUncoveredByFlatRoofM2)
+          				? Number(currentUncoveredByFlatRoofM2.toFixed(4))
+          				: null,
+          		flatRoofOutsideCurrentM2:
+          			Number.isFinite(flatRoofOutsideCurrentM2)
+          				? Number(flatRoofOutsideCurrentM2.toFixed(4))
+          				: null,
+          		flatRoofSymmetricDifferenceM2:
+          			Number.isFinite(flatRoofSymmetricDifferenceM2)
+          				? Number(flatRoofSymmetricDifferenceM2.toFixed(4))
+          				: null,
+          		footprintSymmetricDifferenceM2:
+          			Number.isFinite(footprintSymmetricDifferenceM2)
+          				? Number(footprintSymmetricDifferenceM2.toFixed(4))
+          				: null,
           		replacementTile: surface.tile,
           		featureTiles,
           		flatHitPercent: surface.flatHitPercent,
@@ -258,6 +341,19 @@ jobs:
           }
           const output = {
           	generatedAt: new Date().toISOString(),
+          	auditClass: "exact-footprint-flat-only",
+          	thresholds: {
+          		minCurrentHistoricalCoverage: 0.998,
+          		maxCentroidDistanceM: 0.10,
+          		minMaptoolkitFlatRoofCoverage: 0.98,
+          		minMaptoolkitFlatRoofInsideCurrent: 0.98,
+          		maxMaptoolkitFlatRoofSymmetricDifferenceM2: 2,
+          		maxHistoricalCurrentSymmetricDifferenceM2: 0.25,
+          		heightEnvelopeToleranceM: 0.25,
+          		requireExclusiveMaptoolkitFeatures: true,
+          		requireInteriorMaptoolkitFeatures: true,
+          		requireFlatOnlyMaptoolkitRoofs: true
+          	},
           	count: rows.length,
           	promotableCount: promotable.length,
           	promotableCodes: promotable.map((row) => row.code),
