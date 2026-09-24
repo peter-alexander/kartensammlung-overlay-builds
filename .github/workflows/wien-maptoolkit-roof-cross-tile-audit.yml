@@ -1,6 +1,5 @@
 name: Audit Vienna roof cross-tile target
 
-# Revalidation trigger: 2026-09-24 after live cross-tile visual check
 
 on:
   push:
