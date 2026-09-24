@@ -336,15 +336,24 @@ function decodeOgdFeatures(buffer) {
 }
 
 async function fetchBuffer(url, allow404 = false) {
+	const maxAttempts = Math.max(
+		1,
+		Math.min(
+			5,
+			Number(process.env.WIEN_ROOF_OVERRIDE_FETCH_ATTEMPTS) || 5
+		)
+	);
 	let lastError = null;
-	for (let attempt = 1; attempt <= 5; attempt += 1) {
+	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 45_000);
 		try {
 			const response = await fetch(url, {
 				headers: {
 					"User-Agent":
-						"kartensammlung-overlay-builds/wien-roof-override-audit"
+						"Mozilla/5.0 kartensammlung-roof-override-audit/1.0",
+					"Accept": "application/x-protobuf,application/octet-stream,*/*",
+					"Referer": "https://www.wien.gv.at/"
 				},
 				signal: controller.signal
 			});
@@ -355,7 +364,7 @@ async function fetchBuffer(url, allow404 = false) {
 			return new Uint8Array(await response.arrayBuffer());
 		} catch (error) {
 			lastError = error;
-			if (attempt >= 5) break;
+			if (attempt >= maxAttempts) break;
 			await new Promise((resolve) => (
 				setTimeout(resolve, Math.min(15_000, attempt * 2_000))
 			));
@@ -364,7 +373,7 @@ async function fetchBuffer(url, allow404 = false) {
 		}
 	}
 	throw new Error(
-		`Fetch failed after 5 attempts: ${url}: `
+		`Fetch failed after ${maxAttempts} attempt(s): ${url}: `
 		+ String(lastError?.message || lastError)
 	);
 }
@@ -372,9 +381,13 @@ async function fetchBuffer(url, allow404 = false) {
 function targetTiles(target) {
 	const centerX = Math.floor(lngToWorldX(target.lng, ZOOM));
 	const centerY = Math.floor(latToWorldY(target.lat, ZOOM));
+	const radiusValue = process.env.WIEN_ROOF_OVERRIDE_TILE_RADIUS;
+	const radius = radiusValue === undefined || radiusValue === ""
+		? 1
+		: Math.max(0, Math.min(1, Number(radiusValue) || 0));
 	const tiles = [];
-	for (let dy = -1; dy <= 1; dy += 1) {
-		for (let dx = -1; dx <= 1; dx += 1) {
+	for (let dy = -radius; dy <= radius; dy += 1) {
+		for (let dx = -radius; dx <= radius; dx += 1) {
 			tiles.push({
 				z: ZOOM,
 				x: centerX + dx,
@@ -407,9 +420,24 @@ async function inspectTile(tile, version) {
 
 	const ownersByMtkFeature = new Map();
 	const signatureByMtkFeature = new Map();
+	const boundsByMtkFeature = new Map();
 	for (const surface of surfaces) {
 		if (!signatureByMtkFeature.has(surface.featureIndex)) {
 			signatureByMtkFeature.set(surface.featureIndex, surface.signature);
+		}
+		const previous = boundsByMtkFeature.get(surface.featureIndex);
+		if (!previous) {
+			boundsByMtkFeature.set(surface.featureIndex, {
+				minX: surface.bounds.minX,
+				minY: surface.bounds.minY,
+				maxX: surface.bounds.maxX,
+				maxY: surface.bounds.maxY
+			});
+		} else {
+			previous.minX = Math.min(previous.minX, surface.bounds.minX);
+			previous.minY = Math.min(previous.minY, surface.bounds.minY);
+			previous.maxX = Math.max(previous.maxX, surface.bounds.maxX);
+			previous.maxY = Math.max(previous.maxY, surface.bounds.maxY);
 		}
 	}
 	const touch = (featureIndex, ogdIndex) => {
@@ -450,7 +478,8 @@ async function inspectTile(tile, version) {
 		tile,
 		ogd,
 		ownersByMtkFeature,
-		signatureByMtkFeature
+		signatureByMtkFeature,
+		boundsByMtkFeature
 	};
 }
 
@@ -543,6 +572,15 @@ async function main() {
 			if (!result) continue;
 			for (const [featureIndex, owners] of result.ownersByMtkFeature) {
 				if (!owners.has(owner)) continue;
+				const bounds = result.boundsByMtkFeature.get(featureIndex);
+				const edgeClearance = bounds
+					? Math.min(
+						bounds.minX,
+						bounds.minY,
+						1 - bounds.maxX,
+						1 - bounds.maxY
+					)
+					: null;
 				matchedFeatures.push({
 					tile: tileKey(tile),
 					featureIndex,
@@ -551,7 +589,14 @@ async function main() {
 							result.signatureByMtkFeature.get(featureIndex) || ""
 						),
 					owners: [...owners].sort(),
-					exclusive: owners.size === 1
+					exclusive: owners.size === 1,
+					edgeClearance:
+						Number.isFinite(edgeClearance)
+							? Number(edgeClearance.toFixed(8))
+							: null,
+					touchesTileEdge:
+						!Number.isFinite(edgeClearance)
+						|| edgeClearance <= (2 / 4096)
 				});
 			}
 		}
@@ -588,6 +633,9 @@ async function main() {
 		count: rows.length,
 		allTargetsHaveFeatures: rows.every((row) => row.featureCount > 0),
 		allFeaturesExclusive: rows.every((row) => row.sharedFeatureCount === 0),
+		allFeaturesInterior: rows.every((row) => (
+			row.features.every((feature) => feature.touchesTileEdge === false)
+		)),
 		totalFeatures: rows.reduce((sum, row) => sum + row.featureCount, 0),
 		totalSharedFeatures: rows.reduce(
 			(sum, row) => sum + row.sharedFeatureCount,
@@ -603,6 +651,7 @@ async function main() {
 		count: output.count,
 		allTargetsHaveFeatures: output.allTargetsHaveFeatures,
 		allFeaturesExclusive: output.allFeaturesExclusive,
+		allFeaturesInterior: output.allFeaturesInterior,
 		totalFeatures: output.totalFeatures,
 		totalSharedFeatures: output.totalSharedFeatures,
 		sharedTargets: rows.filter(
