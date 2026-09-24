@@ -1104,10 +1104,18 @@ function sourceEdgeKey(a, b, precision = 1000) {
 	return ka < kb ? ka + "|" + kb : kb + "|" + ka;
 }
 
+function needsCurrentGeometry(target) {
+	return (
+		String(target?.rolloutMode || "").includes("hybrid")
+		|| target?.clipHistoricalToCurrentFootprint === true
+	);
+}
+
 function isHistoricalClipTarget(target) {
 	const mode = String(target?.rolloutMode || "");
 	return (
-		mode === "hybrid-clip-pilot"
+		target?.clipHistoricalToCurrentFootprint === true
+		|| mode === "hybrid-clip-pilot"
 		|| mode === "hybrid-b-clip"
 		|| mode === "hybrid-c-clip"
 		|| mode === "hybrid-d-clip"
@@ -1469,9 +1477,7 @@ async function main() {
 	const targetByCode = new Map(targets.map((target) => [String(target.historicalCode), target]));
 	if (targetByCode.size !== targets.length) throw new Error("Duplicate historicalCode in pilot targets.");
 
-	const hybridTargets = targets.filter((target) => (
-		String(target.rolloutMode || "").includes("hybrid")
-	));
+	const currentGeometryTargets = targets.filter(needsCurrentGeometry);
 	let hybridCurrent = { type: "FeatureCollection", features: [] };
 	if (args.hybridCurrent) {
 		hybridCurrent = JSON.parse(await fs.readFile(args.hybridCurrent, "utf8"));
@@ -1479,9 +1485,9 @@ async function main() {
 			throw new Error("Hybrid current geometry is not a FeatureCollection.");
 		}
 	}
-	if (hybridTargets.length && !args.hybridCurrent) {
+	if (currentGeometryTargets.length && !args.hybridCurrent) {
 		console.warn(
-			"Hybrid targets configured without --hybrid-current; "
+			"Targets requiring current geometry configured without --hybrid-current; "
 			+ "building only historical LOD2.1 geometry."
 		);
 	}
@@ -1496,7 +1502,7 @@ async function main() {
 	}
 
 	const currentGeometryByCode = new Map();
-	for (const target of hybridTargets) {
+	for (const target of currentGeometryTargets) {
 		const geometries = [];
 		for (const ksId of target.ksIds || []) {
 			const feature = hybridCurrentByKsId.get(String(ksId));
@@ -1601,15 +1607,15 @@ async function main() {
 	}
 
 
-	for (const target of hybridTargets.filter(isHistoricalClipTarget)) {
+	for (const target of currentGeometryTargets.filter(isHistoricalClipTarget)) {
 		const code = String(target.historicalCode);
 		const entries = clipPendingByCode.get(code) || [];
 		if (!entries.length) {
-			throw new Error("Hybrid clip target " + code + " has no CityGML objects.");
+			throw new Error("Historical clip target " + code + " has no CityGML objects.");
 		}
 		const currentGeometry = currentGeometryByCode.get(code);
 		if (!currentGeometry) {
-			throw new Error("Hybrid clip target " + code + " has no current geometry.");
+			throw new Error("Historical clip target " + code + " has no current geometry.");
 		}
 
 		const objectGrounds = entries.map((entry) => (
@@ -1617,7 +1623,7 @@ async function main() {
 		)).filter(Boolean);
 		const historicalGround = unionJstsGeometries(objectGrounds);
 		if (!historicalGround) {
-			throw new Error("Hybrid clip target " + code + " has no historical footprint.");
+			throw new Error("Historical clip target " + code + " has no historical footprint.");
 		}
 
 		const heightSplit = (
@@ -1702,7 +1708,7 @@ async function main() {
 			geoWriter
 		);
 		if (!clippedHistoricalGround || clippedHistoricalGround.isEmpty()) {
-			throw new Error("Hybrid clip target " + code + " has empty target footprint.");
+			throw new Error("Historical clip target " + code + " has empty target footprint.");
 		}
 		const sliverHoleCleanup = removeInteriorSliverHoles(
 			clippedHistoricalGround,
@@ -1777,7 +1783,7 @@ async function main() {
 			);
 			if (!clipped?.surfaces?.length) {
 				throw new Error(
-					"Hybrid clip target " + code
+					"Historical clip target " + code
 					+ " produced no clipped surfaces for object " + index
 				);
 			}
@@ -1846,7 +1852,7 @@ async function main() {
 	}
 
 	const hybridStats = [];
-	for (const target of hybridTargets) {
+	for (const target of currentGeometryTargets) {
 		const code = String(target.historicalCode);
 		const historicalGround = unionJstsGeometries(
 			historicalGroundByCode.get(code) || []
