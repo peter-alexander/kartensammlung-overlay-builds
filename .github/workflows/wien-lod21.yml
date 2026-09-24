@@ -52,7 +52,7 @@ jobs:
       - name: Deploy Vienna LOD2.1 production fallback
         run: |
           chmod +x .github/scripts/lftp-upload.sh
-          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienLOD21"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienBuildings/LOD21"
           .github/scripts/lftp-upload.sh wien-lod21/build/WienBuildingsLOD21 "$REMOTE_BASE"
 
 # full-build-version: 7
