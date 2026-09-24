@@ -1,0 +1,145 @@
+name: Probe Vienna roof position
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-loss-analysis
+    paths:
+      - '.github/workflows/probe-wien-roof-position.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Probe current OGD and Maptoolkit
+        run: |
+          node --input-type=module <<'NODE'
+          import { VectorTile } from "@mapbox/vector-tile";
+          import { PbfReader } from "pbf";
+
+          const point = { lng: 16.372257, lat: 48.197761 };
+          const tile = { z: 15, x: 17874, y: 11363 };
+
+          function pointInRing(point, ring) {
+          	let inside = false;
+          	for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          		const a = ring[i];
+          		const b = ring[j];
+          		if (
+          			(a[1] > point.lat) !== (b[1] > point.lat)
+          			&& point.lng < (
+          				(b[0] - a[0]) * (point.lat - a[1])
+          				/ ((b[1] - a[1]) || Number.EPSILON)
+          				+ a[0]
+          			)
+          		) inside = !inside;
+          	}
+          	return inside;
+          }
+
+          function polygonContainsPoint(geometry, point) {
+          	const polygons = geometry?.type === "Polygon"
+          		? [geometry.coordinates]
+          		: geometry?.type === "MultiPolygon"
+          			? geometry.coordinates
+          			: [];
+          	for (const polygon of polygons) {
+          		if (!polygon?.length || !pointInRing(point, polygon[0])) continue;
+          		if (polygon.slice(1).some((ring) => pointInRing(point, ring))) continue;
+          		return true;
+          	}
+          	return false;
+          }
+
+          function geometryDistanceSquared(geometry, point) {
+          	let best = Infinity;
+          	const visit = (value) => {
+          		if (!Array.isArray(value)) return;
+          		if (
+          			value.length >= 2
+          			&& Number.isFinite(Number(value[0]))
+          			&& Number.isFinite(Number(value[1]))
+          		) {
+          			const dx = Number(value[0]) - point.lng;
+          			const dy = Number(value[1]) - point.lat;
+          			best = Math.min(best, dx * dx + dy * dy);
+          			return;
+          		}
+          		for (const child of value) visit(child);
+          	};
+          	visit(geometry?.coordinates);
+          	return best;
+          }
+
+          async function fetchTile(url) {
+          	const response = await fetch(url);
+          	if (!response.ok) throw new Error(url + " HTTP " + response.status);
+          	return new VectorTile(new PbfReader(await response.arrayBuffer()));
+          }
+
+          const releaseResponse = await fetch(
+          	"https://tiles.radlobby.at/WienBuildings/release.json?probe=" + Date.now()
+          );
+          const release = await releaseResponse.json();
+          console.log("WienBuildings release", release.generatedAt);
+
+          const ogd = await fetchTile(
+          	"https://tiles.radlobby.at/WienBuildings/tiles/15/17874/11363.pbf?v="
+          	+ encodeURIComponent(release.generatedAt)
+          );
+          const mtk = await fetchTile(
+          	"https://mtk.wien.gv.at/dataconnector/wien/buildings3d/15/17874/11363.pbf"
+          );
+
+          function inspect(label, vectorTile) {
+          	console.log(label + " layers", Object.keys(vectorTile.layers));
+          	for (const [layerName, layer] of Object.entries(vectorTile.layers)) {
+          		const matches = [];
+          		for (let index = 0; index < layer.length; index += 1) {
+          			const feature = layer.feature(index);
+          			let geojson;
+          			try {
+          				geojson = feature.toGeoJSON(tile.x, tile.y, tile.z);
+          			} catch {
+          				continue;
+          			}
+          			const contains = polygonContainsPoint(geojson.geometry, point);
+          			const distance2 = geometryDistanceSquared(geojson.geometry, point);
+          			if (contains || distance2 < 2.5e-8) {
+          				matches.push({
+          					index,
+          					contains,
+          					distance2,
+          					id: feature.id ?? null,
+          					properties: feature.properties,
+          					geometryType: geojson.geometry?.type
+          				});
+          			}
+          		}
+          		matches.sort((a, b) => (
+          			Number(b.contains) - Number(a.contains)
+          			|| a.distance2 - b.distance2
+          		));
+          		if (matches.length) {
+          			console.log(label + " " + layerName, JSON.stringify(matches.slice(0, 12)));
+          		}
+          	}
+          }
+
+          inspect("OGD", ogd);
+          inspect("MAPTOOLKIT", mtk);
+          NODE
