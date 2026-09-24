@@ -73,18 +73,27 @@ enthält:
 - 7 geometrisch geclippte `hybrid-b-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-c-clip`-Gebäude,
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
-- 26 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
+- 27 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
 - 2 höhensensitiv geteilte `hybrid-height-split`-Gebäude,
 - 36 streng auditierte `maptoolkit-roof-replacement`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.309 Gebäude.
+- insgesamt 2.310 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
 **1.062 automatisch freigegeben**. Der einzige nicht automatisch ausgewählte
 Kandidat ist `113842` (Straußengasse 14), der bereits als manuell bestätigte
 Hybrid-Ausnahme produktiv ist. Damit sind alle 1.063 sicheren
 `legacy-subset`-Kandidaten im Produktionsmodell vertreten.
+
+Zusätzlich ist `006944` als einzeln auditierter
+`hybrid-eave-clip`-Fall enthalten. Maptoolkit liefert für den heutigen
+Baukörper `5288572` gar kein LOD2. Der historische Grundriss stimmt mit dem
+aktuellen OGD-Grundriss praktisch vollständig überein (IoU 0,9998,
+Schwerpunktversatz 1 cm). Die frühere Höhenprüfung stufte den Fall nur deshalb
+als `plausible` ein, weil sie die heutige Baukörper-/Traufhöhe mit dem
+historischen First verglich. Die separat geprüfte historische Traufhöhe liegt
+bei 20,68 m und damit innerhalb der 6-m-Toleranz zur heutigen OGD-Höhe.
 
 ## Maptoolkit-Dachersatz
 

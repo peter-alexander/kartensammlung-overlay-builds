@@ -16,10 +16,11 @@
 		"hybridEaveAuditGeneratedAt": "2026-09-23T18:51:35.384Z",
 		"hybridHeightSplitToleranceM": 0.25,
 		"maptoolkitRoofReplacementSelected": 36,
-		"maptoolkitRoofReplacementAuditGeneratedAt": "2026-09-24T18:30:55.357Z"
+		"maptoolkitRoofReplacementAuditGeneratedAt": "2026-09-24T18:30:55.357Z",
+		"auditedPlausibleEaveClipSelected": 1
 	},
 	"counts": {
-		"total": 2309,
+		"total": 2310,
 		"directStrong": 1209,
 		"hybridA": 614,
 		"hybridBAbsolute": 72,
@@ -27,7 +28,7 @@
 		"hybridBClip": 7,
 		"hybridCClip": 169,
 		"hybridDClip": 169,
-		"hybridEaveClip": 26,
+		"hybridEaveClip": 27,
 		"hybridHeightSplit": 2,
 		"maptoolkitRoofReplacement": 36,
 		"manualPilotStrong": 1,
@@ -1047,6 +1048,27 @@
 			"rolloutMode": "direct-strong",
 			"expectedRemainderM2": 0.02,
 			"historicalOutsideCurrentM2": 0.02
+		},
+		{
+			"name": "Wien LOD2.1 006944",
+			"historicalCode": "006944",
+			"bwGebId": 5288572,
+			"ksIds": [
+				"wien-fmzk:4002350666",
+				"wien-fmzk:4002350702",
+				"wien-fmzk:4004308520"
+			],
+			"sheet": "105079",
+			"lng": 16.372257,
+			"lat": 48.197761,
+			"rolloutMode": "hybrid-eave-clip",
+			"expectedRemainderM2": 0.43,
+			"historicalOutsideCurrentM2": 0.08,
+			"auditedHistoricalClip": true,
+			"auditedHeightMetric": "median-roof-surface-minimum",
+			"auditedHistoricalEaveHeightM": 20.68,
+			"auditedHistoricalEaveDifferenceM": 0.77,
+			"auditedHistoricalEaveToleranceM": 6
 		},
 		{
 			"name": "TU Wien, Karlsplatz 13",
