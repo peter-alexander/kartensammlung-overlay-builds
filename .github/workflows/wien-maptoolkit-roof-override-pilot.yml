@@ -1,12 +1,7 @@
 name: Audit Maptoolkit roof override pilot
 
 on:
-  push:
-    branches:
-      - feature/wien-maptoolkit-roof-loss-analysis
-    paths:
-      - '.github/workflows/wien-maptoolkit-roof-override-pilot.yml'
-      - 'wien-buildings/analyze-maptoolkit-override-pilot.mjs'
+  workflow_dispatch:
 
 permissions:
   contents: read
