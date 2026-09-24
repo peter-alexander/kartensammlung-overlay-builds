@@ -1,0 +1,243 @@
+name: Select Vienna cross-tile roof replacements
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-cross-tile
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-cross-tile-select.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-lod21-analysis
+          path: /tmp/roof-loss
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35913353237
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-loss-surface-audit
+          path: /tmp/surface
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35920353326
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-maptoolkit-roof-cross-tile-audit
+          path: /tmp/cross
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 36004512159
+
+      - name: Append three audited edge/cross-tile targets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const outputPath =
+          	"wien-lod21/maptoolkit-roof-overrides.production.json";
+          const current = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+          const summary = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/roof-loss/wien-roof-loss-summary.json",
+          		"utf8"
+          	)
+          );
+          const surface = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/surface/wien-roof-loss-surface-audit.json",
+          		"utf8"
+          	)
+          );
+          const cross = JSON.parse(
+          	fs.readFileSync(
+          		"/tmp/cross/wien-maptoolkit-roof-cross-tile.json",
+          		"utf8"
+          	)
+          );
+
+          const expected = new Set(["120593", "137772", "226564"]);
+          const existingCodes = new Set(
+          	(current.buildings || []).map(
+          		(item) => String(item.historicalCode)
+          	)
+          );
+          if (Number(current.count) !== 27 || existingCodes.size !== 27) {
+          	throw new Error(
+          		"Expected current 27-target production manifest."
+          	);
+          }
+          for (const code of expected) {
+          	if (existingCodes.has(code)) {
+          		throw new Error(code + " is already in production.");
+          	}
+          }
+
+          const strongByCode = new Map(
+          	(summary.strongCandidates || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+          const surfaceByCode = new Map(
+          	(surface.reports || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+          const crossByCode = new Map(
+          	(cross.rows || []).map((item) => [
+          		String(item.historicalCode),
+          		item
+          	])
+          );
+
+          const additions = [];
+          for (const code of [...expected].sort()) {
+          	const candidate = strongByCode.get(code);
+          	const s = surfaceByCode.get(code);
+          	const audit = crossByCode.get(code);
+          	if (!candidate || !s || !audit) {
+          		throw new Error(code + ": missing audit source.");
+          	}
+          	if (
+          		s.safe !== true
+          		|| Number(s.flatHitPercent) !== 100
+          		|| Number(s.pitchedHitPoints) !== 0
+          		|| Number(s.maptoolkitFlatVsHistoricalEaveM) < -0.25
+          		|| Number(s.maptoolkitFlatVsHistoricalRidgeM) > 0.25
+          		|| Number(audit.sharedFeatureCount) !== 0
+          		|| Number(audit.featureCount) < 1
+          	) {
+          		throw new Error(code + ": safety audit failed.");
+          	}
+
+          	const byTile = new Map();
+          	for (const feature of audit.features || []) {
+          		if (feature.exclusive !== true) {
+          			throw new Error(code + ": non-exclusive feature.");
+          		}
+          		const tile = String(feature.tile || "");
+          		const signature = String(
+          			feature.signature || ""
+          		).toLowerCase();
+          		if (
+          			!/^15\/\d+\/\d+$/.test(tile)
+          			|| !/^[0-9a-f]{8}$/.test(signature)
+          		) {
+          			throw new Error(code + ": invalid feature audit.");
+          		}
+          		if (!byTile.has(tile)) byTile.set(tile, []);
+          		byTile.get(tile).push(signature);
+          		}
+          	const featureTiles = [...byTile]
+          		.map(([tile, signatures]) => ({
+          			tile,
+          			featureSignatures: [...new Set(signatures)].sort()
+          		}))
+          		.sort((a, b) => a.tile.localeCompare(b.tile));
+          	const totalSignatures = featureTiles.reduce(
+          		(sum, item) => sum + item.featureSignatures.length,
+          		0
+          	);
+          	if (totalSignatures !== Number(audit.featureCount)) {
+          		throw new Error(code + ": signature count mismatch.");
+          	}
+          	const wantedTileCount = code === "137772" ? 1 : 2;
+          	if (featureTiles.length !== wantedTileCount) {
+          		throw new Error(
+          			code + ": expected " + wantedTileCount
+          			+ " feature tile(s), got " + featureTiles.length
+          		);
+          	}
+
+          	additions.push({
+          		name: "Maptoolkit roof replacement " + code,
+          		historicalCode: code,
+          		bwGebId: Number(audit.bwGebId),
+          		ksIds: [...new Set(audit.ksIds || [])].map(String).sort(),
+          		sheet: String(candidate.sheet || ""),
+          		lng: Number(candidate.lng),
+          		lat: Number(candidate.lat),
+          		rolloutMode: "maptoolkit-roof-replacement",
+          		auditedMaptoolkitOverride: {
+          			featureTiles,
+          			featureCount: totalSignatures,
+          			flatHitPercent: Number(s.flatHitPercent),
+          			historicalRoofMinM:
+          				Number(s.historicalPitchedRoof?.minM),
+          			historicalRoofMaxM:
+          				Number(s.historicalPitchedRoof?.maxM),
+          			maptoolkitFlatMedianM:
+          				Number(s.maptoolkitFlatMedianM),
+          			flatVsHistoricalEaveM:
+          				Number(s.maptoolkitFlatVsHistoricalEaveM),
+          			flatVsHistoricalRidgeM:
+          				Number(s.maptoolkitFlatVsHistoricalRidgeM)
+          		}
+          	});
+          }
+
+          const buildings = [
+          	...(current.buildings || []),
+          	...additions
+          ].sort((a, b) => (
+          	String(a.historicalCode)
+          		.localeCompare(String(b.historicalCode))
+          ));
+          if (
+          	buildings.length !== 30
+          	|| new Set(
+          		buildings.map((item) => String(item.historicalCode))
+          	).size !== 30
+          ) {
+          	throw new Error("Expected 30 unique production replacements.");
+          }
+
+          const output = {
+          	...current,
+          	generatedAt: new Date().toISOString(),
+          	count: buildings.length,
+          	audit: {
+          		...(current.audit || {}),
+          		crossTileAuditRunId: 36004512159,
+          		requireCrossTileGroupValidation: true
+          	},
+          	buildings
+          };
+          fs.writeFileSync(
+          	outputPath,
+          	JSON.stringify(output, null, "\t") + "\n"
+          );
+          console.log(JSON.stringify({
+          	count: output.count,
+          	additions: additions.map((item) => ({
+          		code: item.historicalCode,
+          		featureTiles:
+          			item.auditedMaptoolkitOverride.featureTiles
+          	}))
+          }, null, 2));
+          NODE
+
+      - name: Commit production override manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/maptoolkit-roof-overrides.production.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Add audited Vienna cross-tile roof replacements"
+          git push
