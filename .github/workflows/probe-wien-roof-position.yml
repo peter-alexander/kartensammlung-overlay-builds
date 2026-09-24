@@ -145,3 +145,38 @@ jobs:
           inspect("OGD", ogd);
           inspect("MAPTOOLKIT", mtk);
           NODE
+
+      - name: Match historical LOD2.1 006944
+        run: |
+          cat >/tmp/wien-roof-gap.json <<'JSON'
+          {
+          	"generatedAt": "2026-09-24T20:36:00Z",
+          	"candidateSheets": ["105079"],
+          	"lod21CodeCandidates": [{
+          		"historicalCode": "006944",
+          		"partCount": 3,
+          		"ownerBwGebIds": ["5288572"],
+          		"maxHeight": 19.906,
+          		"lng": 16.372257,
+          		"lat": 48.197761,
+          		"lod21Sheet": "105079",
+          		"lod21Sheets": ["105079"],
+          		"ksIds": [],
+          		"sameCodeTotalParts": 3,
+          		"sameCodeMatchedParts": 0,
+          		"sameCodeOwnerBwGebIds": ["5288572"]
+          	}],
+          	"lod21SpatialCandidates": []
+          }
+          JSON
+          node wien-lod21/match-candidates.mjs \
+          	--input /tmp/wien-roof-gap.json \
+          	--output /tmp/wien-roof-match.json \
+          	--all
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const report = JSON.parse(fs.readFileSync("/tmp/wien-roof-match.json", "utf8"));
+          console.log("HISTORICAL_MATCH", JSON.stringify(report.results?.[0] || null));
+          console.log("DIRECT_CANDIDATES", JSON.stringify(report.directCandidates || []));
+          console.log("HYBRID_CANDIDATES", JSON.stringify(report.hybridCandidates || []));
+          NODE
