@@ -7,8 +7,8 @@ import proj4 from "proj4";
 import { VectorTile } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
 
-const RELEASE_URL = "https://tiles.radlobby.at/WienBuildings/release.json";
-const OGD_TILE_URL = "https://tiles.radlobby.at/WienBuildings/tiles/{z}/{x}/{y}.pbf";
+const RELEASE_URL = "https://tiles.radlobby.at/WienBuildings/LOD1/release.json";
+const OGD_TILE_URL = "https://tiles.radlobby.at/WienBuildings/LOD1/tiles/{z}/{x}/{y}.pbf";
 const MTK_TILE_URL = "https://mtk.wien.gv.at/dataconnector/wien/buildings3d/{z}/{x}/{y}.pbf";
 const ZOOM = 15;
 const GRID_SIZE = 64;
