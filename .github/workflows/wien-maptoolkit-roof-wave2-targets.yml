@@ -1,0 +1,95 @@
+name: Refresh Vienna roof replacement wave 2 targets
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-overrides-wave2
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-wave2-targets.yml'
+      - 'wien-lod21/make-production-targets.mjs'
+      - 'wien-lod21/maptoolkit-roof-overrides.production.json'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wien-lod21-citywide-final-analysis
+          path: /tmp/lod21-analysis
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35779704000
+
+      - name: Generate production target snapshot
+        run: |
+          node wien-lod21/make-production-targets.mjs \
+            --report /tmp/lod21-analysis/wien-lod21-citywide-final.json \
+            --pilot wien-lod21/targets.pilot.json \
+            --roof-replacements wien-lod21/maptoolkit-roof-overrides.production.json \
+            --output wien-lod21/targets.production.json \
+            --include-hybrid-a \
+            --include-hybrid-b-absolute \
+            --include-hybrid-b-thin \
+            --include-hybrid-b-clip \
+            --include-hybrid-c-clip \
+            --include-hybrid-d-clip \
+            --include-hybrid-eave-clip \
+            --include-hybrid-height-split \
+            --include-maptoolkit-roof-replacements
+
+      - name: Verify wave 2 snapshot
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const data = JSON.parse(
+          	fs.readFileSync("wien-lod21/targets.production.json", "utf8")
+          );
+          if (Number(data.counts?.total) !== 2295) {
+          	throw new Error(
+          		"Expected 2295 production targets, got "
+          		+ data.counts?.total
+          	);
+          }
+          if (Number(data.counts?.maptoolkitRoofReplacement) !== 22) {
+          	throw new Error(
+          		"Expected 22 Maptoolkit roof replacements, got "
+          		+ data.counts?.maptoolkitRoofReplacement
+          	);
+          }
+          const wave2 = new Set(["143213", "200497", "503621"]);
+          const found = (data.buildings || [])
+          	.filter((item) => wave2.has(String(item.historicalCode)))
+          	.map((item) => String(item.historicalCode))
+          	.sort();
+          if (JSON.stringify(found) !== JSON.stringify([...wave2].sort())) {
+          	throw new Error(
+          		"Wave 2 targets missing: " + JSON.stringify(found)
+          	);
+          }
+          console.log(JSON.stringify({
+          	counts: data.counts,
+          	wave2: found
+          }, null, 2));
+          NODE
+
+      - name: Commit production target snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wien-lod21/targets.production.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote Vienna roof replacement wave 2"
+          git push
