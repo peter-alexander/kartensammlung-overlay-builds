@@ -6,7 +6,6 @@ on:
     paths:
       - 'copernicus-wmts/**'
       - '.github/scripts/main-ftp-upload-file.sh'
-      - '.github/scripts/write-copernicus-oauth-config.mjs'
       - '.github/workflows/copernicus-wmts.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -16,7 +15,6 @@ on:
     paths:
       - 'copernicus-wmts/**'
       - '.github/scripts/main-ftp-upload-file.sh'
-      - '.github/scripts/write-copernicus-oauth-config.mjs'
       - '.github/workflows/copernicus-wmts.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -36,8 +34,6 @@ jobs:
     timeout-minutes: 15
     env:
       COPERNICUS_INSTANCE_ID: ${{ secrets.COPERNICUS_INSTANCE_ID }}
-      COPERNICUS_CLIENT_ID: ${{ secrets.COPERNICUS_CLIENT_ID }}
-      COPERNICUS_CLIENT_SECRET: ${{ secrets.COPERNICUS_CLIENT_SECRET }}
       MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
       MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
       MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
@@ -57,36 +53,9 @@ jobs:
       - name: Test Copernicus WMTS parser
         run: node copernicus-wmts/test.mjs
 
-      - name: Require Copernicus secrets outside pull requests
+      - name: Require Copernicus secret outside pull requests
         if: github.event_name != 'pull_request'
-        run: |
-          test -n "$COPERNICUS_INSTANCE_ID"
-          test -n "$COPERNICUS_CLIENT_ID"
-          test -n "$COPERNICUS_CLIENT_SECRET"
-
-      - name: Deploy server-side Copernicus OAuth credentials
-        if: github.event_name != 'pull_request' && github.event_name != 'schedule'
-        run: |
-          set -euo pipefail
-          case "${MAIN_REMOTE_ROOT%/}" in
-            */Maps)
-              MAIN_APP_REMOTE_ROOT="${MAIN_REMOTE_ROOT%/Maps}"
-              ;;
-            *)
-              echo "MAIN_REMOTE_ROOT must end in /Maps" >&2
-              exit 1
-              ;;
-          esac
-
-          mkdir -p .tmp
-          node .github/scripts/write-copernicus-oauth-config.mjs .tmp/CopernicusOAuth.local.php
-
-          chmod +x .github/scripts/main-ftp-upload-file.sh
-          .github/scripts/main-ftp-upload-file.sh \
-            .tmp/CopernicusOAuth.local.php \
-            "${MAIN_APP_REMOTE_ROOT%/}/Php/Config/CopernicusOAuth.local.php"
-
-          rm -f .tmp/CopernicusOAuth.local.php
+        run: test -n "$COPERNICUS_INSTANCE_ID"
 
       - name: Build live Copernicus WMTS catalog
         if: env.COPERNICUS_INSTANCE_ID != ''
