@@ -42,6 +42,7 @@ const hybridCClip = countMode("hybrid-c-clip");
 const hybridDClip = countMode("hybrid-d-clip");
 const hybridEaveClip = countMode("hybrid-eave-clip");
 const hybridHeightSplit = countMode("hybrid-height-split");
+const maptoolkitRoofReplacement = countMode("maptoolkit-roof-replacement");
 const manualPilotStrong = countMode("manual-pilot-strong");
 const manualPilotHybrid = countMode("manual-pilot-hybrid");
 
@@ -133,8 +134,33 @@ if (
 		+ Number(release.counts.hybridHeightSplit || 0)
 	);
 }
-if (items.length !== 2273) {
-	throw new Error("Expected 2273 production targets, got " + items.length);
+if (
+	maptoolkitRoofReplacement !== 19
+	|| Number(release.counts.maptoolkitRoofReplacement || 0)
+		!== maptoolkitRoofReplacement
+) {
+	throw new Error(
+		"Expected 19 audited Maptoolkit roof replacements, got "
+		+ maptoolkitRoofReplacement + " / release "
+		+ Number(release.counts.maptoolkitRoofReplacement || 0)
+	);
+}
+if (items.length !== 2292) {
+	throw new Error("Expected 2292 production targets, got " + items.length);
+}
+
+const releaseRoofOverrides =
+	Array.isArray(release.maptoolkitRoofOverrides?.targets)
+		? release.maptoolkitRoofOverrides.targets
+		: [];
+if (
+	release.maptoolkitRoofOverrides?.mode
+	!== "fail-safe-feature-fingerprint"
+	|| releaseRoofOverrides.length !== 19
+) {
+	throw new Error(
+		"Expected 19 fail-safe Maptoolkit roof override release entries."
+	);
 }
 if (Number(release.counts.manualPilotHybrid || 0) !== manualPilotHybrid) {
 	throw new Error(
@@ -273,7 +299,51 @@ for (const target of items) {
 		}
 	}
 
-	if (target.rolloutMode === "hybrid-eave-clip") {
+	if (target.rolloutMode === "maptoolkit-roof-replacement") {
+		const audit = target.auditedMaptoolkitOverride;
+		const signatures = Array.isArray(audit?.featureSignatures)
+			? [...new Set(
+				audit.featureSignatures
+					.map((value) => String(value || "").trim().toLowerCase())
+					.filter(Boolean)
+			)].sort()
+			: [];
+		if (
+			!audit
+			|| !/^15\/\d+\/\d+$/.test(String(audit.tile || ""))
+			|| signatures.length < 1
+			|| signatures.length !== Number(audit.featureCount)
+			|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+			|| Number(audit.flatHitPercent) !== 100
+			|| Number(audit.flatVsHistoricalEaveM) < -0.25
+			|| Number(audit.flatVsHistoricalRidgeM) > 0.25
+		) {
+			throw new Error(
+				"Invalid Maptoolkit roof replacement audit for "
+				+ target.historicalCode
+			);
+		}
+		const releaseEntry = releaseRoofOverrides.find(
+			(item) => (
+				String(item.historicalCode) === String(target.historicalCode)
+			)
+		);
+		if (
+			!releaseEntry
+			|| String(releaseEntry.tile) !== String(audit.tile)
+			|| String(releaseEntry.bwGebId) !== String(target.bwGebId)
+			|| JSON.stringify(
+				[...(releaseEntry.featureSignatures || [])].map(String).sort()
+			) !== JSON.stringify(signatures)
+		) {
+			throw new Error(
+				"Maptoolkit roof replacement release fingerprint mismatch for "
+				+ target.historicalCode
+			);
+		}
+	}
+
+		if (target.rolloutMode === "hybrid-eave-clip") {
 		if (target.auditedHeightMetric !== "median-roof-surface-minimum") {
 			throw new Error(
 				"Unexpected eave height metric for "
@@ -481,6 +551,7 @@ console.log(JSON.stringify({
 		hybridDClip,
 		hybridEaveClip,
 		hybridHeightSplit,
+		maptoolkitRoofReplacement,
 		manualPilotStrong,
 		manualPilotHybrid
 	},
