@@ -403,7 +403,7 @@ function buildArcGisStyles(data) {
 		} else if (path.includes("arcgis/oceans/base")) {
 			cat = "Hintergrundkarten";
 		} else if (style.group === "satellite") {
-			cat = "Luftbilder";
+			cat = "Luft- & Satellitenbilder";
 		} else if (style.group === "reference") {
 			cat = "Hintergrundkarten";
 		} else if (style.group === "creative") {
