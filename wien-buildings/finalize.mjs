@@ -3,7 +3,7 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 
-const PUBLIC_TILE_BASE = "https://tiles.radlobby.at/WienBuildings";
+const PUBLIC_TILE_BASE = "https://tiles.radlobby.at/WienBuildings/LOD1";
 const DEFAULT_PUBLISH_DIR = path.resolve("wien-buildings/build/WienBuildings");
 
 function parseArgs(argv) {
