@@ -75,10 +75,10 @@ enthält:
 - 169 vollständig auditierte `hybrid-d-clip`-Gebäude,
 - 26 traufhöhen-korrigierte `hybrid-eave-clip`-Gebäude,
 - 2 höhensensitiv geteilte `hybrid-height-split`-Gebäude,
-- 19 streng auditierte `maptoolkit-roof-replacement`-Gebäude,
+- 22 streng auditierte `maptoolkit-roof-replacement`-Gebäude,
 - 1 manuell bestätigte `manual-pilot-strong`-Ausnahme (TU Wien),
 - 1 manuell bestätigte `manual-pilot-hybrid`-Ausnahme (Straußengasse 14),
-- insgesamt 2.292 Gebäude.
+- insgesamt 2.295 Gebäude.
 
 Von den ursprünglich 1.063 sicheren `legacy-subset`-Kandidaten sind damit
 **1.062 automatisch freigegeben**. Der einzige nicht automatisch ausgewählte
@@ -88,7 +88,7 @@ Hybrid-Ausnahme produktiv ist. Damit sind alle 1.063 sicheren
 
 ## Maptoolkit-Dachersatz
 
-Die 19 `maptoolkit-roof-replacement`-Fälle sind **kein allgemeiner Vorrang
+Die 22 `maptoolkit-roof-replacement`-Fälle sind **kein allgemeiner Vorrang
 historischer Daten vor Maptoolkit**. Sie wurden zusätzlich zur
 Grundriss-/Identitätsprüfung direkt gegen die aktuell ausgelieferten
 `buildings3d`-Flächen geprüft.
@@ -114,6 +114,8 @@ eindeutig vorhanden sind, werden genau diese Maptoolkit-Features entfernt und
 das historische Dach eingeblendet. Ändert Maptoolkit die Geometrie oder ist
 ein Fingerprint nicht eindeutig, bleibt das aktuelle Maptoolkit-Modell
 unverändert sichtbar.
+
+Die zweite auditierte Welle ergänzt die Codes `143213`, `200497` und `503621`. Alle drei erfüllen dieselben Surface-, Höhen-, Eigentums- und Single-Tile-Kriterien wie die erste Welle.
 
 Der Produktionsbuild schreibt die große Diagnose-/Matchliste nach
 `targets.json`. `release.json` enthält neben Version, Tile-Verfügbarkeit

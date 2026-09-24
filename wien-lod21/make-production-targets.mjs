@@ -156,6 +156,15 @@ function parseArgs(argv) {
 			"--include-hybrid-height-split requires --include-hybrid-eave-clip."
 		);
 	}
+	if (
+		result.includeMaptoolkitRoofReplacements
+		&& !result.includeHybridHeightSplit
+	) {
+		throw new Error(
+			"--include-maptoolkit-roof-replacements requires "
+			+ "--include-hybrid-height-split."
+		);
+	}
 	return result;
 }
 
@@ -382,7 +391,24 @@ async function main() {
 	const pilot = JSON.parse(await fs.readFile(args.pilot, "utf8"));
 	const roofReplacements = args.includeMaptoolkitRoofReplacements
 		? JSON.parse(await fs.readFile(args.roofReplacements, "utf8"))
-		: { buildings: [] };
+		: { count: 0, buildings: [] };
+	const expectedRoofReplacementCount =
+		args.includeMaptoolkitRoofReplacements
+			? Number(roofReplacements?.count)
+			: 0;
+	if (
+		!Number.isInteger(expectedRoofReplacementCount)
+		|| expectedRoofReplacementCount < 0
+		|| (
+			args.includeMaptoolkitRoofReplacements
+			&& expectedRoofReplacementCount < 1
+		)
+	) {
+		throw new Error(
+			"Invalid Maptoolkit roof replacement manifest count: "
+			+ String(roofReplacements?.count)
+		);
+	}
 	const eaveAudit = JSON.parse(await fs.readFile(EAVE_AUDIT_PATH, "utf8"));
 	const eaveAuditByCode = new Map(
 		(eaveAudit.rows || []).map((item) => [
@@ -549,10 +575,11 @@ async function main() {
 		const replacements = Array.isArray(roofReplacements?.buildings)
 			? roofReplacements.buildings
 			: [];
-		if (replacements.length !== 19) {
+		if (replacements.length !== expectedRoofReplacementCount) {
 			throw new Error(
-				"Expected 19 audited Maptoolkit roof replacements, got "
-				+ replacements.length
+				"Maptoolkit roof replacement manifest count mismatch: "
+				+ replacements.length + " buildings vs "
+				+ expectedRoofReplacementCount + " declared"
 			);
 		}
 		for (const replacement of replacements) {
@@ -783,13 +810,9 @@ async function main() {
 			+ " hybrid-height-split targets, got " + hybridHeightSplitCount
 		);
 	}
-	if (
-		maptoolkitRoofReplacementCount
-		!== (args.includeMaptoolkitRoofReplacements ? 19 : 0)
-	) {
+	if (maptoolkitRoofReplacementCount !== expectedRoofReplacementCount) {
 		throw new Error(
-			"Expected "
-			+ (args.includeMaptoolkitRoofReplacements ? 19 : 0)
+			"Expected " + expectedRoofReplacementCount
 			+ " Maptoolkit roof replacements, got "
 			+ maptoolkitRoofReplacementCount
 		);
@@ -805,7 +828,7 @@ async function main() {
 		);
 	}
 	const expectedTargets = args.includeMaptoolkitRoofReplacements
-		? 2292
+		? 2273 + expectedRoofReplacementCount
 		: args.includeHybridHeightSplit
 			? 2273
 			: args.includeHybridEaveClip
