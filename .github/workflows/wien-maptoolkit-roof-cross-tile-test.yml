@@ -1,0 +1,144 @@
+name: Test Vienna cross-tile roof replacements
+
+on:
+  push:
+    branches:
+      - feature/wien-maptoolkit-roof-cross-tile
+    paths:
+      - '.github/workflows/wien-maptoolkit-roof-cross-tile-test.yml'
+      - 'wien-lod21/build.mjs'
+      - 'wien-lod21/targets.roof-cross-tile-pilot.json'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WIEN_LOD21_TARGETS: wien-lod21/targets.roof-cross-tile-pilot.json
+      WIEN_LOD21_DOWNLOAD_PARALLEL: 3
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Build pilot
+        run: |
+          chmod +x wien-lod21/run.sh
+          bash wien-lod21/run.sh
+
+      - name: Verify tile partition
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+
+          const root = "wien-lod21/build/WienBuildingsLOD21";
+          const expected = new Map([
+          	["120593", ["15/17875/11356", "15/17876/11356"]],
+          	["226564", ["15/17884/11356", "15/17885/11356"]],
+          	["137772", ["15/17884/11351"]]
+          ]);
+          const seen = new Map([...expected.keys()].map((code) => [code, []]));
+
+          for (const [code, tileKeys] of expected) {
+          	for (const tileKey of tileKeys) {
+          		const [z, x, y] = tileKey.split("/");
+          		const file = path.join(root, "tiles", z, x, y + ".bin");
+          		if (!fs.existsSync(file)) {
+          			throw new Error(code + ": missing " + tileKey);
+          		}
+          		const bytes = fs.readFileSync(file);
+          		const view = new DataView(
+          			bytes.buffer,
+          			bytes.byteOffset,
+          			bytes.byteLength
+          		);
+          		const metadataLength = view.getUint32(28, true);
+          		const metadata = JSON.parse(
+          			bytes.subarray(32, 32 + metadataLength).toString("utf8")
+          		);
+          		const padding = (4 - (metadataLength % 4)) % 4;
+          		const vertexOffset = 32 + metadataLength + padding;
+          		const stride = Number(metadata.vertexStride || 16);
+          		const building = (metadata.buildings || []).find(
+          			(item) => String(item.historicalCode) === code
+          		);
+          		if (!building) {
+          			throw new Error(code + ": no metadata in " + tileKey);
+          		}
+          		let pitchedVertices = 0;
+          		for (
+          			let index = Number(building.vertexStart);
+          			index < Number(building.vertexStart) + Number(building.vertexCount);
+          			index += 1
+          		) {
+          			if (view.getUint8(vertexOffset + index * stride + 12) === 1) {
+          				pitchedVertices += 1;
+          			}
+          		}
+          		if (!pitchedVertices) {
+          			throw new Error(code + ": no pitched roof in " + tileKey);
+          		}
+          		if (tileKeys.length > 1) {
+          			if (building.crossTilePart !== true) {
+          				throw new Error(code + ": crossTilePart missing");
+          			}
+          			const actual = [...(building.crossTileGroupTiles || [])].sort();
+          			const wanted = [...tileKeys].sort();
+          			if (JSON.stringify(actual) !== JSON.stringify(wanted)) {
+          				throw new Error(code + ": crossTileGroupTiles mismatch");
+          			}
+          		} else if (building.crossTilePart === true) {
+          			throw new Error(code + ": unexpected crossTilePart");
+          		}
+          		seen.get(code).push({
+          			tile: tileKey,
+          			vertices: Number(building.vertexCount),
+          			triangles: Number(building.indexCount) / 3,
+          			pitchedVertices
+          		});
+          	}
+          }
+
+          const targets = JSON.parse(
+          	fs.readFileSync(path.join(root, "targets.json"), "utf8")
+          );
+          for (const [code, tileKeys] of expected) {
+          	const target = (targets.targets || []).find(
+          		(item) => String(item.historicalCode) === code
+          	);
+          	const matchTiles = [...new Set(
+          		(target?.matches || []).map((item) => String(item.tile))
+          	)].sort();
+          	if (
+          		JSON.stringify(matchTiles)
+          		!== JSON.stringify([...tileKeys].sort())
+          	) {
+          		throw new Error(
+          			code + ": target match tiles " + matchTiles.join(",")
+          		);
+          	}
+          }
+          console.log(JSON.stringify(Object.fromEntries(seen), null, 2));
+          NODE
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wien-lod21-cross-tile-roof-pilot
+          path: wien-lod21/build/WienBuildingsLOD21/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
