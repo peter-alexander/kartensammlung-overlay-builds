@@ -37,7 +37,7 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           import vm from "node:vm";
-          import Pbf from "pbf";
+          import { PbfReader } from "pbf";
           import { VectorTile } from "@mapbox/vector-tile";
           import * as THREE from "three";
           import { performance } from "node:perf_hooks";
@@ -135,7 +135,7 @@ jobs:
           	runtime: {
           		THREE,
           		VectorTile,
-          		Protobuf: Pbf
+          		Protobuf: PbfReader
           	},
           	lod21ReleaseMetadata: release
           });
