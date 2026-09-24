@@ -592,6 +592,45 @@ async function main() {
 						.filter(Boolean)
 				)].sort()
 				: [];
+			const featureTiles = Array.isArray(audit?.featureTiles)
+				? audit.featureTiles
+					.map((item) => ({
+						tile: String(item?.tile || "").trim(),
+						featureSignatures: [...new Set(
+							Array.isArray(item?.featureSignatures)
+								? item.featureSignatures
+									.map((value) => (
+										String(value || "").trim().toLowerCase()
+									))
+									.filter(Boolean)
+								: []
+						)].sort()
+					}))
+					.sort((a, b) => a.tile.localeCompare(b.tile))
+				: [];
+			const allFeatureSignatures = featureTiles.length
+				? featureTiles.flatMap((item) => item.featureSignatures)
+				: signatures;
+			const replacementFeatureTile = featureTiles.find(
+				(item) => item.tile === String(audit?.tile || "")
+			);
+			const featureTilesValid = !featureTiles.length || (
+				featureTiles.length >= 2
+				&& new Set(featureTiles.map((item) => item.tile)).size
+					=== featureTiles.length
+				&& featureTiles.every((item) => (
+					/^15\/\d+\/\d+$/.test(item.tile)
+					&& item.featureSignatures.length >= 1
+					&& item.featureSignatures.every(
+						(value) => /^[0-9a-f]{8}$/.test(value)
+					)
+				))
+				&& new Set(allFeatureSignatures).size
+					=== allFeatureSignatures.length
+				&& replacementFeatureTile
+				&& JSON.stringify(replacementFeatureTile.featureSignatures)
+					=== JSON.stringify(signatures)
+			);
 			if (
 				!code
 				|| replacement?.rolloutMode !== "maptoolkit-roof-replacement"
@@ -600,8 +639,9 @@ async function main() {
 				|| !Number.isFinite(Number(replacement?.lat))
 				|| !String(audit?.tile || "").match(/^15\/\d+\/\d+$/)
 				|| signatures.length < 1
-				|| signatures.length !== Number(audit?.featureCount)
+				|| allFeatureSignatures.length !== Number(audit?.featureCount)
 				|| !signatures.every((value) => /^[0-9a-f]{8}$/.test(value))
+				|| !featureTilesValid
 				|| Number(audit?.flatHitPercent) !== 100
 				|| Number(audit?.flatVsHistoricalEaveM) < -0.25
 				|| Number(audit?.flatVsHistoricalRidgeM) > 0.25
@@ -619,7 +659,8 @@ async function main() {
 				)].sort(),
 				auditedMaptoolkitOverride: {
 					...audit,
-					featureSignatures: signatures
+					featureSignatures: signatures,
+					...(featureTiles.length ? { featureTiles } : {})
 				}
 			});
 		}
