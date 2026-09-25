@@ -4,8 +4,12 @@ Der Build verwendet bewusst nicht die instabilen CSV-/GeoJSON-Export-Displays de
 Radnetz-Dashboards. Stattdessen liest er dieselben serverseitig gerenderten Views,
 die auch die öffentliche Website verwendet:
 
-- `/bauprogramm/karte?type=2` und `?type=3` liefern die Leaflet-Geometrien sowie
-  stabile Drupal-Node-IDs in `drupalSettings`.
+- `/bauprogramm/karte` liefert die vollständige Bauprogramm-Übersicht; die
+  tatsächlichen historischen Styles kommen aus den eingebetteten Karten der
+  offiziellen Jahresseiten `/bauprogramm/{year}`.
+- `/bauprogramm/karte?type=3` liefert die vollständige Karte der weiteren
+  Bauprojekte. Deren offizielle Jahresansichten werden mit `type=3&jahr={year}`
+  abgerufen. Projekte ohne Jahr bleiben aus der Übersicht erhalten.
 - `/bauprojekte?type=2` und `?type=3` liefern die paginierten Tabellen mit den
   aktuellen Projektattributen.
 - `/statuses.json` ergänzt die Statusdefinitionen; die konkrete Farbe jedes

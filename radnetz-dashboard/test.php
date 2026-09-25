@@ -68,12 +68,22 @@ expectSame(
 	'Radnetz Dashboard category type ids changed unexpectedly.'
 );
 expectSame(
-	radnetzDashboardMapUrl(2, '2006'),
-	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2&jahr=2006',
-	'Bauprogramm year-map URL failed.'
+	radnetzDashboardMapUrl('bauprogramm'),
+	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte',
+	'Bauprogramm overview-map URL failed.'
 );
 expectSame(
-	radnetzDashboardMapUrl(3, '2026'),
+	radnetzDashboardMapUrl('bauprogramm', '2006'),
+	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/2006',
+	'Bauprogramm year page URL failed.'
+);
+expectSame(
+	radnetzDashboardMapUrl('weitere'),
+	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3',
+	'Weitere Bauprojekte overview-map URL failed.'
+);
+expectSame(
+	radnetzDashboardMapUrl('weitere', '2026'),
 	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3&jahr=2026',
 	'Weitere Bauprojekte year-map URL failed.'
 );
@@ -126,6 +136,72 @@ expectSame(
 	radnetzDashboardMapColor($nestedColorFeature),
 	'#af0000',
 	'Nested rendered component color must override GeometryCollection wrapper color.'
+);
+
+$historicalColorSettings = [
+	'leaflet' => [
+		'map' => [
+			'features' => [
+				[
+					'type' => 'linestring',
+					'points' => [['lon' => 16.35, 'lat' => 48.18], ['lon' => 16.36, 'lat' => 48.19]],
+					'entity_id' => '299',
+					'popup' => ['value' => '<b><a href="/bauprogramm/2006/spengergasse-abschnitt-schoenbrunner-strasse-bis-wiedner-hauptstrasse">Spengergasse 2006</a></b><br>Radweg<br><a href="/bauprogramm/2006">Bauprogramm 2006</a><br>Status: fertiggestellt<br>'],
+					'path' => '{"color":"#af0000"}',
+				],
+				[
+					'type' => 'linestring',
+					'points' => [['lon' => 16.35, 'lat' => 48.18], ['lon' => 16.36, 'lat' => 48.19]],
+					'entity_id' => '339',
+					'popup' => ['value' => '<b><a href="/bauprogramm/2007/spengergasse-abschnitt-schoenbrunner-strasse-bis-wiedner-hauptstrasse">Spengergasse 2007</a></b><br>Radweg<br><a href="/bauprogramm/2007">Bauprogramm 2007</a><br>Status: fertiggestellt<br>'],
+					'path' => '{"color":"#204a87"}',
+				],
+				[
+					'type' => 'linestring',
+					'points' => [['lon' => 16.36, 'lat' => 48.18], ['lon' => 16.37, 'lat' => 48.19]],
+					'entity_id' => '171',
+					'popup' => ['value' => '<b><a href="/bauprogramm/2006/gassergasse-abschnitt-hollgasse-und-anzengrubergasse">Gassergasse 2006</a></b><br>Radweg<br><a href="/bauprogramm/2006">Bauprogramm 2006</a><br>Status: fertiggestellt<br>'],
+					'path' => '{"color":"#af0000"}',
+				],
+				[
+					'type' => 'linestring',
+					'points' => [['lon' => 16.36, 'lat' => 48.18], ['lon' => 16.37, 'lat' => 48.19]],
+					'entity_id' => '335',
+					'popup' => ['value' => '<b><a href="/bauprogramm/2007/gassergasse-abschnitt-hollgasse-bis-anzengrubergasse">Gassergasse 2007</a></b><br>Radweg<br><a href="/bauprogramm/2007">Bauprogramm 2007</a><br>Status: fertiggestellt<br>'],
+					'path' => '{"color":"#204a87"}',
+				],
+			],
+		],
+	],
+];
+$historicalColorHtml = '<script type="application/json" data-drupal-selector="drupal-settings-json">'
+	. json_encode($historicalColorSettings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+	. '</script>';
+$historicalColors = radnetzDashboardParseMapHtml($historicalColorHtml);
+expectSame(
+	radnetzDashboardYearsFromMapProjects($historicalColors),
+	['2006', '2007'],
+	'Years must also be discovered from the complete map overview.'
+);
+expectSame(
+	$historicalColors['/bauprogramm/2006/spengergasse-abschnitt-schoenbrunner-strasse-bis-wiedner-hauptstrasse']['color'] ?? null,
+	'#af0000',
+	'Spengergasse 2006 must keep the official historical red map color.'
+);
+expectSame(
+	$historicalColors['/bauprogramm/2007/spengergasse-abschnitt-schoenbrunner-strasse-bis-wiedner-hauptstrasse']['color'] ?? null,
+	'#204a87',
+	'Spengergasse 2007 must keep the official historical blue map color.'
+);
+expectSame(
+	$historicalColors['/bauprogramm/2006/gassergasse-abschnitt-hollgasse-und-anzengrubergasse']['color'] ?? null,
+	'#af0000',
+	'Gassergasse 2006 must keep the official historical red map color.'
+);
+expectSame(
+	$historicalColors['/bauprogramm/2007/gassergasse-abschnitt-hollgasse-bis-anzengrubergasse']['color'] ?? null,
+	'#204a87',
+	'Gassergasse 2007 must keep the official historical blue map color.'
 );
 
 $listHtml = <<<'HTML'
