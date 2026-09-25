@@ -57,6 +57,37 @@ expectSame(
 	'Decorated list status must be normalized.'
 );
 
+expectSame(
+	array_keys(radnetzDashboardSourceDefinitions()),
+	['bauprogramm', 'weitere'],
+	'All Radnetz Dashboard project categories must be configured.'
+);
+expectSame(
+	array_column(radnetzDashboardSourceDefinitions(), 'type'),
+	[2, 3],
+	'Radnetz Dashboard category type ids changed unexpectedly.'
+);
+expectSame(
+	radnetzDashboardMapUrl(2, '2006'),
+	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2&jahr=2006',
+	'Bauprogramm year-map URL failed.'
+);
+expectSame(
+	radnetzDashboardMapUrl(3, '2026'),
+	RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3&jahr=2026',
+	'Weitere Bauprojekte year-map URL failed.'
+);
+expectSame(
+	radnetzDashboardYearsFromRows([
+		['Jahr' => '2007'],
+		['Jahr' => '2006'],
+		['Jahr' => '2007'],
+		['Jahr' => ''],
+	]),
+	['2006', '2007'],
+	'Year extraction from project rows failed.'
+);
+
 $mapSettings = [
 	'leaflet' => [
 		'map' => [
