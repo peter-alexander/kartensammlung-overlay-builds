@@ -344,9 +344,9 @@ function radnetzDashboardYearsFromRows(array $rows): array
 	foreach ($rows as $row) {
 		$year = trim((string)($row['Jahr'] ?? ''));
 		if ($year === '' || !preg_match('/^(?:19|20)\\d{2}$/', $year)) continue;
-		$years[$year] = true;
+		$years[] = $year;
 	}
-	$years = array_keys($years);
+	$years = array_values(array_unique($years, SORT_STRING));
 	sort($years, SORT_NATURAL);
 	return $years;
 }
