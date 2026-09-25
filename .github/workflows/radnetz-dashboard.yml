@@ -40,7 +40,7 @@ jobs:
       - name: Install PHP runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y php-cli php-curl php-mbstring
+          sudo apt-get install -y php-cli php-curl php-mbstring php-xml
 
       - name: Test Radnetz Dashboard builder
         run: php radnetz-dashboard/test.php

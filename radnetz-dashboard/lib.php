@@ -10,6 +10,9 @@ const RADNETZ_DASHBOARD_HTTP_TIMEOUT = 45;
 const RADNETZ_DASHBOARD_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const RADNETZ_DASHBOARD_USER_AGENT = 'Kartensammlung Radnetz-Dashboard Proxy/1.0 (+https://www.kartensammlung.at/)';
 const RADNETZ_DASHBOARD_BASE_URL = 'https://radnetz-dashboard.radlobby.at/';
+const RADNETZ_DASHBOARD_FALLBACK_URL = 'https://fahrrad.lima-city.de/Maps/RadnetzDashboard.geojson';
+const RADNETZ_DASHBOARD_MIN_PROJECTS = 1000;
+const RADNETZ_DASHBOARD_MAX_LIST_PAGES = 25;
 
 if (!defined('RADNETZ_DASHBOARD_LIBRARY_ONLY')) {
 	radnetzDashboardMain();
@@ -128,24 +131,95 @@ function radnetzDashboardRespond(array $payload, string $cache, string $warning 
 
 function radnetzDashboardBuildPayload(): array
 {
-	$responses = radnetzDashboardFetchAll([
-		'bauprogramm' => RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte.csv?type=2',
-		'weitere' => RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte.csv?type=3',
-		'statuses' => RADNETZ_DASHBOARD_BASE_URL . 'statuses.json',
-	]);
-	$statuses = radnetzDashboardStatuses($responses['statuses']);
-	$features = [];
-	$unmapped = 0;
-	foreach ([
-		'bauprogramm' => 'Bauprogramm Stadt Wien',
-		'weitere' => 'Weitere Bauprojekte',
-	] as $key => $label) {
-		foreach (radnetzDashboardParseCsv($responses[$key]) as $index => $row) {
-			$feature = radnetzDashboardFeature($row, $key, $label, $statuses, $index);
-			if ($feature['geometry'] === null) $unmapped++;
-			$features[] = $feature;
+	$previous = radnetzDashboardPreviousPayload();
+
+	try {
+		return radnetzDashboardBuildLivePayload($previous);
+	} catch (Throwable $liveError) {
+		if ($previous === null) {
+			throw new RuntimeException(
+				'Live-Abruf fehlgeschlagen und kein gültiger veröffentlichter Stand verfügbar: ' . $liveError->getMessage(),
+				0,
+				$liveError
+			);
 		}
+
+		$previous['metadata'] = is_array($previous['metadata'] ?? null) ? $previous['metadata'] : [];
+		$previous['metadata']['sourceMode'] = 'stale-production-fallback';
+		$previous['metadata']['fallbackCheckedAt'] = gmdate('c');
+		$previous['metadata']['warning'] = 'Live-Abruf fehlgeschlagen; letzter veröffentlichter Stand wird beibehalten.';
+		$previous['metadata']['liveError'] = $liveError->getMessage();
+		return $previous;
 	}
+}
+
+function radnetzDashboardBuildLivePayload(?array $previous = null): array
+{
+	$statuses = [];
+	try {
+		$statuses = radnetzDashboardStatuses(radnetzDashboardHttp(
+			RADNETZ_DASHBOARD_BASE_URL . 'statuses.json',
+			'application/json',
+			1,
+			10
+		));
+	} catch (Throwable) {
+		// Die Kartenansicht liefert die tatsächlich verwendete Farbe je Projekt mit.
+	}
+
+	$previousByKey = radnetzDashboardPreviousFeaturesByKey($previous);
+	$features = [];
+	$sourceStats = [];
+	foreach (radnetzDashboardSourceDefinitions() as $typeKey => $source) {
+		$mapProjects = radnetzDashboardFetchMapProjects($source['type']);
+		[$rows, $pages] = radnetzDashboardFetchListRows($source['type'], $typeKey);
+		$matchedMapPaths = [];
+
+		foreach ($rows as $path => $row) {
+			$mapProject = $mapProjects[$path] ?? null;
+			if ($mapProject !== null) $matchedMapPaths[$path] = true;
+			$key = radnetzDashboardProjectKey($typeKey, (string)($row['Jahr'] ?? ''), (string)($row['Titel'] ?? ''));
+			$features[] = radnetzDashboardViewFeature(
+				$row,
+				$mapProject,
+				$typeKey,
+				$source['label'],
+				$statuses,
+				$previousByKey[$key] ?? null
+			);
+		}
+
+		foreach (array_diff_key($mapProjects, $matchedMapPaths) as $mapProject) {
+			$row = radnetzDashboardMapFallbackRow($mapProject);
+			$key = radnetzDashboardProjectKey($typeKey, (string)($row['Jahr'] ?? ''), (string)($row['Titel'] ?? ''));
+			$features[] = radnetzDashboardViewFeature(
+				$row,
+				$mapProject,
+				$typeKey,
+				$source['label'],
+				$statuses,
+				$previousByKey[$key] ?? null
+			);
+		}
+
+		$sourceStats[$typeKey] = [
+			'listProjects' => count($rows),
+			'mapProjects' => count($mapProjects),
+			'listPages' => $pages,
+			'mapOnlyProjects' => count(array_diff_key($mapProjects, $matchedMapPaths)),
+		];
+	}
+
+	$count = count($features);
+	$mappable = count(array_filter($features, static fn(array $feature): bool => $feature['geometry'] !== null));
+	if ($count < RADNETZ_DASHBOARD_MIN_PROJECTS || $mappable < RADNETZ_DASHBOARD_MIN_PROJECTS) {
+		throw new RuntimeException("Unplausibel unvollständiger Dashboard-Abruf: {$count} Projekte, {$mappable} kartierbar.");
+	}
+	if ($previous !== null && isset($previous['features']) && $count < count($previous['features']) * 0.9) {
+		throw new RuntimeException('Live-Abruf enthält mehr als zehn Prozent weniger Projekte als der veröffentlichte Stand.');
+	}
+
+	$unmapped = $count - $mappable;
 
 	$years = array_values(array_unique(array_filter(array_map(
 		static fn(array $feature): string => trim((string)($feature['properties']['Jahr'] ?? '')),
@@ -154,11 +228,17 @@ function radnetzDashboardBuildPayload(): array
 	sort($years, SORT_NATURAL);
 	$statusCounts = [];
 	$typeCounts = [];
+	$statusColors = [];
 	foreach ($features as $feature) {
 		$status = (string)($feature['properties']['Status'] ?? 'Ohne Status');
 		$type = (string)($feature['properties']['Projekttyp'] ?? '');
 		$statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
 		$typeCounts[$type] = ($typeCounts[$type] ?? 0) + 1;
+		$statusColors[$status] ??= (string)($feature['properties']['Statusfarbe'] ?? '#6b7280');
+	}
+	foreach ($statusCounts as $status => $_count) {
+		$key = mb_strtolower($status, 'UTF-8');
+		$statuses[$key] ??= ['name' => $status, 'color' => $statusColors[$status] ?? '#6b7280'];
 	}
 
 	return [
@@ -167,14 +247,481 @@ function radnetzDashboardBuildPayload(): array
 		'metadata' => [
 			'generatedAt' => gmdate('c'),
 			'source' => RADNETZ_DASHBOARD_BASE_URL,
-			'projects' => count($features),
-			'mappableProjects' => count($features) - $unmapped,
+			'sourceMode' => 'dashboard-rendered-views',
+			'sources' => [
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=2',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=3',
+			],
+			'projects' => $count,
+			'mappableProjects' => $mappable,
 			'unmappedProjects' => $unmapped,
+			'sourceStats' => $sourceStats,
 			'years' => $years,
 			'statuses' => array_values($statuses),
 			'statusCounts' => $statusCounts,
 			'typeCounts' => $typeCounts,
 		],
+	];
+}
+
+function radnetzDashboardSourceDefinitions(): array
+{
+	return [
+		'bauprogramm' => ['type' => 2, 'label' => 'Bauprogramm Stadt Wien'],
+		'weitere' => ['type' => 3, 'label' => 'Weitere Bauprojekte'],
+	];
+}
+
+function radnetzDashboardPreviousPayload(): ?array
+{
+	try {
+		$payload = json_decode(
+			radnetzDashboardHttp(
+				RADNETZ_DASHBOARD_FALLBACK_URL,
+				'application/geo+json, application/json',
+				1,
+				15
+			),
+			true,
+			512,
+			JSON_THROW_ON_ERROR
+		);
+		if (!is_array($payload)
+			|| ($payload['type'] ?? '') !== 'FeatureCollection'
+			|| !is_array($payload['features'] ?? null)
+			|| count($payload['features']) < RADNETZ_DASHBOARD_MIN_PROJECTS
+		) {
+			return null;
+		}
+		return $payload;
+	} catch (Throwable) {
+		return null;
+	}
+}
+
+function radnetzDashboardPreviousFeaturesByKey(?array $payload): array
+{
+	$out = [];
+	foreach ($payload['features'] ?? [] as $feature) {
+		if (!is_array($feature) || !is_array($feature['properties'] ?? null)) continue;
+		$properties = $feature['properties'];
+		$typeKey = (string)($properties['_projectType'] ?? '');
+		if ($typeKey === '') {
+			$typeKey = ($properties['Projekttyp'] ?? '') === 'Weitere Bauprojekte' ? 'weitere' : 'bauprogramm';
+		}
+		$key = radnetzDashboardProjectKey($typeKey, (string)($properties['Jahr'] ?? ''), (string)($properties['Titel'] ?? ''));
+		if ($key !== '') $out[$key] = $feature;
+	}
+	return $out;
+}
+
+function radnetzDashboardProjectKey(string $typeKey, string $year, string $title): string
+{
+	$title = mb_strtolower(trim($title), 'UTF-8');
+	$title = preg_replace('/[\p{P}\p{Z}\p{C}]+/u', '', $title) ?? $title;
+	return $title === '' ? '' : implode('|', [$typeKey, trim($year), $title]);
+}
+
+function radnetzDashboardFetchMapProjects(int $type): array
+{
+	$html = radnetzDashboardHttp(
+		RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?' . http_build_query(['type' => $type]),
+		'text/html,application/xhtml+xml'
+	);
+	return radnetzDashboardParseMapHtml($html);
+}
+
+function radnetzDashboardParseMapHtml(string $html): array
+{
+	$selector = strpos($html, 'data-drupal-selector="drupal-settings-json"');
+	if ($selector === false) $selector = strpos($html, "data-drupal-selector='drupal-settings-json'");
+	$start = $selector === false ? false : strpos($html, '>', $selector);
+	$end = $start === false ? false : strpos($html, '</script>', $start + 1);
+	if ($start === false || $end === false) {
+		throw new RuntimeException('Drupal-Karteneinstellungen fehlen.');
+	}
+
+	$settings = json_decode(substr($html, $start + 1, $end - $start - 1), true, 512, JSON_THROW_ON_ERROR);
+	$projects = [];
+	foreach (($settings['leaflet'] ?? []) as $map) {
+		foreach (($map['features'] ?? []) as $feature) {
+			if (!is_array($feature)) continue;
+			$popup = (string)($feature['popup']['value'] ?? '');
+			$path = radnetzDashboardPopupPath($popup);
+			if ($path === '') continue;
+			$projects[$path] = [
+				'path' => $path,
+				'entityId' => trim((string)($feature['entity_id'] ?? '')),
+				'geometry' => radnetzDashboardMapGeometry($feature),
+				'color' => radnetzDashboardMapColor($feature),
+				'popup' => radnetzDashboardPopupProperties($popup),
+			];
+		}
+	}
+
+	if (!$projects) throw new RuntimeException('Drupal-Kartenansicht enthält keine Projekte.');
+	return $projects;
+}
+
+function radnetzDashboardPopupPath(string $popup): string
+{
+	if (!preg_match('~<a\b[^>]*href=["\']([^"\']+)["\']~i', $popup, $match)) return '';
+	$url = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	$path = parse_url($url, PHP_URL_PATH);
+	return is_string($path) ? '/' . ltrim($path, '/') : '';
+}
+
+function radnetzDashboardPopupProperties(string $popup): array
+{
+	$title = '';
+	if (preg_match('~<b>\s*<a\b[^>]*>(.*?)</a>\s*</b>~si', $popup, $match)) {
+		$title = radnetzDashboardHtmlText($match[1]);
+	}
+	$measure = '';
+	if (preg_match('~</b>\s*<br\s*/?>\s*(.*?)\s*<br\s*/?>~si', $popup, $match)) {
+		$measure = radnetzDashboardHtmlText($match[1]);
+	}
+	$status = '';
+	if (preg_match('~Status:\s*(.*?)\s*(?:<br\s*/?>|$)~si', $popup, $match)) {
+		$status = radnetzDashboardHtmlText($match[1]);
+	}
+	$year = '';
+	if (preg_match('~(?:Bauprogramm|weiteres Projekt)\s+(\d{4})~iu', radnetzDashboardHtmlText($popup), $match)) {
+		$year = $match[1];
+	}
+	$districts = [];
+	if (preg_match_all('~<a\b[^>]*href=["\']/bezirk/[^"\']+["\'][^>]*>(.*?)</a>~si', $popup, $matches)) {
+		$districts = array_values(array_filter(array_map('radnetzDashboardHtmlText', $matches[1])));
+	}
+	return [
+		'Titel' => $title,
+		'Maßnahme' => $measure,
+		'Bezirk' => implode(', ', $districts),
+		'Jahr' => $year,
+		'Status' => $status,
+	];
+}
+
+function radnetzDashboardHtmlText(string $html): string
+{
+	$text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	return preg_replace('/\s+/u', ' ', trim($text)) ?? trim($text);
+}
+
+function radnetzDashboardMapColor(array $feature): string
+{
+	foreach ([$feature['path'] ?? null, $feature['icon']['options'] ?? null] as $json) {
+		if (!is_string($json) || $json === '') continue;
+		$options = json_decode($json, true);
+		$color = strtolower(trim((string)($options['color'] ?? '')));
+		if (preg_match('/^#[0-9a-f]{6}$/', $color)) return $color;
+	}
+	return '';
+}
+
+function radnetzDashboardMapGeometry(array $feature): ?array
+{
+	$type = strtolower((string)($feature['type'] ?? ''));
+	if ($type === 'point') {
+		return isset($feature['lon'], $feature['lat'])
+			? ['type' => 'Point', 'coordinates' => [(float)$feature['lon'], (float)$feature['lat']]]
+			: null;
+	}
+	if ($type === 'linestring') {
+		$coordinates = radnetzDashboardMapPoints($feature['points'] ?? []);
+		return count($coordinates) >= 2 ? ['type' => 'LineString', 'coordinates' => $coordinates] : null;
+	}
+	if ($type === 'multipolyline') {
+		$coordinates = [];
+		foreach (($feature['component'] ?? []) as $component) {
+			$line = radnetzDashboardMapPoints($component['points'] ?? []);
+			if (count($line) >= 2) $coordinates[] = $line;
+		}
+		return $coordinates ? ['type' => 'MultiLineString', 'coordinates' => $coordinates] : null;
+	}
+	if ($type === 'geometrycollection') {
+		$geometries = [];
+		foreach (($feature['component'] ?? []) as $component) {
+			$geometry = is_array($component) ? radnetzDashboardMapGeometry($component) : null;
+			if ($geometry !== null) $geometries[] = $geometry;
+		}
+		return $geometries ? ['type' => 'GeometryCollection', 'geometries' => $geometries] : null;
+	}
+	return null;
+}
+
+function radnetzDashboardMapPoints(array $points): array
+{
+	$out = [];
+	foreach ($points as $point) {
+		if (!is_array($point) || !isset($point['lon'], $point['lat'])) continue;
+		$out[] = [(float)$point['lon'], (float)$point['lat']];
+	}
+	return $out;
+}
+
+function radnetzDashboardFetchListRows(int $type, string $typeKey): array
+{
+	$rows = [];
+	$pages = 0;
+	for ($page = 0; $page < RADNETZ_DASHBOARD_MAX_LIST_PAGES; $page++) {
+		$html = radnetzDashboardHttp(
+			RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?' . http_build_query(['type' => $type, 'page' => $page]),
+			'text/html,application/xhtml+xml'
+		);
+		$parsed = radnetzDashboardParseListHtml($html, $typeKey);
+		$pages++;
+		foreach ($parsed['rows'] as $path => $row) $rows[$path] = $row;
+		if (!$parsed['hasNext']) return [$rows, $pages];
+	}
+	throw new RuntimeException('Dashboard-Projektliste überschreitet das Seitenlimit.');
+}
+
+function radnetzDashboardParseListHtml(string $html, string $typeKey): array
+{
+	$document = new DOMDocument();
+	$previous = libxml_use_internal_errors(true);
+	try {
+		$loaded = $document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+	} finally {
+		libxml_clear_errors();
+		libxml_use_internal_errors($previous);
+	}
+	if (!$loaded) throw new RuntimeException('Dashboard-Projektliste ist kein gültiges HTML.');
+
+	$xpath = new DOMXPath($document);
+	$rows = [];
+	foreach ($xpath->query('//tbody/tr[td[@headers="view-title-table-column"]]') ?: [] as $rowNode) {
+		$titleCell = radnetzDashboardTableCell($xpath, $rowNode, 'view-title-table-column');
+		if ($titleCell === null) continue;
+		$linkNodes = $xpath->query('.//a[not(.//img)]', $titleCell);
+		$link = $linkNodes && $linkNodes->length ? $linkNodes->item($linkNodes->length - 1) : null;
+		if (!$link instanceof DOMElement) continue;
+		$path = radnetzDashboardNormalizePath($link->getAttribute('href'));
+		$title = radnetzDashboardNodeText($link);
+		if ($path === '' || $title === '') continue;
+
+		$districtCell = radnetzDashboardTableCell($xpath, $rowNode, 'view-field-bezirk-table-column');
+		$districtCodes = [];
+		if ($districtCell !== null) {
+			foreach ($xpath->query('.//a', $districtCell) ?: [] as $districtLink) {
+				if ($districtLink instanceof DOMElement) {
+					$code = radnetzDashboardDistrictCodeFromPath($districtLink->getAttribute('href'));
+					if ($code !== '') $districtCodes[] = $code;
+				}
+			}
+		}
+		$districtCodes = array_values(array_unique($districtCodes));
+		$lengths = radnetzDashboardTableLengths(radnetzDashboardTableText($xpath, $rowNode, 'view-field-geometry-table-column'));
+		$yearText = radnetzDashboardTableText($xpath, $rowNode, 'view-field-jahr-table-column');
+		preg_match('/\b(?:19|20)\d{2}\b/', $yearText, $yearMatch);
+
+		$rows[$path] = [
+			'_path' => $path,
+			'_fromList' => true,
+			'_districtCodes' => $districtCodes,
+			'Jahr' => $yearMatch[0] ?? '',
+			'Titel' => $title,
+			'Maßnahme' => radnetzDashboardTableText($xpath, $rowNode, 'view-field-massnahme-table-column'),
+			'Bezirk' => radnetzDashboardTableText($xpath, $rowNode, 'view-field-bezirk-table-column'),
+			'Status' => radnetzDashboardNormalizeStatus(radnetzDashboardTableText($xpath, $rowNode, 'view-field-status-table-column')),
+			'Netze' => radnetzDashboardTableText($xpath, $rowNode, 'view-field-netze-table-column'),
+			'Radrouten' => radnetzDashboardTableText($xpath, $rowNode, 'view-field-route-table-column'),
+			'Tags' => radnetzDashboardTableText($xpath, $rowNode, 'view-field-tags-table-column'),
+			'Ankündigung' => radnetzDashboardTableDate($xpath, $rowNode, 'view-field-ankuendigung-table-column'),
+			'Baubeginn' => radnetzDashboardTableDate($xpath, $rowNode, 'view-field-baubeginn-table-column'),
+			'Bauende' => radnetzDashboardTableDate($xpath, $rowNode, 'view-field-bauende-table-column'),
+			'Fertigstellung' => radnetzDashboardTableDate($xpath, $rowNode, 'view-field-datum-ende-table-column'),
+			'Rückbau' => radnetzDashboardTableDate($xpath, $rowNode, 'view-field-entfernung-table-column'),
+			'Letzte Statusänderung' => radnetzDashboardTableDate($xpath, $rowNode, 'view-field-status-change-table-column'),
+			'Länge' => $lengths['route'],
+			'Anlagenlänge' => $lengths['facility'],
+		];
+	}
+
+	$next = $xpath->query('//nav[contains(concat(" ", normalize-space(@class), " "), " pager ")]//a[@rel="next"]');
+	return ['rows' => $rows, 'hasNext' => $next !== false && $next->length > 0];
+}
+
+function radnetzDashboardTableCell(DOMXPath $xpath, DOMNode $row, string $header): ?DOMElement
+{
+	$nodes = $xpath->query('./td[@headers="' . $header . '"]', $row);
+	$node = $nodes && $nodes->length ? $nodes->item(0) : null;
+	return $node instanceof DOMElement ? $node : null;
+}
+
+function radnetzDashboardTableText(DOMXPath $xpath, DOMNode $row, string $header): string
+{
+	$cell = radnetzDashboardTableCell($xpath, $row, $header);
+	return $cell === null ? '' : radnetzDashboardNodeText($cell);
+}
+
+function radnetzDashboardNodeText(DOMNode $node): string
+{
+	return preg_replace('/\s+/u', ' ', trim($node->textContent)) ?? trim($node->textContent);
+}
+
+function radnetzDashboardTableDate(DOMXPath $xpath, DOMNode $row, string $header): string
+{
+	$cell = radnetzDashboardTableCell($xpath, $row, $header);
+	if ($cell === null) return '';
+	$times = $xpath->query('.//time[@datetime]', $cell);
+	if ($times && $times->length && $times->item(0) instanceof DOMElement) {
+		$value = $times->item(0)->getAttribute('datetime');
+		return substr($value, 0, 10);
+	}
+	return radnetzDashboardNodeText($cell);
+}
+
+function radnetzDashboardTableLengths(string $text): array
+{
+	$route = '';
+	$facility = '';
+	if (preg_match('/Strecke:\s*([0-9.,]+)\s*m/iu', $text, $match)) $route = $match[1];
+	if (preg_match('/Anlage:\s*([0-9.,]+)\s*m/iu', $text, $match)) $facility = $match[1];
+	return ['route' => $route, 'facility' => $facility];
+}
+
+function radnetzDashboardNormalizePath(string $url): string
+{
+	$url = html_entity_decode(trim($url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	$path = parse_url($url, PHP_URL_PATH);
+	return is_string($path) && $path !== '' ? '/' . ltrim($path, '/') : '';
+}
+
+function radnetzDashboardDistrictCodeFromPath(string $path): string
+{
+	$slug = basename(radnetzDashboardNormalizePath($path));
+	$codes = [
+		'innere-stadt' => '1010', 'leopoldstadt' => '1020', 'landstrasse' => '1030',
+		'wieden' => '1040', 'margareten' => '1050', 'mariahilf' => '1060', 'neubau' => '1070',
+		'josefstadt' => '1080', 'alsergrund' => '1090', 'favoriten' => '1100', 'simmering' => '1110',
+		'meidling' => '1120', 'hietzing' => '1130', 'penzing' => '1140', 'rudolfsheim-fuenfhaus' => '1150',
+		'ottakring' => '1160', 'hernals' => '1170', 'waehring' => '1180', 'doebling' => '1190',
+		'brigittenau' => '1200', 'floridsdorf' => '1210', 'donaustadt' => '1220', 'liesing' => '1230',
+	];
+	return $codes[$slug] ?? '';
+}
+
+function radnetzDashboardNormalizeStatus(string $status): string
+{
+	$status = preg_replace('/\s+/u', ' ', trim($status)) ?? trim($status);
+	foreach ([
+		'nicht angekündigt', 'in Bauvorbereitung', 'in Vorbereitung', 'fertiggestellt',
+		'angekündigt', 'in Planung', 'in Arbeit', 'verschoben', 'rückgebaut', 'abgesagt', 'in Bau',
+	] as $known) {
+		if (mb_strtolower(mb_substr($status, 0, mb_strlen($known)), 'UTF-8') === mb_strtolower($known, 'UTF-8')) {
+			return $known;
+		}
+	}
+	return $status;
+}
+
+function radnetzDashboardMapFallbackRow(array $mapProject): array
+{
+	return array_replace($mapProject['popup'] ?? [], [
+		'_path' => (string)($mapProject['path'] ?? ''),
+		'_fromList' => false,
+		'_districtCodes' => [],
+	]);
+}
+
+function radnetzDashboardViewFeature(
+	array $row,
+	?array $mapProject,
+	string $typeKey,
+	string $typeLabel,
+	array $statuses,
+	?array $previous
+): array {
+	$properties = is_array($previous['properties'] ?? null) ? $previous['properties'] : [];
+	$status = radnetzDashboardNormalizeStatus((string)($row['Status'] ?? ($mapProject['popup']['Status'] ?? '')));
+	$statusEntry = $statuses[mb_strtolower($status, 'UTF-8')] ?? null;
+	$districtCodes = array_values(array_unique(array_filter($row['_districtCodes'] ?? [])));
+	if (!$districtCodes && isset($properties['_districtCodes'])) {
+		preg_match_all('/\b(?:10[1-9]0|1[12][0-9]0)\b/', (string)$properties['_districtCodes'], $matches);
+		$districtCodes = array_values(array_unique($matches[0] ?? []));
+	}
+	$entityId = trim((string)($mapProject['entityId'] ?? ''));
+	$path = (string)($row['_path'] ?? ($mapProject['path'] ?? ''));
+	$title = trim((string)($row['Titel'] ?? ($mapProject['popup']['Titel'] ?? '')));
+	$year = trim((string)($row['Jahr'] ?? ($mapProject['popup']['Jahr'] ?? '')));
+	$id = (string)($properties['Projekt-ID'] ?? ($previous['id'] ?? ''));
+	if ($id === '') $id = $entityId !== '' ? 'radnetz-' . $entityId : substr(hash('sha256', implode('|', [$typeKey, $year, $title, $path])), 0, 20);
+	$color = trim((string)($mapProject['color'] ?? ''));
+	if ($color === '') $color = (string)($statusEntry['color'] ?? '#6b7280');
+	$district = $districtCodes
+		? implode(', ', array_map('radnetzDashboardDistrictName', $districtCodes))
+		: (string)($row['Bezirk'] ?? ($mapProject['popup']['Bezirk'] ?? ''));
+
+	$current = [
+		'Projekt-ID' => $id,
+		'Projekttyp' => $typeLabel,
+		'Jahr' => $year,
+		'Titel' => $title,
+		'Maßnahme' => $row['Maßnahme'] ?? ($mapProject['popup']['Maßnahme'] ?? ''),
+		'Bezirk' => $district,
+		'Postleitzahl' => implode(', ', $districtCodes),
+		'Status' => $status,
+		'Projektliste' => $path === '' ? RADNETZ_DASHBOARD_BASE_URL : RADNETZ_DASHBOARD_BASE_URL . ltrim($path, '/'),
+		'Statusfarbe' => $color,
+		'_projectType' => $typeKey,
+		'_sourceEntityId' => $entityId,
+		'_districtCodes' => ',' . implode(',', $districtCodes) . ',',
+	];
+	if (($row['_fromList'] ?? false) === true) {
+		$current = array_replace($current, [
+			'Letzte Statusänderung' => $row['Letzte Statusänderung'] ?? '',
+			'Ankündigung' => $row['Ankündigung'] ?? '',
+			'Baubeginn' => $row['Baubeginn'] ?? '',
+			'Bauende' => $row['Bauende'] ?? '',
+			'Fertigstellung' => $row['Fertigstellung'] ?? '',
+			'Rückbau' => $row['Rückbau'] ?? '',
+			'Netze' => $row['Netze'] ?? '',
+			'Radrouten' => $row['Radrouten'] ?? '',
+			'Tags' => $row['Tags'] ?? '',
+			'Länge' => $row['Länge'] ?? '',
+			'Anlagenlänge' => $row['Anlagenlänge'] ?? '',
+			'_lengthMeters' => radnetzDashboardNumericValue((string)($row['Länge'] ?? '')),
+			'_facilityLengthMeters' => radnetzDashboardNumericValue((string)($row['Anlagenlänge'] ?? '')),
+		]);
+	}
+	$properties = array_replace($properties, $current);
+	$searchValues = [];
+	foreach ($properties as $key => $value) {
+		if (!str_starts_with((string)$key, '_') && is_scalar($value)) $searchValues[] = (string)$value;
+	}
+	$properties['_searchText'] = mb_strtolower(implode(' ', $searchValues), 'UTF-8');
+	$properties = array_filter(
+		$properties,
+		static fn(mixed $value, string $key): bool => str_starts_with($key, '_') || $value !== '',
+		ARRAY_FILTER_USE_BOTH
+	);
+
+	return [
+		'type' => 'Feature',
+		'id' => $id,
+		'properties' => $properties,
+		'geometry' => radnetzDashboardMergedGeometry($mapProject['geometry'] ?? null, $previous['geometry'] ?? null),
+	];
+}
+
+function radnetzDashboardMergedGeometry(?array $live, mixed $previous): ?array
+{
+	if ($live === null) return null;
+	if (!is_array($previous) || ($previous['type'] ?? '') !== 'GeometryCollection') return $live;
+
+	$liveParts = ($live['type'] ?? '') === 'GeometryCollection'
+		? array_values(array_filter($live['geometries'] ?? [], 'is_array'))
+		: [$live];
+	$previousParts = array_values(array_filter($previous['geometries'] ?? [], 'is_array'));
+	if (!$liveParts || count($previousParts) <= count($liveParts)) return $live;
+
+	return [
+		'type' => 'GeometryCollection',
+		'geometries' => array_merge($liveParts, array_slice($previousParts, count($liveParts))),
 	];
 }
 
@@ -187,11 +734,18 @@ function radnetzDashboardFetchAll(array $urls): array
 	return $bodies;
 }
 
-function radnetzDashboardHttp(string $url, string $accept): string
+function radnetzDashboardHttp(
+	string $url,
+	string $accept,
+	int $attempts = 3,
+	int $timeout = RADNETZ_DASHBOARD_HTTP_TIMEOUT
+): string
 {
 	$lastError = 'Unbekannter HTTP-Fehler.';
+	$attempts = max(1, $attempts);
+	$timeout = max(1, $timeout);
 
-	for ($attempt = 1; $attempt <= 3; $attempt++) {
+	for ($attempt = 1; $attempt <= $attempts; $attempt++) {
 		$body = '';
 		$ch = curl_init($url);
 		if ($ch === false) {
@@ -203,7 +757,7 @@ function radnetzDashboardHttp(string $url, string $accept): string
 			CURLOPT_FOLLOWLOCATION => true,
 			CURLOPT_MAXREDIRS => 5,
 			CURLOPT_CONNECTTIMEOUT => 12,
-			CURLOPT_TIMEOUT => RADNETZ_DASHBOARD_HTTP_TIMEOUT,
+			CURLOPT_TIMEOUT => $timeout,
 			CURLOPT_ENCODING => '',
 			CURLOPT_USERAGENT => RADNETZ_DASHBOARD_USER_AGENT,
 			CURLOPT_HTTPHEADER => ['Accept: ' . $accept],
@@ -228,7 +782,7 @@ function radnetzDashboardHttp(string $url, string $accept): string
 
 		$lastError = $error !== '' ? $error : 'HTTP ' . $status;
 
-		if ($attempt < 3) {
+		if ($attempt < $attempts) {
 			sleep($attempt * 3);
 		}
 	}

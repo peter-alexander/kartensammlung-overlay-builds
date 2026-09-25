@@ -36,7 +36,11 @@ try {
 
 	$mappable = (int)($payload['metadata']['mappableProjects'] ?? 0);
 	$unmapped = (int)($payload['metadata']['unmappedProjects'] ?? 0);
-	fwrite(STDOUT, "Radnetz-Dashboard: {$count} Projekte, {$mappable} kartierbar, {$unmapped} ohne Geometrie.\n");
+	$mode = (string)($payload['metadata']['sourceMode'] ?? 'unknown');
+	fwrite(STDOUT, "Radnetz-Dashboard: {$count} Projekte, {$mappable} kartierbar, {$unmapped} ohne Geometrie ({$mode}).\n");
+	if (isset($payload['metadata']['warning'])) {
+		fwrite(STDERR, 'WARNUNG: ' . $payload['metadata']['warning'] . PHP_EOL);
+	}
 } catch (Throwable $error) {
 	fwrite(STDERR, $error->getMessage() . PHP_EOL);
 	exit(1);
