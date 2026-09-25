@@ -180,12 +180,15 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 		// and geometries come from the official view for that exact year.
 		$mapProjects = radnetzDashboardFetchMapProjects($source['type']);
 		$overviewMapProjects = count($mapProjects);
+		$overviewMapPaths = array_fill_keys(array_keys($mapProjects), true);
+		$yearOnlyMapPaths = [];
 		$mapProjectsByYear = [];
 
 		foreach ($years as $year) {
 			$yearProjects = radnetzDashboardFetchMapProjects($source['type'], $year);
 			$mapProjectsByYear[$year] = count($yearProjects);
 			foreach ($yearProjects as $path => $mapProject) {
+				if (!isset($overviewMapPaths[$path])) $yearOnlyMapPaths[$path] = $year;
 				$mapProjects[$path] = $mapProject;
 			}
 		}
@@ -223,6 +226,8 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 			'listProjects' => count($rows),
 			'mapProjects' => count($mapProjects),
 			'overviewMapProjects' => $overviewMapProjects,
+			'yearOnlyMapProjects' => count($yearOnlyMapPaths),
+			'yearOnlyMapPaths' => $yearOnlyMapPaths,
 			'listPages' => $pages,
 			'mapViews' => count($years) + 1,
 			'mapYears' => $years,
