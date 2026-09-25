@@ -41,6 +41,9 @@ try {
 	if (isset($payload['metadata']['warning'])) {
 		fwrite(STDERR, 'WARNUNG: ' . $payload['metadata']['warning'] . PHP_EOL);
 	}
+	if (isset($payload['metadata']['liveError'])) {
+		fwrite(STDERR, 'Live-Fehler: ' . $payload['metadata']['liveError'] . PHP_EOL);
+	}
 } catch (Throwable $error) {
 	fwrite(STDERR, $error->getMessage() . PHP_EOL);
 	exit(1);
