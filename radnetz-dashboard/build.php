@@ -44,6 +44,9 @@ try {
 	if (isset($payload['metadata']['liveError'])) {
 		fwrite(STDERR, 'Live-Fehler: ' . $payload['metadata']['liveError'] . PHP_EOL);
 	}
+	if ($mode === 'stale-production-fallback' && isset($payload['metadata']['sourceStats'])) {
+		fwrite(STDERR, 'Fallback-Quellstatistik: ' . json_encode($payload['metadata']['sourceStats'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
+	}
 } catch (Throwable $error) {
 	fwrite(STDERR, $error->getMessage() . PHP_EOL);
 	exit(1);
