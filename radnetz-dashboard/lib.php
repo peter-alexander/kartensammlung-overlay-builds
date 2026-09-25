@@ -490,9 +490,19 @@ function radnetzDashboardHtmlText(string $html): string
 
 function radnetzDashboardMapColor(array $feature): string
 {
+	// Leaflet GeometryCollections/MultiPolylines may carry the effective style
+	// on their rendered child components. Prefer that child style over a
+	// wrapper-level fallback so the exported color matches the official map.
+	foreach (($feature['component'] ?? []) as $component) {
+		if (!is_array($component)) continue;
+		$color = radnetzDashboardMapColor($component);
+		if ($color !== '') return $color;
+	}
+
 	foreach ([$feature['path'] ?? null, $feature['icon']['options'] ?? null] as $json) {
 		if (!is_string($json) || $json === '') continue;
 		$options = json_decode($json, true);
+		if (!is_array($options)) continue;
 		$color = strtolower(trim((string)($options['color'] ?? '')));
 		if (preg_match('/^#[0-9a-f]{6}$/', $color)) return $color;
 	}

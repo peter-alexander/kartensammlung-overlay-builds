@@ -113,6 +113,20 @@ expectSame($mapProject['entityId'] ?? null, '203', 'Map entity id parsing failed
 expectSame($mapProject['geometry']['type'] ?? null, 'GeometryCollection', 'Map GeometryCollection parsing failed.');
 expectSame($mapProject['popup']['Status'] ?? null, 'in Bau', 'Map popup status parsing failed.');
 expectSame($mapProject['color'] ?? null, '#c17d11', 'Map style color parsing failed.');
+$nestedColorFeature = [
+	'type' => 'geometrycollection',
+	'path' => '{"color":"#204a87"}',
+	'component' => [[
+		'type' => 'linestring',
+		'points' => [['lon' => 16.3, 'lat' => 48.2], ['lon' => 16.4, 'lat' => 48.3]],
+		'path' => '{"color":"#af0000"}',
+	]],
+];
+expectSame(
+	radnetzDashboardMapColor($nestedColorFeature),
+	'#af0000',
+	'Nested rendered component color must override GeometryCollection wrapper color.'
+);
 
 $listHtml = <<<'HTML'
 <!doctype html><html><head><meta charset="utf-8"></head><body>
