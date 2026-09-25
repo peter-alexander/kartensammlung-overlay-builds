@@ -598,6 +598,14 @@ function writeJs(name, variableName, value) {
 	);
 }
 
+function writeJson(name, value) {
+	fs.writeFileSync(
+		new URL(`./build/${name}`, import.meta.url),
+		JSON.stringify(value) + "\n",
+		"utf8"
+	);
+}
+
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 console.log("Lade öffentliche Serverkataloge ...");
@@ -634,17 +642,19 @@ const arcgisStyles = buildArcGisStyles(arcgisJson);
 const bev = await buildBevCatalog(bevXml);
 
 writeJs("GeoserverNames.js", "GeoserverNames", geoserverNames);
+writeJson("GeoserverNames.json", geoserverNames);
 writeJs("WmsNames.js", "WmsNames", wmsNames);
+writeJson("WmsNames.json", wmsNames);
 writeJs("WienWmtsNames.js", "WienWmtsNames", wienWmtsNames);
-fs.writeFileSync(
-	new URL("./build/WienWmtsNames.json", import.meta.url),
-	JSON.stringify(wienWmtsNames) + "\n",
-	"utf8"
-);
+writeJson("WienWmtsNames.json", wienWmtsNames);
 writeJs("LaermkarteNames.js", "LaermkarteNames", laermkarteNames);
+writeJson("LaermkarteNames.json", laermkarteNames);
 writeJs("NoeWmsNames.js", "NoeWmsNames", noeWmsNames);
+writeJson("NoeWmsNames.json", noeWmsNames);
 writeJs("StadtplanJson.js", "StadtplanJson", stadtplan);
+writeJson("StadtplanJson.json", stadtplan);
 writeJs("BevGeoserverNames.js", "BevGeoserverNames", bev.catalog);
+writeJson("BevGeoserverNames.json", bev.catalog);
 
 fs.writeFileSync(
 	new URL("./build/ArcGISStyles.js", import.meta.url),
