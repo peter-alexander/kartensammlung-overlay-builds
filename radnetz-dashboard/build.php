@@ -39,19 +39,6 @@ try {
 	$mode = (string)($payload['metadata']['sourceMode'] ?? 'unknown');
 	fwrite(STDOUT, "Radnetz-Dashboard: {$count} Projekte, {$mappable} kartierbar, {$unmapped} ohne Geometrie ({$mode}).\n");
 	foreach ($payload['features'] as $feature) {
-		$props = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
-		$url = (string)($props['Projektliste'] ?? '');
-		if (str_contains($url, '/gassergasse-abschnitt-') || str_contains($url, '/spengergasse-abschnitt-')) {
-			fwrite(
-				STDOUT,
-				'Farbcheck: ' . trim((string)($props['Jahr'] ?? '')) . ' | '
-				. trim((string)($props['Titel'] ?? '')) . ' | '
-				. trim((string)($props['Statusfarbe'] ?? ''))
-				. PHP_EOL
-			);
-		}
-	}
-	foreach ($payload['features'] as $feature) {
 		if (($feature['geometry'] ?? null) !== null) continue;
 		$props = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
 		fwrite(
