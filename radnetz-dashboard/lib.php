@@ -171,8 +171,19 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 	$features = [];
 	$sourceStats = [];
 	foreach (radnetzDashboardSourceDefinitions() as $typeKey => $source) {
-		$mapProjects = radnetzDashboardFetchMapProjects($source['type']);
 		[$rows, $pages] = radnetzDashboardFetchListRows($source['type'], $typeKey);
+		$years = radnetzDashboardYearsFromRows($rows);
+		$mapProjects = [];
+		$mapProjectsByYear = [];
+
+		foreach ($years as $year) {
+			$yearProjects = radnetzDashboardFetchMapProjects($source['type'], $year);
+			$mapProjectsByYear[$year] = count($yearProjects);
+			foreach ($yearProjects as $path => $mapProject) {
+				$mapProjects[$path] = $mapProject;
+			}
+		}
+
 		$matchedMapPaths = [];
 
 		foreach ($rows as $path => $row) {
@@ -206,6 +217,9 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 			'listProjects' => count($rows),
 			'mapProjects' => count($mapProjects),
 			'listPages' => $pages,
+			'mapViews' => count($years),
+			'mapYears' => $years,
+			'mapProjectsByYear' => $mapProjectsByYear,
 			'mapOnlyProjects' => count(array_diff_key($mapProjects, $matchedMapPaths)),
 		];
 	}
@@ -249,8 +263,8 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 			'source' => RADNETZ_DASHBOARD_BASE_URL,
 			'sourceMode' => 'dashboard-rendered-views',
 			'sources' => [
-				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2',
-				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2&jahr={year}',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3&jahr={year}',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=2',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=3',
 			],
@@ -324,13 +338,46 @@ function radnetzDashboardProjectKey(string $typeKey, string $year, string $title
 	return $title === '' ? '' : implode('|', [$typeKey, trim($year), $title]);
 }
 
-function radnetzDashboardFetchMapProjects(int $type): array
+function radnetzDashboardYearsFromRows(array $rows): array
+{
+	$years = [];
+	foreach ($rows as $row) {
+		$year = trim((string)($row['Jahr'] ?? ''));
+		if ($year === '' || !preg_match('/^(?:19|20)\\d{2}$/', $year)) continue;
+		$years[$year] = true;
+	}
+	$years = array_keys($years);
+	sort($years, SORT_NATURAL);
+	return $years;
+}
+
+function radnetzDashboardMapUrl(int $type, ?string $year = null): string
+{
+	$params = ['type' => $type];
+	$year = trim((string)$year);
+	if ($year !== '') $params['jahr'] = $year;
+	return RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?' . http_build_query($params);
+}
+
+function radnetzDashboardFetchMapProjects(int $type, ?string $year = null): array
 {
 	$html = radnetzDashboardHttp(
-		RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?' . http_build_query(['type' => $type]),
+		radnetzDashboardMapUrl($type, $year),
 		'text/html,application/xhtml+xml'
 	);
-	return radnetzDashboardParseMapHtml($html);
+	$projects = radnetzDashboardParseMapHtml($html);
+
+	$year = trim((string)$year);
+	if ($year === '') return $projects;
+
+	$projects = array_filter(
+		$projects,
+		static fn(array $project): bool => trim((string)($project['popup']['Jahr'] ?? '')) === $year
+	);
+	if (!$projects) {
+		throw new RuntimeException("Drupal-Kartenansicht enthält keine Projekte für Typ {$type} und Jahr {$year}.");
+	}
+	return $projects;
 }
 
 function radnetzDashboardParseMapHtml(string $html): array
