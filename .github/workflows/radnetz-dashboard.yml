@@ -27,7 +27,7 @@ permissions:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
       MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}

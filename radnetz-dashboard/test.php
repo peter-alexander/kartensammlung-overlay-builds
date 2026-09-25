@@ -235,6 +235,122 @@ expectSame($row['Ankündigung'] ?? null, '2025-03-10', 'List date parsing failed
 expectSame($row['Länge'] ?? null, '811', 'List route length parsing failed.');
 expectSame($row['Anlagenlänge'] ?? null, '1.234,5', 'List facility length parsing failed.');
 
+$historyHtml = <<<'HTML'
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<div class="view view-id-letzte_statusaenderungen">
+<ul>
+	<li>
+		<div class="views-field views-field-title"><span class="field-content"><a href="/bauprogramm/2023/argentinierstrasse">Argentinierstraße</a> (<a href="/bauprogramm/2023">Bauprogramm 2023</a>)</span></div>
+		<div class="views-field views-field-field-datum"><div class="field-content">seit <time datetime="2024-01-15T12:00:00Z">15. Januar 2024</time></div></div>
+		<div class="views-field views-field-body"><div class="field-content"><p>Maßnahme geändert von "Bestandsverbesserung: Fahrradstraße"</p></div></div>
+	</li>
+	<li>
+		<div class="views-field views-field-title"><span class="field-content"><a href="/bauprogramm/2023/argentinierstrasse">Argentinierstraße</a></span></div>
+		<div class="views-field views-field-field-datum"><div class="field-content">seit <time datetime="2024-12-22T12:00:00Z">22. Dezember 2024</time> fertiggestellt</div></div>
+		<div class="views-field views-field-body"><div class="field-content">Maßnahme geändert von "Fahrradstraße"<br>Beschreibung geändert von "Test"<br></div></div>
+	</li>
+</ul>
+<nav class="pager"><a rel="next" href="?page=1">Weiter</a></nav>
+</div>
+</body></html>
+HTML;
+$historyPage = radnetzDashboardParseHistoryHtml($historyHtml, 'bauprogramm');
+expectSame($historyPage['hasNext'] ?? null, true, 'History next-page parsing failed.');
+expectSame(count($historyPage['events'] ?? []), 2, 'History event count failed.');
+$measureEvent = $historyPage['events'][0] ?? [];
+expectSame($measureEvent['datum'] ?? null, '2024-01-15', 'History date parsing failed.');
+expectSame($measureEvent['typ'] ?? null, 'aenderungen', 'Measure-only history type failed.');
+expectSame($measureEvent['aenderungen'][0]['feld'] ?? null, 'Maßnahme', 'History change field parsing failed.');
+expectSame(
+	$measureEvent['aenderungen'][0]['vorher'] ?? null,
+	'Bestandsverbesserung: Fahrradstraße',
+	'Argentinierstraße measure history must retain the documented previous value.'
+);
+$statusEvent = $historyPage['events'][1] ?? [];
+expectSame($statusEvent['status'] ?? null, 'fertiggestellt', 'History status parsing failed.');
+expectSame($statusEvent['typ'] ?? null, 'status_und_aenderungen', 'Combined history type failed.');
+expectSame(count($statusEvent['aenderungen'] ?? []), 2, 'Multiple changes in one history event failed.');
+expectSame(
+	radnetzDashboardHistoryChange('Geometrie geändert von "MULTILINESTRING ((16 48,17 49))"')['feld'] ?? null,
+	'Geometrie',
+	'Geometry history classification failed.'
+);
+expectSame(
+	radnetzDashboardHistoryChange('Ort geändert von: "Ringstraße (1. Abschnitt)"')['vorher'] ?? null,
+	'Ringstraße (1. Abschnitt)',
+	'History changes with a colon after "von" must be parsed.'
+);
+expectSame(
+	radnetzDashboardHistoryChange('Ort umbenannt von "Gunoldstraße - Geistlingergasse"')['aktion'] ?? null,
+	'umbenannt',
+	'History rename action must be parsed.'
+);
+
+$detailHistoryHtml = <<<'HTML'
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<div class="view view-status-aenderungen view-id-status_aenderungen view-display-id-block_1">
+	<div class="views-row">
+		<div class="views-field views-field-field-datum"><div class="field-content"><time datetime="2023-03-22T12:00:00Z">22. März 2023</time> (veröffentlicht)</div></div>
+		<div class="views-field views-field-field-status"><div class="field-content">gefundener Status: in Planung</div></div>
+		<div class="views-field views-field-body"><div class="field-content"></div></div>
+	</div>
+</div>
+<div class="view view-status-aenderungen view-id-status_aenderungen view-display-id-block_1">
+	<div class="views-row">
+		<div class="views-field views-field-field-datum"><div class="field-content"><time datetime="2023-08-11T12:00:00Z">11. August 2023</time></div></div>
+		<div class="views-field views-field-field-status"><div class="field-content">Statusänderung: in Vorbereitung</div></div>
+		<div class="views-field views-field-body"><div class="field-content"></div></div>
+	</div>
+</div>
+<div class="view view-status-aenderungen view-id-status_aenderungen view-display-id-block_2">
+	<div class="views-row">
+		<div class="views-field views-field-field-datum"><div class="field-content"><time datetime="2025-07-06T12:00:00Z">6. Juli 2025</time> (Beobachtung gestartet)</div></div>
+		<div class="views-field views-field-field-status"><div class="field-content">gefundener Status: fertiggestellt</div></div>
+		<div class="views-field views-field-body"><div class="field-content"></div></div>
+	</div>
+</div>
+</body></html>
+HTML;
+$detailHistory = radnetzDashboardParseDetailHistoryHtml($detailHistoryHtml, '/bauprogramm/2023/argentinierstrasse');
+expectSame(count($detailHistory), 3, 'Detail-page protocols from both sources must be parsed.');
+expectSame($detailHistory[0]['quelle'] ?? null, 'bauprogramm', 'Bauprogramm detail protocol source failed.');
+expectSame($detailHistory[0]['initial'] ?? null, true, 'Published Bauprogramm event must be marked as initial.');
+expectSame($detailHistory[1]['status'] ?? null, 'in Vorbereitung', 'Detail status-change prefix must be normalized.');
+expectSame($detailHistory[2]['quelle'] ?? null, 'projektkarte', 'Projektkarte detail protocol source failed.');
+expectSame($detailHistory[2]['datum'] ?? null, '2025-07-06', 'Project-card observation start date missing.');
+expectSame($detailHistory[2]['status'] ?? null, 'fertiggestellt', 'Project-card observation start status missing.');
+expectSame($detailHistory[2]['initial'] ?? null, true, 'Project-card observation start must be marked as initial.');
+expectSame(
+	count(radnetzDashboardMergeHistory([$detailHistory[0]], $detailHistory)),
+	3,
+	'History merge must deduplicate stable event ids.'
+);
+expectSame(
+	array_column(radnetzDashboardMergeHistory([$detailHistory[1]], [$detailHistory[0], $detailHistory[2]]), 'id'),
+	array_column($detailHistory, 'id'),
+	'History merge must retain cached non-initial detail events between audits.'
+);
+radnetzDashboardAssertDetailHistoryComplete(
+	'/bauprogramm/2023/argentinierstrasse',
+	$detailHistory,
+	[$detailHistory[0], $detailHistory[2]]
+);
+$incompleteDetailRejected = false;
+try {
+	radnetzDashboardAssertDetailHistoryComplete(
+		'/bauprogramm/2023/argentinierstrasse',
+		array_slice($detailHistory, 0, 2),
+		$detailHistory
+	);
+} catch (RuntimeException $error) {
+	$incompleteDetailRejected = str_contains($error->getMessage(), '1 bereits bekannte Ereignisse');
+}
+expectSame(
+	$incompleteDetailRejected,
+	true,
+	'A detail-page refresh must not silently drop a cached history event.'
+);
+
 $previous = [
 	'id' => 'old-id',
 	'geometry' => [
@@ -249,6 +365,7 @@ $previous = [
 		'Projekt-ID' => 'old-id',
 		'Budget' => 'bleibt erhalten',
 		'Status' => 'angekündigt',
+		'Statusverlauf' => 'veraltet',
 		'_searchText' => 'must-not-repeat',
 	],
 ];
@@ -258,10 +375,14 @@ $feature = radnetzDashboardViewFeature(
 	'bauprogramm',
 	'Bauprogramm Stadt Wien',
 	['in bau' => ['name' => 'in Bau', 'color' => '#c17d11']],
-	$previous
+	$previous,
+	[$measureEvent]
 );
 expectSame($feature['properties']['Budget'] ?? null, 'bleibt erhalten', 'Previous enrichment must be preserved.');
 expectSame($feature['properties']['Status'] ?? null, 'in Bau', 'Current list status must replace stale status.');
+expectSame($feature['properties']['Aktueller Projektstatus'] ?? null, 'in Bau', 'Explicit current project status missing.');
+expectSame($feature['properties']['Projektverlauf'][0]['datum'] ?? null, '2024-01-15', 'Structured project history missing.');
+expectSame(isset($feature['properties']['Statusverlauf']), false, 'Legacy status-history string must not survive enrichment.');
 expectSame($feature['properties']['_sourceEntityId'] ?? null, '203', 'Source entity id missing.');
 expectSame(str_contains($feature['properties']['_searchText'] ?? '', 'must-not-repeat'), false, 'Search text must not include stale search text recursively.');
 expectSame(count($feature['geometry']['geometries'] ?? []), 3, 'Previous secondary geometry must be preserved.');

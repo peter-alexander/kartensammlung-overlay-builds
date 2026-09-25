@@ -13,6 +13,9 @@ const RADNETZ_DASHBOARD_BASE_URL = 'https://radnetz-dashboard.radlobby.at/';
 const RADNETZ_DASHBOARD_FALLBACK_URL = 'https://fahrrad.lima-city.de/Maps/RadnetzDashboard.geojson';
 const RADNETZ_DASHBOARD_MIN_PROJECTS = 1000;
 const RADNETZ_DASHBOARD_MAX_LIST_PAGES = 25;
+const RADNETZ_DASHBOARD_MAX_HISTORY_PAGES = 100;
+const RADNETZ_DASHBOARD_HISTORY_AUDIT_BATCH = 50;
+const RADNETZ_DASHBOARD_HTTP_CONCURRENCY = 12;
 
 if (!defined('RADNETZ_DASHBOARD_LIBRARY_ONLY')) {
 	radnetzDashboardMain();
@@ -166,6 +169,7 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 	} catch (Throwable) {
 		// Die Kartenansicht liefert die tatsächlich verwendete Farbe je Projekt mit.
 	}
+	[$historyByPath, $historyStats] = radnetzDashboardFetchHistory($previous);
 
 	$previousByKey = radnetzDashboardPreviousFeaturesByKey($previous);
 	$features = [];
@@ -225,7 +229,8 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 				$typeKey,
 				$source['label'],
 				$statuses,
-				$previousByKey[$key] ?? null
+				$previousByKey[$key] ?? null,
+				$historyByPath[$path] ?? []
 			);
 		}
 
@@ -238,7 +243,8 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 				$typeKey,
 				$source['label'],
 				$statuses,
-				$previousByKey[$key] ?? null
+				$previousByKey[$key] ?? null,
+				$historyByPath[(string)($row['_path'] ?? '')] ?? []
 			);
 		}
 
@@ -255,6 +261,11 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 			'mapOnlyProjects' => count(array_diff_key($mapProjects, $matchedMapPaths)),
 		];
 	}
+	[$features, $historyStats] = radnetzDashboardCompleteHistories(
+		$features,
+		$previousByKey,
+		$historyStats
+	);
 
 	$count = count($features);
 	$mappable = count(array_filter($features, static fn(array $feature): bool => $feature['geometry'] !== null));
@@ -318,11 +329,15 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3&jahr={year}',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=2',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=3',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/status-aenderungen',
+				RADNETZ_DASHBOARD_BASE_URL . 'projektkarte/status-aenderungen',
 			],
 			'projects' => $count,
 			'mappableProjects' => $mappable,
 			'unmappedProjects' => $unmapped,
 			'sourceStats' => $sourceStats,
+			'historySchemaVersion' => 2,
+			'historyStats' => $historyStats,
 			'years' => $years,
 			'statuses' => array_values($statuses),
 			'statusCounts' => $statusCounts,
@@ -346,6 +361,433 @@ function radnetzDashboardSourceDefinitions(): array
 			'mapQuery' => ['type' => 3],
 		],
 	];
+}
+
+function radnetzDashboardHistorySourceDefinitions(): array
+{
+	return [
+		'bauprogramm' => [
+			'label' => 'Bauprogramm',
+			'path' => 'bauprogramm/status-aenderungen',
+			'viewClass' => 'view-id-letzte_statusaenderungen',
+			'minEvents' => 500,
+		],
+		'projektkarte' => [
+			'label' => 'Projektkarte',
+			'path' => 'projektkarte/status-aenderungen',
+			'viewClass' => 'view-id-projektkarte_letzte_statusaenderungen',
+			'minEvents' => 650,
+		],
+	];
+}
+
+function radnetzDashboardFetchHistory(?array $previous = null): array
+{
+	$byPath = [];
+	$stats = [];
+	$previousCounts = radnetzDashboardPreviousHistoryCounts($previous);
+
+	foreach (radnetzDashboardHistorySourceDefinitions() as $sourceKey => $source) {
+		$events = [];
+		$seen = [];
+		$pages = 0;
+		for ($page = 0; $page < RADNETZ_DASHBOARD_MAX_HISTORY_PAGES; $page++) {
+			$query = http_build_query([
+				'order' => 'field_datum',
+				'sort' => 'asc',
+				'page' => $page,
+			]);
+			$html = radnetzDashboardHttp(
+				RADNETZ_DASHBOARD_BASE_URL . $source['path'] . '?' . $query,
+				'text/html,application/xhtml+xml'
+			);
+			$parsed = radnetzDashboardParseHistoryHtml($html, $sourceKey);
+			$pages++;
+			if (!$parsed['events']) {
+				throw new RuntimeException("Leere Protokollseite für {$sourceKey} auf Seite {$page}.");
+			}
+			foreach ($parsed['events'] as $event) {
+				$id = (string)($event['id'] ?? '');
+				if ($id === '' || isset($seen[$id])) continue;
+				$seen[$id] = true;
+				$events[] = $event;
+			}
+			if (!$parsed['hasNext']) break;
+			if ($page === RADNETZ_DASHBOARD_MAX_HISTORY_PAGES - 1) {
+				throw new RuntimeException("Dashboard-Protokoll {$sourceKey} überschreitet das Seitenlimit.");
+			}
+		}
+
+		$count = count($events);
+		$minimum = (int)$source['minEvents'];
+		if ($count < $minimum) {
+			throw new RuntimeException("Unplausibel unvollständiges Protokoll {$sourceKey}: {$count} statt mindestens {$minimum} Ereignissen.");
+		}
+		$previousCount = (int)($previousCounts[$sourceKey] ?? 0);
+		if ($previousCount > 0 && $count < $previousCount * 0.9) {
+			throw new RuntimeException("Protokoll {$sourceKey} enthält mehr als zehn Prozent weniger Ereignisse als der veröffentlichte Stand.");
+		}
+
+		$projects = [];
+		foreach ($events as $event) {
+			$path = (string)$event['_path'];
+			$projects[$path] = true;
+			unset($event['_path']);
+			$byPath[$path][] = $event;
+		}
+		$stats[$sourceKey] = [
+			'label' => $source['label'],
+			'url' => RADNETZ_DASHBOARD_BASE_URL . $source['path'],
+			'pages' => $pages,
+			'viewEvents' => $count,
+			'events' => $count,
+			'projects' => count($projects),
+		];
+	}
+
+	foreach ($byPath as &$events) {
+		usort($events, static function (array $left, array $right): int {
+			return [$left['datum'] ?? '', $left['quelle'] ?? '', $left['id'] ?? '']
+				<=> [$right['datum'] ?? '', $right['quelle'] ?? '', $right['id'] ?? ''];
+		});
+		$firstStatusBySource = [];
+		foreach ($events as &$event) {
+			$sourceKey = (string)($event['quelle'] ?? '');
+			$event['initial'] = !isset($firstStatusBySource[$sourceKey]) && isset($event['status']);
+			if (isset($event['status'])) $firstStatusBySource[$sourceKey] = true;
+		}
+		unset($event);
+	}
+	unset($events);
+
+	return [$byPath, $stats];
+}
+
+function radnetzDashboardCompleteHistories(array $features, array $previousByKey, array $stats): array
+{
+	$candidates = [];
+	$liveByPath = [];
+	$cachedByPath = [];
+	$previousByPath = [];
+	foreach ($previousByKey as $previousFeature) {
+		$previousPath = radnetzDashboardNormalizePath((string)($previousFeature['properties']['Projektliste'] ?? ''));
+		if ($previousPath !== '') $previousByPath[$previousPath] = $previousFeature;
+	}
+	foreach ($features as $index => &$feature) {
+		$properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+		$path = radnetzDashboardNormalizePath((string)($properties['Projektliste'] ?? ''));
+		if ($path === '') continue;
+		$typeKey = (string)($properties['_projectType'] ?? 'bauprogramm');
+		$key = radnetzDashboardProjectKey($typeKey, (string)($properties['Jahr'] ?? ''), (string)($properties['Titel'] ?? ''));
+		$previous = $previousByPath
+			? ($previousByPath[$path] ?? null)
+			: ($previousByKey[$key] ?? null);
+		$previousProperties = is_array($previous['properties'] ?? null) ? $previous['properties'] : [];
+		$live = is_array($properties['Projektverlauf'] ?? null) ? $properties['Projektverlauf'] : [];
+		$liveByPath[$path] = $live;
+		$cachedByPath[$path] = is_array($previousProperties['Projektverlauf'] ?? null)
+			? $previousProperties['Projektverlauf']
+			: [];
+		foreach ($live as &$event) $event['initial'] = false;
+		unset($event);
+		// Keep the complete detail-page cache between audits, not just its initial
+		// events. The global views normally contain all later changes, but retaining
+		// the authoritative detail snapshot prevents an omitted view row from
+		// silently deleting history before the page's next rolling audit.
+		$history = radnetzDashboardMergeHistory($live, $cachedByPath[$path]);
+		if ($history) $properties['Projektverlauf'] = $history;
+		else unset($properties['Projektverlauf']);
+		$feature['properties'] = $properties;
+		$candidates[$path] = [
+			'index' => $index,
+			'checkedAt' => trim((string)($previousProperties['_historyDetailCheckedAt'] ?? '')),
+		];
+	}
+	unset($feature);
+
+	$unchecked = array_filter($candidates, static fn(array $candidate): bool => $candidate['checkedAt'] === '');
+	if ($unchecked) {
+		$selected = $unchecked;
+		$mode = 'initial-or-new';
+	} else {
+		uasort($candidates, static function (array $left, array $right): int {
+			return [$left['checkedAt'], $left['index']] <=> [$right['checkedAt'], $right['index']];
+		});
+		$selected = array_slice($candidates, 0, RADNETZ_DASHBOARD_HISTORY_AUDIT_BATCH, true);
+		$mode = 'rolling-audit';
+	}
+
+	$urls = [];
+	foreach ($selected as $path => $_candidate) $urls[$path] = RADNETZ_DASHBOARD_BASE_URL . ltrim($path, '/');
+	$bodies = radnetzDashboardHttpMany($urls, 'text/html,application/xhtml+xml');
+	$checkedAt = gmdate('c');
+	foreach ($selected as $path => $candidate) {
+		$detail = radnetzDashboardParseDetailHistoryHtml((string)$bodies[$path], $path);
+		radnetzDashboardAssertDetailHistoryComplete(
+			$path,
+			$detail,
+			radnetzDashboardMergeHistory($liveByPath[$path] ?? [], $cachedByPath[$path] ?? [])
+		);
+
+		$index = (int)$candidate['index'];
+		if ($detail) $features[$index]['properties']['Projektverlauf'] = $detail;
+		else unset($features[$index]['properties']['Projektverlauf']);
+		$features[$index]['properties']['_historyDetailCheckedAt'] = $checkedAt;
+	}
+
+	$ids = [];
+	$projects = [];
+	foreach ($features as $feature) {
+		$properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+		$projectId = (string)($properties['Projekt-ID'] ?? '');
+		foreach (($properties['Projektverlauf'] ?? []) as $event) {
+			if (!is_array($event)) continue;
+			$sourceKey = (string)($event['quelle'] ?? '');
+			$id = (string)($event['id'] ?? '');
+			if ($sourceKey === '' || $id === '') continue;
+			$ids[$sourceKey][$id] = true;
+			$projects[$sourceKey][$projectId] = true;
+		}
+	}
+	foreach (radnetzDashboardHistorySourceDefinitions() as $sourceKey => $_source) {
+		$stats[$sourceKey]['events'] = count($ids[$sourceKey] ?? []);
+		$stats[$sourceKey]['projects'] = count($projects[$sourceKey] ?? []);
+		$stats[$sourceKey]['detailPagesFetched'] = count($selected);
+		$stats[$sourceKey]['detailRefreshMode'] = $mode;
+	}
+
+	return [$features, $stats];
+}
+
+function radnetzDashboardAssertDetailHistoryComplete(string $path, array $detail, array $expected): void
+{
+	$detailIds = array_fill_keys(array_filter(array_map(
+		static fn(mixed $event): string => is_array($event) ? (string)($event['id'] ?? '') : '',
+		$detail
+	)), true);
+	$missing = [];
+	foreach ($expected as $event) {
+		if (!is_array($event)) continue;
+		$id = (string)($event['id'] ?? '');
+		if ($id !== '' && !isset($detailIds[$id])) $missing[] = $id;
+	}
+	if (!$missing) return;
+
+	throw new RuntimeException(sprintf(
+		'Projekt-Detailprotokoll %s enthält %d bereits bekannte Ereignisse nicht.',
+		$path,
+		count(array_unique($missing))
+	));
+}
+
+function radnetzDashboardMergeHistory(array ...$groups): array
+{
+	$merged = [];
+	foreach ($groups as $events) {
+		foreach ($events as $event) {
+			if (!is_array($event)) continue;
+			$id = (string)($event['id'] ?? '');
+			if ($id !== '') $merged[$id] = $event;
+		}
+	}
+	$merged = array_values($merged);
+	usort($merged, static function (array $left, array $right): int {
+		return [$left['datum'] ?? '', $left['quelle'] ?? '', $left['id'] ?? '']
+			<=> [$right['datum'] ?? '', $right['quelle'] ?? '', $right['id'] ?? ''];
+	});
+	return $merged;
+}
+
+function radnetzDashboardPreviousHistoryCounts(?array $previous): array
+{
+	$counts = [];
+	foreach (($previous['metadata']['historyStats'] ?? []) as $sourceKey => $stats) {
+		$count = (int)($stats['viewEvents'] ?? ($stats['events'] ?? 0));
+		if ($count > 0) $counts[(string)$sourceKey] = $count;
+	}
+	if ($counts || $previous === null) return $counts;
+
+	$ids = [];
+	foreach (($previous['features'] ?? []) as $feature) {
+		foreach (($feature['properties']['Projektverlauf'] ?? []) as $event) {
+			if (!is_array($event)) continue;
+			$sourceKey = (string)($event['quelle'] ?? '');
+			$id = (string)($event['id'] ?? '');
+			if ($sourceKey === '' || $id === '') continue;
+			$ids[$sourceKey][$id] = true;
+		}
+	}
+	foreach ($ids as $sourceKey => $sourceIds) $counts[$sourceKey] = count($sourceIds);
+	return $counts;
+}
+
+function radnetzDashboardParseHistoryHtml(string $html, string $sourceKey): array
+{
+	$source = radnetzDashboardHistorySourceDefinitions()[$sourceKey] ?? null;
+	if (!is_array($source)) throw new InvalidArgumentException("Unbekannte Protokollquelle: {$sourceKey}");
+
+	$document = new DOMDocument();
+	$previous = libxml_use_internal_errors(true);
+	try {
+		$loaded = $document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+	} finally {
+		libxml_clear_errors();
+		libxml_use_internal_errors($previous);
+	}
+	if (!$loaded) throw new RuntimeException("Dashboard-Protokoll {$sourceKey} ist kein gültiges HTML.");
+
+	$xpath = new DOMXPath($document);
+	$viewClass = (string)$source['viewClass'];
+	$roots = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " ' . $viewClass . ' ")]');
+	$root = $roots && $roots->length ? $roots->item(0) : null;
+	if (!$root instanceof DOMElement) throw new RuntimeException("Dashboard-Protokollansicht {$sourceKey} fehlt.");
+
+	$events = [];
+	$rows = $xpath->query('.//li[.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-title ")]]', $root);
+	foreach ($rows ?: [] as $row) {
+		$titleLinks = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-title ")]//a', $row);
+		$link = $titleLinks && $titleLinks->length ? $titleLinks->item(0) : null;
+		if (!$link instanceof DOMElement) continue;
+		$path = radnetzDashboardNormalizePath($link->getAttribute('href'));
+		if ($path === '' || (!str_starts_with($path, '/bauprogramm/') && !str_starts_with($path, '/weitere-bauprojekte/'))) continue;
+
+		$dateNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-field-datum ")]//time[@datetime]', $row);
+		$time = $dateNodes && $dateNodes->length ? $dateNodes->item(0) : null;
+		if (!$time instanceof DOMElement) continue;
+		$date = substr($time->getAttribute('datetime'), 0, 10);
+		if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) continue;
+
+		$status = radnetzDashboardHistoryStatusAfterTime($time);
+		$bodyNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-body ")]//*[contains(concat(" ", normalize-space(@class), " "), " field-content ")]', $row);
+		$body = $bodyNodes && $bodyNodes->length ? $bodyNodes->item(0) : null;
+		$lines = $body instanceof DOMElement ? radnetzDashboardHtmlLines($body) : [];
+		$changes = array_map('radnetzDashboardHistoryChange', $lines);
+		$type = $status !== ''
+			? ($changes ? 'status_und_aenderungen' : 'status')
+			: ($changes ? 'aenderungen' : 'notiz');
+		$id = substr(hash('sha256', implode("\n", [$sourceKey, $path, $date, $status, implode("\n", $lines)])), 0, 20);
+
+		$event = [
+			'id' => $id,
+			'datum' => $date,
+			'quelle' => $sourceKey,
+			'typ' => $type,
+			'_path' => $path,
+		];
+		if ($status !== '') $event['status'] = $status;
+		if ($changes) $event['aenderungen'] = $changes;
+		if ($lines) $event['text'] = implode("\n", $lines);
+		$events[] = $event;
+	}
+
+	$next = $xpath->query('.//nav[contains(concat(" ", normalize-space(@class), " "), " pager ")]//a[@rel="next"]', $root);
+	return ['events' => $events, 'hasNext' => $next !== false && $next->length > 0];
+}
+
+function radnetzDashboardParseDetailHistoryHtml(string $html, string $path): array
+{
+	$document = new DOMDocument();
+	$previous = libxml_use_internal_errors(true);
+	try {
+		$loaded = $document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+	} finally {
+		libxml_clear_errors();
+		libxml_use_internal_errors($previous);
+	}
+	if (!$loaded) throw new RuntimeException("Projekt-Detailseite {$path} ist kein gültiges HTML.");
+
+	$xpath = new DOMXPath($document);
+	$events = [];
+	foreach (['bauprogramm' => 'block_1', 'projektkarte' => 'block_2'] as $sourceKey => $displayId) {
+		$roots = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " view-id-status_aenderungen ") and contains(concat(" ", normalize-space(@class), " "), " view-display-id-' . $displayId . ' ")]');
+		foreach ($roots ?: [] as $root) {
+			$dateNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-field-datum ")]//time[@datetime]', $root);
+			$time = $dateNodes && $dateNodes->length ? $dateNodes->item(0) : null;
+			if (!$time instanceof DOMElement) continue;
+			$date = substr($time->getAttribute('datetime'), 0, 10);
+			if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) continue;
+
+			$dateField = $time->parentNode;
+			$dateText = $dateField instanceof DOMNode ? radnetzDashboardNodeText($dateField) : '';
+			$initial = $sourceKey === 'bauprogramm'
+				? mb_stripos($dateText, 'veröffentlicht', 0, 'UTF-8') !== false
+				: mb_stripos($dateText, 'Beobachtung gestartet', 0, 'UTF-8') !== false;
+			$statusNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-field-status ")]//*[contains(concat(" ", normalize-space(@class), " "), " field-content ")]', $root);
+			$statusNode = $statusNodes && $statusNodes->length ? $statusNodes->item(0) : null;
+			$status = $statusNode instanceof DOMNode ? radnetzDashboardNodeText($statusNode) : '';
+			$status = preg_replace('/^(?:gefundener Status|Statusänderung):\s*/iu', '', $status) ?? $status;
+			$status = radnetzDashboardNormalizeStatus($status);
+
+			$bodyNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-body ")]//*[contains(concat(" ", normalize-space(@class), " "), " field-content ")]', $root);
+			$body = $bodyNodes && $bodyNodes->length ? $bodyNodes->item(0) : null;
+			$lines = $body instanceof DOMElement ? radnetzDashboardHtmlLines($body) : [];
+			$changes = array_map('radnetzDashboardHistoryChange', $lines);
+			$type = $status !== ''
+				? ($changes ? 'status_und_aenderungen' : 'status')
+				: ($changes ? 'aenderungen' : 'notiz');
+			$id = substr(hash('sha256', implode("\n", [$sourceKey, $path, $date, $status, implode("\n", $lines)])), 0, 20);
+			$event = [
+				'id' => $id,
+				'datum' => $date,
+				'quelle' => $sourceKey,
+				'typ' => $type,
+				'initial' => $initial,
+			];
+			if ($status !== '') $event['status'] = $status;
+			if ($changes) $event['aenderungen'] = $changes;
+			if ($lines) $event['text'] = implode("\n", $lines);
+			$events[$id] = $event;
+		}
+	}
+
+	$events = array_values($events);
+	usort($events, static function (array $left, array $right): int {
+		return [$left['datum'] ?? '', $left['quelle'] ?? '', $left['id'] ?? '']
+			<=> [$right['datum'] ?? '', $right['quelle'] ?? '', $right['id'] ?? ''];
+	});
+	return $events;
+}
+
+function radnetzDashboardHistoryStatusAfterTime(DOMElement $time): string
+{
+	$text = '';
+	for ($node = $time->nextSibling; $node !== null; $node = $node->nextSibling) {
+		$text .= ' ' . $node->textContent;
+	}
+	return radnetzDashboardNormalizeStatus(preg_replace('/\s+/u', ' ', trim($text)) ?? trim($text));
+}
+
+function radnetzDashboardHtmlLines(DOMElement $node): array
+{
+	$html = '';
+	foreach ($node->childNodes as $child) $html .= $node->ownerDocument?->saveHTML($child) ?? '';
+	$html = preg_replace('~<br\s*/?>|</(?:p|div|li)>~iu', "\n", $html) ?? $html;
+	$text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	$lines = preg_split('/\R+/u', $text) ?: [];
+	$lines = array_map(static fn(string $line): string => preg_replace('/\s+/u', ' ', trim($line)) ?? trim($line), $lines);
+	$lines = array_values(array_filter($lines, static fn(string $line): bool => $line !== ''));
+	$joined = [];
+	$buffer = '';
+	foreach ($lines as $line) {
+		$buffer = $buffer === '' ? $line : $buffer . "\n" . $line;
+		if (substr_count($buffer, '"') % 2 === 0) {
+			$joined[] = $buffer;
+			$buffer = '';
+		}
+	}
+	if ($buffer !== '') $joined[] = $buffer;
+	return $joined;
+}
+
+function radnetzDashboardHistoryChange(string $line): array
+{
+	$change = ['text' => $line];
+	if (preg_match('/^(.+?)\s+(geändert|umbenannt|gelöscht|entfernt|hinzugefügt)(?:\s+von\s*:?\s*"(.*)")?$/us', $line, $match)) {
+		$change['feld'] = trim($match[1]);
+		$change['aktion'] = trim($match[2]);
+		if (isset($match[3]) && $match[3] !== '') $change['vorher'] = $match[3];
+	}
+	return $change;
 }
 
 function radnetzDashboardPreviousPayload(): ?array
@@ -776,9 +1218,11 @@ function radnetzDashboardViewFeature(
 	string $typeKey,
 	string $typeLabel,
 	array $statuses,
-	?array $previous
+	?array $previous,
+	array $history = []
 ): array {
 	$properties = is_array($previous['properties'] ?? null) ? $previous['properties'] : [];
+	unset($properties['Statusverlauf'], $properties['Projektverlauf'], $properties['Aktueller Projektstatus']);
 	$status = radnetzDashboardNormalizeStatus((string)($row['Status'] ?? ($mapProject['popup']['Status'] ?? '')));
 	$statusEntry = $statuses[mb_strtolower($status, 'UTF-8')] ?? null;
 	$districtCodes = array_values(array_unique(array_filter($row['_districtCodes'] ?? [])));
@@ -807,12 +1251,14 @@ function radnetzDashboardViewFeature(
 		'Bezirk' => $district,
 		'Postleitzahl' => implode(', ', $districtCodes),
 		'Status' => $status,
+		'Aktueller Projektstatus' => $status,
 		'Projektliste' => $path === '' ? RADNETZ_DASHBOARD_BASE_URL : RADNETZ_DASHBOARD_BASE_URL . ltrim($path, '/'),
 		'Statusfarbe' => $color,
 		'_projectType' => $typeKey,
 		'_sourceEntityId' => $entityId,
 		'_districtCodes' => ',' . implode(',', $districtCodes) . ',',
 	];
+	if ($history) $current['Projektverlauf'] = $history;
 	if (($row['_fromList'] ?? false) === true) {
 		$current = array_replace($current, [
 			'Letzte Statusänderung' => $row['Letzte Statusänderung'] ?? '',
@@ -872,6 +1318,59 @@ function radnetzDashboardFetchAll(array $urls): array
 	$bodies = [];
 	foreach ($urls as $key => $url) {
 		$bodies[$key] = radnetzDashboardHttp($url, $key === 'statuses' ? 'application/json' : 'text/csv');
+	}
+	return $bodies;
+}
+
+function radnetzDashboardHttpMany(array $urls, string $accept): array
+{
+	$bodies = [];
+	foreach (array_chunk($urls, RADNETZ_DASHBOARD_HTTP_CONCURRENCY, true) as $chunk) {
+		$multi = curl_multi_init();
+		$handles = [];
+		foreach ($chunk as $key => $url) {
+			$handle = curl_init($url);
+			if ($handle === false) throw new RuntimeException('Parallele HTTP-Anfrage konnte nicht initialisiert werden.');
+			curl_setopt_array($handle, [
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_MAXREDIRS => 5,
+				CURLOPT_CONNECTTIMEOUT => 12,
+				CURLOPT_TIMEOUT => RADNETZ_DASHBOARD_HTTP_TIMEOUT,
+				CURLOPT_ENCODING => '',
+				CURLOPT_USERAGENT => RADNETZ_DASHBOARD_USER_AGENT,
+				CURLOPT_HTTPHEADER => ['Accept: ' . $accept],
+			]);
+			curl_multi_add_handle($multi, $handle);
+			$handles[$key] = ['handle' => $handle, 'url' => $url];
+		}
+
+		do {
+			$result = curl_multi_exec($multi, $running);
+		} while ($result === CURLM_CALL_MULTI_PERFORM);
+		while ($result === CURLM_OK && $running > 0) {
+			if (curl_multi_select($multi, 1.0) === -1) usleep(100000);
+			do {
+				$result = curl_multi_exec($multi, $running);
+			} while ($result === CURLM_CALL_MULTI_PERFORM);
+		}
+
+		foreach ($handles as $key => $request) {
+			$handle = $request['handle'];
+			$body = curl_multi_getcontent($handle);
+			$status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+			$error = curl_error($handle);
+			curl_multi_remove_handle($multi, $handle);
+			curl_close($handle);
+			if ($error === '' && $status >= 200 && $status < 300 && is_string($body) && $body !== '' && strlen($body) <= RADNETZ_DASHBOARD_MAX_RESPONSE_BYTES) {
+				$bodies[$key] = $body;
+				continue;
+			}
+			// A transient failure in one parallel request gets the same bounded retry
+			// behavior as all other Dashboard requests.
+			$bodies[$key] = radnetzDashboardHttp((string)$request['url'], $accept);
+		}
+		curl_multi_close($multi);
 	}
 	return $bodies;
 }

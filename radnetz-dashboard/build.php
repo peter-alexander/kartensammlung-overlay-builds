@@ -62,6 +62,18 @@ try {
 			fwrite(STDOUT, 'Nur in Jahreskarten (' . $typeKey . '): ' . json_encode($stats['yearOnlyMapPaths'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
 		}
 	}
+	foreach (($payload['metadata']['historyStats'] ?? []) as $sourceKey => $stats) {
+		fwrite(
+			STDOUT,
+			sprintf(
+				"Projektverlauf %s: %d Ereignisse für %d Projekte auf %d Seiten.\n",
+				$sourceKey,
+				(int)($stats['events'] ?? 0),
+				(int)($stats['projects'] ?? 0),
+				(int)($stats['pages'] ?? 0)
+			)
+		);
+	}
 	if ($mode === 'stale-production-fallback' && isset($payload['metadata']['sourceStats'])) {
 		fwrite(STDERR, 'Fallback-Quellstatistik: ' . json_encode($payload['metadata']['sourceStats'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
 	}
