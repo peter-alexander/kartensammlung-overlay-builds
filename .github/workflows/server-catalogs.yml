@@ -19,7 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
   schedule:
-    - cron: '23 */6 * * *'
+    - cron: '23 0 * * *'
 
 concurrency:
   group: server-catalogs
