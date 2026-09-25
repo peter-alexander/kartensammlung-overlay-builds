@@ -15,7 +15,7 @@ on:
       - '.github/scripts/main-ftp-upload-file.sh'
       - '.github/workflows/kuka.yml'
   schedule:
-    - cron: '17 * * * *'
+    - cron: '17 */3 * * *'
 
 concurrency:
   group: kuka-title-cache
