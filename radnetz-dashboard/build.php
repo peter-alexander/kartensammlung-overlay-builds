@@ -38,6 +38,19 @@ try {
 	$unmapped = (int)($payload['metadata']['unmappedProjects'] ?? 0);
 	$mode = (string)($payload['metadata']['sourceMode'] ?? 'unknown');
 	fwrite(STDOUT, "Radnetz-Dashboard: {$count} Projekte, {$mappable} kartierbar, {$unmapped} ohne Geometrie ({$mode}).\n");
+	foreach ($payload['features'] as $feature) {
+		if (($feature['geometry'] ?? null) !== null) continue;
+		$props = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+		fwrite(
+			STDOUT,
+			'Ohne Geometrie: '
+			. trim((string)($props['Projekttyp'] ?? '')) . ' | '
+			. trim((string)($props['Jahr'] ?? '')) . ' | '
+			. trim((string)($props['Titel'] ?? '')) . ' | '
+			. trim((string)($props['Projektliste'] ?? ''))
+			. PHP_EOL
+		);
+	}
 	if (isset($payload['metadata']['warning'])) {
 		fwrite(STDERR, 'WARNUNG: ' . $payload['metadata']['warning'] . PHP_EOL);
 	}
