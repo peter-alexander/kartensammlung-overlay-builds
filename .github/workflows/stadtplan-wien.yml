@@ -15,7 +15,7 @@ on:
       - '.github/scripts/main-ftp-upload-file.sh'
       - '.github/workflows/stadtplan-wien.yml'
   schedule:
-    - cron: '19 */2 * * *'
+    - cron: '19 0 * * *'
 
 concurrency:
   group: stadtplan-wien-snapshot
