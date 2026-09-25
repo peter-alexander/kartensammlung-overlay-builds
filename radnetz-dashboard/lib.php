@@ -173,7 +173,13 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 	foreach (radnetzDashboardSourceDefinitions() as $typeKey => $source) {
 		[$rows, $pages] = radnetzDashboardFetchListRows($source['type'], $typeKey);
 		$years = radnetzDashboardYearsFromRows($rows);
-		$mapProjects = [];
+
+		// The unfiltered category map is the completeness baseline. This matters
+		// especially for "Weitere Bauprojekte", where many projects have no year.
+		// Year-specific views then override matching projects so historical colors
+		// and geometries come from the official view for that exact year.
+		$mapProjects = radnetzDashboardFetchMapProjects($source['type']);
+		$overviewMapProjects = count($mapProjects);
 		$mapProjectsByYear = [];
 
 		foreach ($years as $year) {
@@ -216,8 +222,9 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 		$sourceStats[$typeKey] = [
 			'listProjects' => count($rows),
 			'mapProjects' => count($mapProjects),
+			'overviewMapProjects' => $overviewMapProjects,
 			'listPages' => $pages,
-			'mapViews' => count($years),
+			'mapViews' => count($years) + 1,
 			'mapYears' => $years,
 			'mapProjectsByYear' => $mapProjectsByYear,
 			'mapOnlyProjects' => count(array_diff_key($mapProjects, $matchedMapPaths)),
@@ -280,7 +287,9 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 			'source' => RADNETZ_DASHBOARD_BASE_URL,
 			'sourceMode' => 'dashboard-rendered-views',
 			'sources' => [
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=2&jahr={year}',
+				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/karte?type=3&jahr={year}',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=2',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=3',
