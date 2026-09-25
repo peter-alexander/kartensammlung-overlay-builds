@@ -44,6 +44,11 @@ try {
 	if (isset($payload['metadata']['liveError'])) {
 		fwrite(STDERR, 'Live-Fehler: ' . $payload['metadata']['liveError'] . PHP_EOL);
 	}
+	foreach (($payload['metadata']['sourceStats'] ?? []) as $typeKey => $stats) {
+		if (!empty($stats['yearOnlyMapPaths'])) {
+			fwrite(STDOUT, 'Nur in Jahreskarten (' . $typeKey . '): ' . json_encode($stats['yearOnlyMapPaths'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
+		}
+	}
 	if ($mode === 'stale-production-fallback' && isset($payload['metadata']['sourceStats'])) {
 		fwrite(STDERR, 'Fallback-Quellstatistik: ' . json_encode($payload['metadata']['sourceStats'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
 	}
