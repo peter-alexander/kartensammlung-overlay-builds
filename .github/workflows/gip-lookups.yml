@@ -1,0 +1,72 @@
+name: Refresh GIP lookup catalog
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'gip-lookups/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/gip-lookups.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'gip-lookups/**'
+      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/workflows/gip-lookups.yml'
+  schedule:
+    - cron: '37 4 * * 1'
+
+concurrency:
+  group: gip-lookups
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+      CURRENT_URL: https://fahrrad.lima-city.de/Maps/GIP/GipLookups.json
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install unzip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Build GIP lookup catalog
+        run: bash gip-lookups/run.sh
+
+      - name: Check whether production file changed
+        id: changed
+        run: |
+          if curl -fsS --retry 3 --retry-delay 2 -o /tmp/current-gip-lookups.json "$CURRENT_URL" \
+            && cmp -s /tmp/current-gip-lookups.json gip-lookups/build/GipLookups.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "GIP lookup catalog unchanged."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "GIP lookup catalog changed or production file is unavailable."
+          fi
+
+      - name: Deploy GIP lookup catalog to Lima
+        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            gip-lookups/build/GipLookups.json \
+            "${MAIN_REMOTE_ROOT%/}/GIP/GipLookups.json"
