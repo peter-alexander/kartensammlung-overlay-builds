@@ -227,7 +227,24 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 	$count = count($features);
 	$mappable = count(array_filter($features, static fn(array $feature): bool => $feature['geometry'] !== null));
 	if ($count < RADNETZ_DASHBOARD_MIN_PROJECTS || $mappable < RADNETZ_DASHBOARD_MIN_PROJECTS) {
-		throw new RuntimeException("Unplausibel unvollständiger Dashboard-Abruf: {$count} Projekte, {$mappable} kartierbar.");
+		$sourceSummary = [];
+		foreach ($sourceStats as $typeKey => $stats) {
+			$yearCounts = [];
+			foreach (($stats['mapProjectsByYear'] ?? []) as $year => $yearCount) {
+				$yearCounts[] = $year . ':' . $yearCount;
+			}
+			$sourceSummary[] = sprintf(
+				'%s list=%d map=%d years=[%s]',
+				$typeKey,
+				(int)($stats['listProjects'] ?? 0),
+				(int)($stats['mapProjects'] ?? 0),
+				implode(',', $yearCounts)
+			);
+		}
+		throw new RuntimeException(
+			"Unplausibel unvollständiger Dashboard-Abruf: {$count} Projekte, {$mappable} kartierbar; "
+			. implode('; ', $sourceSummary)
+		);
 	}
 	if ($previous !== null && isset($previous['features']) && $count < count($previous['features']) * 0.9) {
 		throw new RuntimeException('Live-Abruf enthält mehr als zehn Prozent weniger Projekte als der veröffentlichte Stand.');
