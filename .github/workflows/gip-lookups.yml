@@ -15,7 +15,7 @@ on:
       - '.github/scripts/main-ftp-upload-file.sh'
       - '.github/workflows/gip-lookups.yml'
   schedule:
-    - cron: '37 4 * * 1'
+    - cron: '37 4 * * *'
 
 concurrency:
   group: gip-lookups
