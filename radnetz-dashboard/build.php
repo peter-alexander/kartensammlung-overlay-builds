@@ -66,11 +66,15 @@ try {
 		fwrite(
 			STDOUT,
 			sprintf(
-				"Projektverlauf %s: %d Ereignisse für %d Projekte auf %d Seiten.\n",
+				"Projektverlauf %s: %d Ereignisse für %d Projekte auf %d Seiten; Native-Refresh %s mit %d Projekt- und %d Ereignisentitäten (%d ohne fachliches Datum).\n",
 				$sourceKey,
 				(int)($stats['events'] ?? 0),
 				(int)($stats['projects'] ?? 0),
-				(int)($stats['pages'] ?? 0)
+				(int)($stats['pages'] ?? 0),
+				(string)($stats['nativeRefreshMode'] ?? 'unbekannt'),
+				(int)($stats['nativeProjectEntitiesFetched'] ?? 0),
+				(int)($stats['nativeEventEntitiesFetched'] ?? 0),
+				(int)($stats['nativeCreatedDateFallbacks'] ?? 0)
 			)
 		);
 	}

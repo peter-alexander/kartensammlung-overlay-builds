@@ -16,6 +16,8 @@ const RADNETZ_DASHBOARD_MAX_LIST_PAGES = 25;
 const RADNETZ_DASHBOARD_MAX_HISTORY_PAGES = 100;
 const RADNETZ_DASHBOARD_HISTORY_AUDIT_BATCH = 50;
 const RADNETZ_DASHBOARD_HTTP_CONCURRENCY = 12;
+const RADNETZ_DASHBOARD_HISTORY_SCHEMA_VERSION = 3;
+const RADNETZ_DASHBOARD_HISTORY_IDENTITY_VERSION = 1;
 
 if (!defined('RADNETZ_DASHBOARD_LIBRARY_ONLY')) {
 	radnetzDashboardMain();
@@ -264,7 +266,8 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 	[$features, $historyStats] = radnetzDashboardCompleteHistories(
 		$features,
 		$previousByKey,
-		$historyStats
+		$historyStats,
+		(int)($previous['metadata']['historyIdentityVersion'] ?? 0) < RADNETZ_DASHBOARD_HISTORY_IDENTITY_VERSION
 	);
 
 	$count = count($features);
@@ -331,12 +334,16 @@ function radnetzDashboardBuildLivePayload(?array $previous = null): array
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprojekte?type=3',
 				RADNETZ_DASHBOARD_BASE_URL . 'bauprogramm/status-aenderungen',
 				RADNETZ_DASHBOARD_BASE_URL . 'projektkarte/status-aenderungen',
+				RADNETZ_DASHBOARD_BASE_URL . '{project-path}?_format=json',
+				RADNETZ_DASHBOARD_BASE_URL . 'node/{event-id}?_format=json',
+				RADNETZ_DASHBOARD_BASE_URL . 'taxonomy/term/{status-id}?_format=json',
 			],
 			'projects' => $count,
 			'mappableProjects' => $mappable,
 			'unmappedProjects' => $unmapped,
 			'sourceStats' => $sourceStats,
-			'historySchemaVersion' => 2,
+			'historySchemaVersion' => RADNETZ_DASHBOARD_HISTORY_SCHEMA_VERSION,
+			'historyIdentityVersion' => RADNETZ_DASHBOARD_HISTORY_IDENTITY_VERSION,
 			'historyStats' => $historyStats,
 			'years' => $years,
 			'statuses' => array_values($statuses),
@@ -389,7 +396,7 @@ function radnetzDashboardFetchHistory(?array $previous = null): array
 
 	foreach (radnetzDashboardHistorySourceDefinitions() as $sourceKey => $source) {
 		$events = [];
-		$seen = [];
+		$eventIndexes = [];
 		$pages = 0;
 		for ($page = 0; $page < RADNETZ_DASHBOARD_MAX_HISTORY_PAGES; $page++) {
 			$query = http_build_query([
@@ -407,9 +414,18 @@ function radnetzDashboardFetchHistory(?array $previous = null): array
 				throw new RuntimeException("Leere Protokollseite für {$sourceKey} auf Seite {$page}.");
 			}
 			foreach ($parsed['events'] as $event) {
-				$id = (string)($event['id'] ?? '');
-				if ($id === '' || isset($seen[$id])) continue;
-				$seen[$id] = true;
+				$path = (string)($event['_path'] ?? '');
+				$contentHash = (string)($event['contentHash'] ?? '');
+				if ($path === '' || $contentHash === '') continue;
+				$eventKey = $path . '|' . $contentHash;
+				if (isset($eventIndexes[$eventKey])) {
+					$eventIndex = $eventIndexes[$eventKey];
+					$events[$eventIndex]['_viewOccurrences']++;
+					continue;
+				}
+				$event['id'] = 'view:' . substr($contentHash, 7, 20);
+				$event['_viewOccurrences'] = 1;
+				$eventIndexes[$eventKey] = count($events);
 				$events[] = $event;
 			}
 			if (!$parsed['hasNext']) break;
@@ -446,10 +462,7 @@ function radnetzDashboardFetchHistory(?array $previous = null): array
 	}
 
 	foreach ($byPath as &$events) {
-		usort($events, static function (array $left, array $right): int {
-			return [$left['datum'] ?? '', $left['quelle'] ?? '', $left['id'] ?? '']
-				<=> [$right['datum'] ?? '', $right['quelle'] ?? '', $right['id'] ?? ''];
-		});
+		radnetzDashboardSortHistory($events);
 		$firstStatusBySource = [];
 		foreach ($events as &$event) {
 			$sourceKey = (string)($event['quelle'] ?? '');
@@ -463,7 +476,12 @@ function radnetzDashboardFetchHistory(?array $previous = null): array
 	return [$byPath, $stats];
 }
 
-function radnetzDashboardCompleteHistories(array $features, array $previousByKey, array $stats): array
+function radnetzDashboardCompleteHistories(
+	array $features,
+	array $previousByKey,
+	array $stats,
+	bool $forceIdentityMigration = false
+): array
 {
 	$candidates = [];
 	$liveByPath = [];
@@ -484,49 +502,61 @@ function radnetzDashboardCompleteHistories(array $features, array $previousByKey
 			: ($previousByKey[$key] ?? null);
 		$previousProperties = is_array($previous['properties'] ?? null) ? $previous['properties'] : [];
 		$live = is_array($properties['Projektverlauf'] ?? null) ? $properties['Projektverlauf'] : [];
+		$live = array_values(array_map('radnetzDashboardHistoryWithContentHash', $live));
 		$liveByPath[$path] = $live;
 		$cachedByPath[$path] = is_array($previousProperties['Projektverlauf'] ?? null)
-			? $previousProperties['Projektverlauf']
+			? array_values(array_map('radnetzDashboardHistoryWithContentHash', $previousProperties['Projektverlauf']))
 			: [];
-		foreach ($live as &$event) $event['initial'] = false;
-		unset($event);
-		// Keep the complete detail-page cache between audits, not just its initial
-		// events. The global views normally contain all later changes, but retaining
-		// the authoritative detail snapshot prevents an omitted view row from
-		// silently deleting history before the page's next rolling audit.
-		$history = radnetzDashboardMergeHistory($live, $cachedByPath[$path]);
+		$refreshReasons = radnetzDashboardHistoryRefreshReasons(
+			$live,
+			$cachedByPath[$path],
+			trim((string)($previousProperties['_historyDetailCheckedAt'] ?? '')),
+			$forceIdentityMigration
+		);
+
+		// Once a project has native identities, only its native detail snapshot is
+		// persisted. View rows deliberately remain transient change detectors: they
+		// must never create a second cached event merely because edited content gave
+		// the row a new hash.
+		$history = $cachedByPath[$path];
 		if ($history) $properties['Projektverlauf'] = $history;
 		else unset($properties['Projektverlauf']);
 		$feature['properties'] = $properties;
 		$candidates[$path] = [
 			'index' => $index,
 			'checkedAt' => trim((string)($previousProperties['_historyDetailCheckedAt'] ?? '')),
+			'reasons' => array_values(array_unique($refreshReasons)),
 		];
 	}
 	unset($feature);
 
-	$unchecked = array_filter($candidates, static fn(array $candidate): bool => $candidate['checkedAt'] === '');
-	if ($unchecked) {
-		$selected = $unchecked;
-		$mode = 'initial-or-new';
-	} else {
-		uasort($candidates, static function (array $left, array $right): int {
-			return [$left['checkedAt'], $left['index']] <=> [$right['checkedAt'], $right['index']];
-		});
-		$selected = array_slice($candidates, 0, RADNETZ_DASHBOARD_HISTORY_AUDIT_BATCH, true);
-		$mode = 'rolling-audit';
-	}
+	$selected = array_filter($candidates, static fn(array $candidate): bool => $candidate['reasons'] !== []);
+	$remaining = array_diff_key($candidates, $selected);
+	uasort($remaining, static function (array $left, array $right): int {
+		return [$left['checkedAt'], $left['index']] <=> [$right['checkedAt'], $right['index']];
+	});
+	$fill = max(0, RADNETZ_DASHBOARD_HISTORY_AUDIT_BATCH - count($selected));
+	if ($fill > 0) $selected += array_slice($remaining, 0, $fill, true);
 
-	$urls = [];
-	foreach ($selected as $path => $_candidate) $urls[$path] = RADNETZ_DASHBOARD_BASE_URL . ltrim($path, '/');
-	$bodies = radnetzDashboardHttpMany($urls, 'text/html,application/xhtml+xml');
+	$selectedReasons = [];
+	foreach ($selected as $candidate) {
+		foreach ($candidate['reasons'] as $reason) $selectedReasons[$reason] = true;
+	}
+	$mode = isset($selectedReasons['identity-migration'])
+		? 'identity-migration'
+		: (isset($selectedReasons['new-or-corrected-view-event'])
+			? 'change-stream-refresh'
+			: (isset($selectedReasons['unchecked']) ? 'initial-or-new' : 'rolling-audit'));
+
+	[$nativeByPath, $nativeStats] = radnetzDashboardFetchNativeHistories(array_keys($selected));
 	$checkedAt = gmdate('c');
 	foreach ($selected as $path => $candidate) {
-		$detail = radnetzDashboardParseDetailHistoryHtml((string)$bodies[$path], $path);
-		radnetzDashboardAssertDetailHistoryComplete(
+		$detail = $nativeByPath[$path] ?? [];
+		radnetzDashboardAssertNativeHistoryComplete(
 			$path,
 			$detail,
-			radnetzDashboardMergeHistory($liveByPath[$path] ?? [], $cachedByPath[$path] ?? [])
+			$liveByPath[$path] ?? [],
+			$cachedByPath[$path] ?? []
 		);
 
 		$index = (int)$candidate['index'];
@@ -537,6 +567,7 @@ function radnetzDashboardCompleteHistories(array $features, array $previousByKey
 
 	$ids = [];
 	$projects = [];
+	$eventOwners = [];
 	foreach ($features as $feature) {
 		$properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
 		$projectId = (string)($properties['Projekt-ID'] ?? '');
@@ -544,7 +575,17 @@ function radnetzDashboardCompleteHistories(array $features, array $previousByKey
 			if (!is_array($event)) continue;
 			$sourceKey = (string)($event['quelle'] ?? '');
 			$id = (string)($event['id'] ?? '');
-			if ($sourceKey === '' || $id === '') continue;
+			$contentHash = (string)($event['contentHash'] ?? '');
+			if (!isset(radnetzDashboardHistorySourceDefinitions()[$sourceKey]) || !radnetzDashboardHistoryHasNativeIdentity($event)) {
+				throw new RuntimeException("Projekt {$projectId} enthält nach der Migration keine gültige native Ereignis-ID.");
+			}
+			if (preg_match('/^sha256:[0-9a-f]{64}$/', $contentHash) !== 1) {
+				throw new RuntimeException("Ereignis {$id} enthält keinen gültigen contentHash.");
+			}
+			if (isset($eventOwners[$id]) && $eventOwners[$id] !== $projectId) {
+				throw new RuntimeException("Ereignis {$id} ist mehreren Projekten zugeordnet.");
+			}
+			$eventOwners[$id] = $projectId;
 			$ids[$sourceKey][$id] = true;
 			$projects[$sourceKey][$projectId] = true;
 		}
@@ -552,32 +593,47 @@ function radnetzDashboardCompleteHistories(array $features, array $previousByKey
 	foreach (radnetzDashboardHistorySourceDefinitions() as $sourceKey => $_source) {
 		$stats[$sourceKey]['events'] = count($ids[$sourceKey] ?? []);
 		$stats[$sourceKey]['projects'] = count($projects[$sourceKey] ?? []);
-		$stats[$sourceKey]['detailPagesFetched'] = count($selected);
-		$stats[$sourceKey]['detailRefreshMode'] = $mode;
+		$stats[$sourceKey]['nativeRefreshMode'] = $mode;
+		$stats[$sourceKey]['nativeProjectEntitiesFetched'] = count($selected);
+		$stats[$sourceKey]['nativeEventEntitiesFetched'] = (int)($nativeStats['eventsBySource'][$sourceKey] ?? 0);
+		$stats[$sourceKey]['nativeCreatedDateFallbacks'] = (int)($nativeStats['createdDateFallbacksBySource'][$sourceKey] ?? 0);
 	}
 
 	return [$features, $stats];
 }
 
-function radnetzDashboardAssertDetailHistoryComplete(string $path, array $detail, array $expected): void
+function radnetzDashboardAssertNativeHistoryComplete(string $path, array $detail, array $live, array $cached): void
 {
 	$detailIds = array_fill_keys(array_filter(array_map(
 		static fn(mixed $event): string => is_array($event) ? (string)($event['id'] ?? '') : '',
 		$detail
 	)), true);
 	$missing = [];
-	foreach ($expected as $event) {
+	foreach ($cached as $event) {
 		if (!is_array($event)) continue;
 		$id = (string)($event['id'] ?? '');
-		if ($id !== '' && !isset($detailIds[$id])) $missing[] = $id;
+		if (radnetzDashboardHistoryHasNativeIdentity($event) && !isset($detailIds[$id])) $missing[] = $id;
 	}
-	if (!$missing) return;
+	if ($missing) {
+		throw new RuntimeException(sprintf(
+			'Projekt-Entität %s enthält %d bereits bekannte native Ereignisse nicht.',
+			$path,
+			count(array_unique($missing))
+		));
+	}
 
-	throw new RuntimeException(sprintf(
-		'Projekt-Detailprotokoll %s enthält %d bereits bekannte Ereignisse nicht.',
-		$path,
-		count(array_unique($missing))
-	));
+	$detailCounts = radnetzDashboardHistoryCountsByContent($detail);
+	$missingContent = [];
+	foreach (radnetzDashboardHistoryCountsByContent($live) as $contentHash => $_count) {
+		if (($detailCounts[$contentHash] ?? 0) < 1) $missingContent[$contentHash] = true;
+	}
+	if ($missingContent) {
+		throw new RuntimeException(sprintf(
+			'Projekt-Entität %s enthält %d Ereignisinhalte aus dem globalen Änderungsstrom nicht.',
+			$path,
+			count($missingContent)
+		));
+	}
 }
 
 function radnetzDashboardMergeHistory(array ...$groups): array
@@ -591,11 +647,123 @@ function radnetzDashboardMergeHistory(array ...$groups): array
 		}
 	}
 	$merged = array_values($merged);
-	usort($merged, static function (array $left, array $right): int {
-		return [$left['datum'] ?? '', $left['quelle'] ?? '', $left['id'] ?? '']
-			<=> [$right['datum'] ?? '', $right['quelle'] ?? '', $right['id'] ?? ''];
-	});
+	radnetzDashboardSortHistory($merged);
 	return $merged;
+}
+
+function radnetzDashboardSortHistory(array &$events): void
+{
+	usort($events, static function (array $left, array $right): int {
+		return [
+			$left['datum'] ?? '',
+			$left['quelle'] ?? '',
+			(int)($left['reihenfolge'] ?? PHP_INT_MAX),
+			$left['id'] ?? '',
+		] <=> [
+			$right['datum'] ?? '',
+			$right['quelle'] ?? '',
+			(int)($right['reihenfolge'] ?? PHP_INT_MAX),
+			$right['id'] ?? '',
+		];
+	});
+}
+
+function radnetzDashboardHistoryHasNativeIdentity(array $event): bool
+{
+	$uuid = (string)($event['nativeUuid'] ?? '');
+	return (string)($event['id'] ?? '') === 'drupal:' . $uuid
+		&& preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $uuid) === 1;
+}
+
+function radnetzDashboardHistoryCountsByContent(array $events): array
+{
+	$counts = [];
+	foreach ($events as $event) {
+		if (!is_array($event)) continue;
+		$event = radnetzDashboardHistoryWithContentHash($event);
+		$contentHash = (string)($event['contentHash'] ?? '');
+		if ($contentHash !== '') $counts[$contentHash] = ($counts[$contentHash] ?? 0) + 1;
+	}
+	ksort($counts, SORT_STRING);
+	return $counts;
+}
+
+function radnetzDashboardHistoryViewCountsByContent(array $events): array
+{
+	$counts = [];
+	foreach ($events as $event) {
+		if (!is_array($event)) continue;
+		$event = radnetzDashboardHistoryWithContentHash($event);
+		$contentHash = (string)($event['contentHash'] ?? '');
+		if ($contentHash === '') continue;
+		$occurrences = max(1, (int)($event['_viewOccurrences'] ?? 1));
+		$counts[$contentHash] = ($counts[$contentHash] ?? 0) + $occurrences;
+	}
+	ksort($counts, SORT_STRING);
+	return $counts;
+}
+
+function radnetzDashboardHistoryRefreshReasons(
+	array $live,
+	array $cached,
+	string $checkedAt,
+	bool $forceIdentityMigration = false
+): array
+{
+	$reasons = [];
+	if (trim($checkedAt) === '') $reasons[] = 'unchecked';
+	if ($forceIdentityMigration) {
+		$reasons[] = 'identity-migration';
+		return array_values(array_unique($reasons));
+	}
+	if (array_filter(
+		$cached,
+		static fn(mixed $event): bool => is_array($event) && !radnetzDashboardHistoryHasNativeIdentity($event)
+	)) {
+		$reasons[] = 'identity-migration';
+		return array_values(array_unique($reasons));
+	}
+
+	$liveCounts = radnetzDashboardHistoryViewCountsByContent($live);
+	$cachedCounts = radnetzDashboardHistoryCountsByContent($cached);
+	foreach ($liveCounts as $contentHash => $count) {
+		if (($cachedCounts[$contentHash] ?? 0) < $count) {
+			$reasons[] = 'new-or-corrected-view-event';
+			break;
+		}
+	}
+	return array_values(array_unique($reasons));
+}
+
+function radnetzDashboardHistoryWithContentHash(array $event): array
+{
+	$event['contentHash'] = radnetzDashboardHistoryContentHash($event);
+	return $event;
+}
+
+function radnetzDashboardHistoryContentHash(array $event): string
+{
+	$changes = [];
+	foreach (($event['aenderungen'] ?? []) as $change) {
+		if (!is_array($change)) continue;
+		$normalized = [];
+		foreach (['feld', 'aktion', 'vorher', 'text'] as $key) {
+			if (array_key_exists($key, $change)) $normalized[$key] = (string)$change[$key];
+		}
+		$changes[] = $normalized;
+	}
+	$canonical = [
+		'quelle' => (string)($event['quelle'] ?? ''),
+		'datum' => (string)($event['datum'] ?? ''),
+		'typ' => (string)($event['typ'] ?? ''),
+		'status' => (string)($event['status'] ?? ''),
+		'aenderungen' => $changes,
+		'text' => (string)($event['text'] ?? ''),
+	];
+	return 'sha256:' . hash('sha256', json_encode(
+		$canonical,
+		JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+	));
 }
 
 function radnetzDashboardPreviousHistoryCounts(?array $previous): array
@@ -619,6 +787,217 @@ function radnetzDashboardPreviousHistoryCounts(?array $previous): array
 	}
 	foreach ($ids as $sourceKey => $sourceIds) $counts[$sourceKey] = count($sourceIds);
 	return $counts;
+}
+
+function radnetzDashboardFetchNativeHistories(array $paths): array
+{
+	$paths = array_values(array_unique(array_filter(array_map('radnetzDashboardNormalizePath', $paths))));
+	if (!$paths) return [[], [
+		'projects' => 0,
+		'events' => 0,
+		'eventsBySource' => [],
+		'createdDateFallbacksBySource' => [],
+	]];
+
+	$projectUrls = [];
+	foreach ($paths as $path) {
+		$projectUrls[$path] = RADNETZ_DASHBOARD_BASE_URL . ltrim($path, '/') . '?_format=json';
+	}
+	$projectBodies = radnetzDashboardHttpMany($projectUrls, 'application/json');
+	$referencesByPath = [];
+	$eventUrls = [];
+	$eventIdentityByNode = [];
+	foreach ($paths as $path) {
+		$references = radnetzDashboardParseNativeProjectHistory((string)($projectBodies[$path] ?? ''), $path);
+		$referencesByPath[$path] = $references;
+		foreach ($references as $reference) {
+			$nodeId = (int)$reference['nativeId'];
+			$uuid = (string)$reference['nativeUuid'];
+			if (isset($eventIdentityByNode[$nodeId]) && $eventIdentityByNode[$nodeId] !== $uuid) {
+				throw new RuntimeException("Drupal-Ereignis {$nodeId} hat widersprüchliche UUIDs.");
+			}
+			$eventIdentityByNode[$nodeId] = $uuid;
+			$eventUrls[(string)$nodeId] = RADNETZ_DASHBOARD_BASE_URL . 'node/' . $nodeId . '?_format=json';
+		}
+	}
+
+	$eventBodies = radnetzDashboardHttpMany($eventUrls, 'application/json');
+	$eventDocuments = [];
+	$statusIds = [];
+	foreach ($eventBodies as $nodeId => $body) {
+		$document = radnetzDashboardDecodeJsonObject((string)$body, "Ereignis {$nodeId}");
+		$eventDocuments[(int)$nodeId] = $document;
+		$statusId = (int)($document['field_status'][0]['target_id'] ?? 0);
+		if ($statusId > 0) $statusIds[$statusId] = true;
+	}
+
+	$statusUrls = [];
+	foreach (array_keys($statusIds) as $statusId) {
+		$statusUrls[(string)$statusId] = RADNETZ_DASHBOARD_BASE_URL . 'taxonomy/term/' . $statusId . '?_format=json';
+	}
+	$statusBodies = radnetzDashboardHttpMany($statusUrls, 'application/json');
+	$statusNames = [];
+	foreach ($statusBodies as $statusId => $body) {
+		$document = radnetzDashboardDecodeJsonObject((string)$body, "Statusbegriff {$statusId}");
+		$name = radnetzDashboardNormalizeStatus((string)($document['name'][0]['value'] ?? ''));
+		if ($name === '') throw new RuntimeException("Drupal-Statusbegriff {$statusId} hat keinen Namen.");
+		$statusNames[(int)$statusId] = $name;
+	}
+
+	$byPath = [];
+	$eventsBySource = [];
+	$createdDateFallbacksBySource = [];
+	foreach ($referencesByPath as $path => $references) {
+		$events = [];
+		foreach ($references as $reference) {
+			$nodeId = (int)$reference['nativeId'];
+			$document = $eventDocuments[$nodeId] ?? null;
+			if (!is_array($document)) throw new RuntimeException("Drupal-Ereignis {$nodeId} fehlt im Sammelabruf.");
+			$event = radnetzDashboardParseNativeHistoryEvent($document, $reference, $statusNames);
+			$events[] = $event;
+			$sourceKey = (string)$event['quelle'];
+			$eventsBySource[$sourceKey] = ($eventsBySource[$sourceKey] ?? 0) + 1;
+			if (($event['datumQuelle'] ?? '') === 'created') {
+				$createdDateFallbacksBySource[$sourceKey] = ($createdDateFallbacksBySource[$sourceKey] ?? 0) + 1;
+			}
+		}
+		radnetzDashboardSortHistory($events);
+		$byPath[$path] = $events;
+	}
+
+	return [$byPath, [
+		'projects' => count($paths),
+		'events' => count($eventDocuments),
+		'eventsBySource' => $eventsBySource,
+		'createdDateFallbacksBySource' => $createdDateFallbacksBySource,
+	]];
+}
+
+function radnetzDashboardParseNativeProjectHistory(string $json, string $path): array
+{
+	$document = radnetzDashboardDecodeJsonObject($json, "Projekt-Entität {$path}");
+	$projectId = (int)($document['nid'][0]['value'] ?? 0);
+	$projectUuid = (string)($document['uuid'][0]['value'] ?? '');
+	if ($projectId <= 0 || !radnetzDashboardIsUuid($projectUuid)) {
+		throw new RuntimeException("Projekt-Entität {$path} enthält keine stabile Drupal-Identität.");
+	}
+
+	$references = [];
+	$seen = [];
+	foreach ([
+		'bauprogramm' => 'field_protokoll',
+		'projektkarte' => 'field_projektkarte_protokoll',
+	] as $sourceKey => $fieldName) {
+		foreach (($document[$fieldName] ?? []) as $order => $reference) {
+			if (!is_array($reference)) continue;
+			$nativeId = (int)($reference['target_id'] ?? 0);
+			$nativeUuid = (string)($reference['target_uuid'] ?? '');
+			if ($nativeId <= 0 || !radnetzDashboardIsUuid($nativeUuid)) {
+				throw new RuntimeException("Projekt-Entität {$path} enthält eine ungültige {$sourceKey}-Ereignisreferenz.");
+			}
+			if (isset($seen[$nativeUuid])) {
+				throw new RuntimeException("Projekt-Entität {$path} referenziert das Ereignis {$nativeUuid} mehrfach.");
+			}
+			$seen[$nativeUuid] = true;
+			$references[] = [
+				'quelle' => $sourceKey,
+				'reihenfolge' => (int)$order,
+				'initial' => (int)$order === 0,
+				'nativeId' => $nativeId,
+				'nativeUuid' => strtolower($nativeUuid),
+			];
+		}
+	}
+	return $references;
+}
+
+function radnetzDashboardParseNativeHistoryEvent(array $document, array $reference, array $statusNames): array
+{
+	$nativeId = (int)($document['nid'][0]['value'] ?? 0);
+	$nativeUuid = strtolower((string)($document['uuid'][0]['value'] ?? ''));
+	$bundle = (string)($document['type'][0]['target_id'] ?? '');
+	if ($nativeId !== (int)($reference['nativeId'] ?? 0)
+		|| $nativeUuid !== strtolower((string)($reference['nativeUuid'] ?? ''))
+		|| !radnetzDashboardIsUuid($nativeUuid)
+		|| $bundle !== 'status_aenderung'
+	) {
+		throw new RuntimeException("Drupal-Ereignis {$nativeId} passt nicht zu seiner Projekt-Referenz.");
+	}
+
+	$dateSource = 'field_datum';
+	$date = substr((string)($document['field_datum'][0]['value'] ?? ''), 0, 10);
+	if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+		$dateSource = 'created';
+		$date = substr((string)($document['created'][0]['value'] ?? ''), 0, 10);
+	}
+	if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+		throw new RuntimeException("Drupal-Ereignis {$nativeId} hat kein gültiges Datum.");
+	}
+	$statusId = (int)($document['field_status'][0]['target_id'] ?? 0);
+	$status = $statusId > 0 ? (string)($statusNames[$statusId] ?? '') : '';
+	if ($statusId > 0 && $status === '') {
+		throw new RuntimeException("Drupal-Ereignis {$nativeId} verweist auf einen unbekannten Status {$statusId}.");
+	}
+	$markup = (string)($document['body'][0]['processed'] ?? ($document['body'][0]['value'] ?? ''));
+	$lines = radnetzDashboardHistoryLinesFromMarkup($markup);
+	$changes = array_map('radnetzDashboardHistoryChange', $lines);
+	$type = $status !== ''
+		? ($changes ? 'status_und_aenderungen' : 'status')
+		: ($changes ? 'aenderungen' : 'notiz');
+	$event = [
+		'id' => 'drupal:' . $nativeUuid,
+		'contentHash' => '',
+		'datum' => $date,
+		'datumQuelle' => $dateSource,
+		'quelle' => (string)$reference['quelle'],
+		'typ' => $type,
+		'initial' => (bool)$reference['initial'],
+		'reihenfolge' => (int)$reference['reihenfolge'],
+		'nativeId' => $nativeId,
+		'nativeUuid' => $nativeUuid,
+		'revisionId' => (int)($document['vid'][0]['value'] ?? 0),
+		'revisionChangedAt' => (string)($document['revision_timestamp'][0]['value'] ?? ($document['changed'][0]['value'] ?? '')),
+	];
+	if ($status !== '') $event['status'] = $status;
+	if ($changes) $event['aenderungen'] = $changes;
+	if ($lines) $event['text'] = implode("\n", $lines);
+	return radnetzDashboardHistoryWithContentHash($event);
+}
+
+function radnetzDashboardHistoryLinesFromMarkup(string $markup): array
+{
+	if (trim($markup) === '') return [];
+	$document = new DOMDocument();
+	$previous = libxml_use_internal_errors(true);
+	try {
+		$loaded = $document->loadHTML(
+			'<!doctype html><html><head><meta charset="utf-8"></head><body><div id="history-body">' . $markup . '</div></body></html>',
+			LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING
+		);
+	} finally {
+		libxml_clear_errors();
+		libxml_use_internal_errors($previous);
+	}
+	if (!$loaded) throw new RuntimeException('Drupal-Ereignistext ist kein gültiges HTML.');
+	$node = $document->getElementById('history-body');
+	if (!$node instanceof DOMElement) throw new RuntimeException('Drupal-Ereignistext konnte nicht gelesen werden.');
+	return radnetzDashboardHtmlLines($node);
+}
+
+function radnetzDashboardDecodeJsonObject(string $json, string $label): array
+{
+	try {
+		$document = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+	} catch (JsonException $error) {
+		throw new RuntimeException("{$label} ist kein gültiges JSON: {$error->getMessage()}", 0, $error);
+	}
+	if (!is_array($document)) throw new RuntimeException("{$label} ist kein JSON-Objekt.");
+	return $document;
+}
+
+function radnetzDashboardIsUuid(string $uuid): bool
+{
+	return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $uuid) === 1;
 }
 
 function radnetzDashboardParseHistoryHtml(string $html, string $sourceKey): array
@@ -665,10 +1044,8 @@ function radnetzDashboardParseHistoryHtml(string $html, string $sourceKey): arra
 		$type = $status !== ''
 			? ($changes ? 'status_und_aenderungen' : 'status')
 			: ($changes ? 'aenderungen' : 'notiz');
-		$id = substr(hash('sha256', implode("\n", [$sourceKey, $path, $date, $status, implode("\n", $lines)])), 0, 20);
-
 		$event = [
-			'id' => $id,
+			'id' => '',
 			'datum' => $date,
 			'quelle' => $sourceKey,
 			'typ' => $type,
@@ -677,75 +1054,11 @@ function radnetzDashboardParseHistoryHtml(string $html, string $sourceKey): arra
 		if ($status !== '') $event['status'] = $status;
 		if ($changes) $event['aenderungen'] = $changes;
 		if ($lines) $event['text'] = implode("\n", $lines);
-		$events[] = $event;
+		$events[] = radnetzDashboardHistoryWithContentHash($event);
 	}
 
 	$next = $xpath->query('.//nav[contains(concat(" ", normalize-space(@class), " "), " pager ")]//a[@rel="next"]', $root);
 	return ['events' => $events, 'hasNext' => $next !== false && $next->length > 0];
-}
-
-function radnetzDashboardParseDetailHistoryHtml(string $html, string $path): array
-{
-	$document = new DOMDocument();
-	$previous = libxml_use_internal_errors(true);
-	try {
-		$loaded = $document->loadHTML($html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
-	} finally {
-		libxml_clear_errors();
-		libxml_use_internal_errors($previous);
-	}
-	if (!$loaded) throw new RuntimeException("Projekt-Detailseite {$path} ist kein gültiges HTML.");
-
-	$xpath = new DOMXPath($document);
-	$events = [];
-	foreach (['bauprogramm' => 'block_1', 'projektkarte' => 'block_2'] as $sourceKey => $displayId) {
-		$roots = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " view-id-status_aenderungen ") and contains(concat(" ", normalize-space(@class), " "), " view-display-id-' . $displayId . ' ")]');
-		foreach ($roots ?: [] as $root) {
-			$dateNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-field-datum ")]//time[@datetime]', $root);
-			$time = $dateNodes && $dateNodes->length ? $dateNodes->item(0) : null;
-			if (!$time instanceof DOMElement) continue;
-			$date = substr($time->getAttribute('datetime'), 0, 10);
-			if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) continue;
-
-			$dateField = $time->parentNode;
-			$dateText = $dateField instanceof DOMNode ? radnetzDashboardNodeText($dateField) : '';
-			$initial = $sourceKey === 'bauprogramm'
-				? mb_stripos($dateText, 'veröffentlicht', 0, 'UTF-8') !== false
-				: mb_stripos($dateText, 'Beobachtung gestartet', 0, 'UTF-8') !== false;
-			$statusNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-field-status ")]//*[contains(concat(" ", normalize-space(@class), " "), " field-content ")]', $root);
-			$statusNode = $statusNodes && $statusNodes->length ? $statusNodes->item(0) : null;
-			$status = $statusNode instanceof DOMNode ? radnetzDashboardNodeText($statusNode) : '';
-			$status = preg_replace('/^(?:gefundener Status|Statusänderung):\s*/iu', '', $status) ?? $status;
-			$status = radnetzDashboardNormalizeStatus($status);
-
-			$bodyNodes = $xpath->query('.//div[contains(concat(" ", normalize-space(@class), " "), " views-field-body ")]//*[contains(concat(" ", normalize-space(@class), " "), " field-content ")]', $root);
-			$body = $bodyNodes && $bodyNodes->length ? $bodyNodes->item(0) : null;
-			$lines = $body instanceof DOMElement ? radnetzDashboardHtmlLines($body) : [];
-			$changes = array_map('radnetzDashboardHistoryChange', $lines);
-			$type = $status !== ''
-				? ($changes ? 'status_und_aenderungen' : 'status')
-				: ($changes ? 'aenderungen' : 'notiz');
-			$id = substr(hash('sha256', implode("\n", [$sourceKey, $path, $date, $status, implode("\n", $lines)])), 0, 20);
-			$event = [
-				'id' => $id,
-				'datum' => $date,
-				'quelle' => $sourceKey,
-				'typ' => $type,
-				'initial' => $initial,
-			];
-			if ($status !== '') $event['status'] = $status;
-			if ($changes) $event['aenderungen'] = $changes;
-			if ($lines) $event['text'] = implode("\n", $lines);
-			$events[$id] = $event;
-		}
-	}
-
-	$events = array_values($events);
-	usort($events, static function (array $left, array $right): int {
-		return [$left['datum'] ?? '', $left['quelle'] ?? '', $left['id'] ?? '']
-			<=> [$right['datum'] ?? '', $right['quelle'] ?? '', $right['id'] ?? ''];
-	});
-	return $events;
 }
 
 function radnetzDashboardHistoryStatusAfterTime(DOMElement $time): string

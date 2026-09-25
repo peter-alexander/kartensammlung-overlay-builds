@@ -286,69 +286,176 @@ expectSame(
 	'History rename action must be parsed.'
 );
 
-$detailHistoryHtml = <<<'HTML'
-<!doctype html><html><head><meta charset="utf-8"></head><body>
-<div class="view view-status-aenderungen view-id-status_aenderungen view-display-id-block_1">
-	<div class="views-row">
-		<div class="views-field views-field-field-datum"><div class="field-content"><time datetime="2023-03-22T12:00:00Z">22. März 2023</time> (veröffentlicht)</div></div>
-		<div class="views-field views-field-field-status"><div class="field-content">gefundener Status: in Planung</div></div>
-		<div class="views-field views-field-body"><div class="field-content"></div></div>
-	</div>
-</div>
-<div class="view view-status-aenderungen view-id-status_aenderungen view-display-id-block_1">
-	<div class="views-row">
-		<div class="views-field views-field-field-datum"><div class="field-content"><time datetime="2023-08-11T12:00:00Z">11. August 2023</time></div></div>
-		<div class="views-field views-field-field-status"><div class="field-content">Statusänderung: in Vorbereitung</div></div>
-		<div class="views-field views-field-body"><div class="field-content"></div></div>
-	</div>
-</div>
-<div class="view view-status-aenderungen view-id-status_aenderungen view-display-id-block_2">
-	<div class="views-row">
-		<div class="views-field views-field-field-datum"><div class="field-content"><time datetime="2025-07-06T12:00:00Z">6. Juli 2025</time> (Beobachtung gestartet)</div></div>
-		<div class="views-field views-field-field-status"><div class="field-content">gefundener Status: fertiggestellt</div></div>
-		<div class="views-field views-field-body"><div class="field-content"></div></div>
-	</div>
-</div>
-</body></html>
-HTML;
-$detailHistory = radnetzDashboardParseDetailHistoryHtml($detailHistoryHtml, '/bauprogramm/2023/argentinierstrasse');
-expectSame(count($detailHistory), 3, 'Detail-page protocols from both sources must be parsed.');
-expectSame($detailHistory[0]['quelle'] ?? null, 'bauprogramm', 'Bauprogramm detail protocol source failed.');
-expectSame($detailHistory[0]['initial'] ?? null, true, 'Published Bauprogramm event must be marked as initial.');
-expectSame($detailHistory[1]['status'] ?? null, 'in Vorbereitung', 'Detail status-change prefix must be normalized.');
-expectSame($detailHistory[2]['quelle'] ?? null, 'projektkarte', 'Projektkarte detail protocol source failed.');
-expectSame($detailHistory[2]['datum'] ?? null, '2025-07-06', 'Project-card observation start date missing.');
-expectSame($detailHistory[2]['status'] ?? null, 'fertiggestellt', 'Project-card observation start status missing.');
-expectSame($detailHistory[2]['initial'] ?? null, true, 'Project-card observation start must be marked as initial.');
-expectSame(
-	count(radnetzDashboardMergeHistory([$detailHistory[0]], $detailHistory)),
-	3,
-	'History merge must deduplicate stable event ids.'
+$nativeProject = [
+	'nid' => [['value' => 872]],
+	'uuid' => [['value' => '01e335d6-9029-4414-88a8-559f0bf4be6c']],
+	'field_protokoll' => [
+		['target_id' => 3069, 'target_uuid' => 'e0de1cb6-2ccb-4a59-a3f8-0ab196763681'],
+		['target_id' => 3070, 'target_uuid' => '4664bdeb-f1f0-446d-805d-fda696e37ae0'],
+	],
+	'field_projektkarte_protokoll' => [
+		['target_id' => 8098, 'target_uuid' => 'c5df4898-59bc-4d30-8814-5de06e6a18ca'],
+	],
+];
+$nativeReferences = radnetzDashboardParseNativeProjectHistory(
+	json_encode($nativeProject, JSON_THROW_ON_ERROR),
+	'/bauprogramm/2023/argentinierstrasse'
+);
+expectSame(count($nativeReferences), 3, 'Both native Drupal protocol reference fields must be parsed.');
+expectSame($nativeReferences[0]['initial'] ?? null, true, 'First Bauprogramm reference must be initial.');
+expectSame($nativeReferences[1]['reihenfolge'] ?? null, 1, 'Native reference order must be retained.');
+expectSame($nativeReferences[2]['quelle'] ?? null, 'projektkarte', 'Project-card native source failed.');
+expectSame($nativeReferences[2]['initial'] ?? null, true, 'First project-card reference must be initial.');
+
+$nativeEventDocument = [
+	'nid' => [['value' => 3069]],
+	'uuid' => [['value' => 'e0de1cb6-2ccb-4a59-a3f8-0ab196763681']],
+	'vid' => [['value' => 8820]],
+	'type' => [['target_id' => 'status_aenderung']],
+	'created' => [['value' => '2024-01-15T08:30:22+00:00']],
+	'changed' => [['value' => '2024-01-15T08:30:22+00:00']],
+	'revision_timestamp' => [['value' => '2024-01-15T08:30:22+00:00']],
+	'field_datum' => [['value' => '2024-01-15']],
+	'field_status' => [],
+	'body' => [['processed' => '<p>Maßnahme geändert von "Bestandsverbesserung: Fahrradstraße"</p>']],
+];
+$nativeOriginal = radnetzDashboardParseNativeHistoryEvent(
+	$nativeEventDocument,
+	$nativeReferences[0],
+	[]
 );
 expectSame(
-	array_column(radnetzDashboardMergeHistory([$detailHistory[1]], [$detailHistory[0], $detailHistory[2]]), 'id'),
-	array_column($detailHistory, 'id'),
-	'History merge must retain cached non-initial detail events between audits.'
+	$nativeOriginal['aenderungen'][0]['feld'] ?? null,
+	'Maßnahme',
+	'Native Drupal event markup must remain valid UTF-8.'
 );
-radnetzDashboardAssertDetailHistoryComplete(
+$correctedDocument = $nativeEventDocument;
+$correctedDocument['vid'][0]['value'] = 9901;
+$correctedDocument['revision_timestamp'][0]['value'] = '2026-09-25T12:00:00+00:00';
+$correctedDocument['body'][0]['processed'] = '<p>Maßnahme geändert von "Fahrradstraße"</p>';
+$nativeCorrected = radnetzDashboardParseNativeHistoryEvent($correctedDocument, $nativeReferences[0], []);
+expectSame(
+	$nativeCorrected['id'] ?? null,
+	$nativeOriginal['id'] ?? null,
+	'Editorial corrections must retain the native event id.'
+);
+expectSame(
+	($nativeCorrected['contentHash'] ?? '') !== ($nativeOriginal['contentHash'] ?? ''),
+	true,
+	'Editorial corrections must change the separate content hash.'
+);
+expectSame($nativeCorrected['revisionId'] ?? null, 9901, 'Current Drupal revision id must be retained.');
+$missingDateDocument = $nativeEventDocument;
+$missingDateDocument['field_datum'] = [];
+$nativeMissingDate = radnetzDashboardParseNativeHistoryEvent($missingDateDocument, $nativeReferences[0], []);
+expectSame($nativeMissingDate['datum'] ?? null, '2024-01-15', 'Missing event date must use native creation date.');
+expectSame($nativeMissingDate['datumQuelle'] ?? null, 'created', 'Creation-date fallback must be explicit.');
+expectSame(
+	radnetzDashboardHistoryRefreshReasons([$nativeOriginal], [$nativeOriginal], '2026-09-25T10:00:00Z'),
+	[],
+	'Unchanged native history must not trigger an unnecessary refresh.'
+);
+expectSame(
+	radnetzDashboardHistoryRefreshReasons([$nativeCorrected], [$nativeOriginal], '2026-09-25T10:00:00Z'),
+	['new-or-corrected-view-event'],
+	'Corrected historical content in the global view must trigger a native refresh.'
+);
+expectSame(
+	radnetzDashboardHistoryRefreshReasons(
+		[$nativeOriginal],
+		[['id' => 'legacy-content-id', 'datum' => '2024-01-15', 'quelle' => 'bauprogramm', 'typ' => 'aenderungen']],
+		'2026-09-25T10:00:00Z'
+	),
+	['identity-migration'],
+	'Legacy content-derived cache ids must trigger native identity migration.'
+);
+expectSame(
+	radnetzDashboardHistoryRefreshReasons([], [], '2026-09-25T10:00:00Z', true),
+	['identity-migration'],
+	'A schema migration must inspect projects whose old cache had no visible history.'
+);
+
+$sameDayDocument = $nativeEventDocument;
+$sameDayDocument['nid'][0]['value'] = 3070;
+$sameDayDocument['uuid'][0]['value'] = '4664bdeb-f1f0-446d-805d-fda696e37ae0';
+$sameDayDocument['vid'][0]['value'] = 8821;
+$nativeSameDay = radnetzDashboardParseNativeHistoryEvent($sameDayDocument, $nativeReferences[1], []);
+expectSame($nativeSameDay['datum'] ?? null, $nativeOriginal['datum'] ?? null, 'Same-day fixture must share the date.');
+expectSame(
+	($nativeSameDay['id'] ?? '') !== ($nativeOriginal['id'] ?? ''),
+	true,
+	'Distinct native events with identical content on the same day must keep distinct ids.'
+);
+expectSame(
+	$nativeSameDay['contentHash'] ?? null,
+	$nativeOriginal['contentHash'] ?? null,
+	'Identical event content must deliberately share only the non-identity content hash.'
+);
+expectSame(
+	radnetzDashboardParseNativeHistoryEvent($nativeEventDocument, $nativeReferences[0], [])['id'] ?? null,
+	$nativeOriginal['id'] ?? null,
+	'Unchanged native event ids must be deterministic.'
+);
+expectSame(
+	radnetzDashboardParseNativeHistoryEvent($nativeEventDocument, $nativeReferences[0], [])['contentHash'] ?? null,
+	$nativeOriginal['contentHash'] ?? null,
+	'Unchanged content hashes must be deterministic.'
+);
+expectSame(
+	radnetzDashboardHistoryRefreshReasons([$nativeOriginal, $nativeSameDay], [$nativeOriginal], '2026-09-25T10:00:00Z'),
+	['new-or-corrected-view-event'],
+	'An additional identical same-day event must be detected by content multiplicity.'
+);
+expectSame(
+	radnetzDashboardHistoryRefreshReasons(
+		[$nativeOriginal, $nativeSameDay],
+		[$nativeOriginal, $nativeSameDay],
+		'2026-09-25T10:00:00Z'
+	),
+	[],
+	'Equal duplicate content counts must retain both native identities without heuristic pairing.'
+);
+
+radnetzDashboardAssertNativeHistoryComplete(
 	'/bauprogramm/2023/argentinierstrasse',
-	$detailHistory,
-	[$detailHistory[0], $detailHistory[2]]
+	[$nativeCorrected, $nativeSameDay],
+	[$nativeCorrected],
+	[$nativeOriginal]
 );
-$incompleteDetailRejected = false;
+radnetzDashboardAssertNativeHistoryComplete(
+	'/bauprogramm/2023/argentinierstrasse',
+	[$nativeCorrected],
+	[$nativeCorrected],
+	[['id' => 'legacy-content-id', 'datum' => '2024-01-15', 'quelle' => 'bauprogramm', 'typ' => 'aenderungen']]
+);
+$missingNativeIdRejected = false;
 try {
-	radnetzDashboardAssertDetailHistoryComplete(
+	radnetzDashboardAssertNativeHistoryComplete(
 		'/bauprogramm/2023/argentinierstrasse',
-		array_slice($detailHistory, 0, 2),
-		$detailHistory
+		[$nativeSameDay],
+		[],
+		[$nativeOriginal]
 	);
 } catch (RuntimeException $error) {
-	$incompleteDetailRejected = str_contains($error->getMessage(), '1 bereits bekannte Ereignisse');
+	$missingNativeIdRejected = str_contains($error->getMessage(), '1 bereits bekannte native Ereignisse');
 }
+expectSame($missingNativeIdRejected, true, 'A native refresh must not silently drop a cached event id.');
+$missingViewContentRejected = false;
+try {
+	radnetzDashboardAssertNativeHistoryComplete(
+		'/bauprogramm/2023/argentinierstrasse',
+		[$nativeOriginal],
+		[$nativeCorrected],
+		[]
+	);
+} catch (RuntimeException $error) {
+	$missingViewContentRejected = str_contains($error->getMessage(), '1 Ereignisinhalte');
+}
+expectSame($missingViewContentRejected, true, 'A native refresh must include every global-view event content.');
 expectSame(
-	$incompleteDetailRejected,
-	true,
-	'A detail-page refresh must not silently drop a cached history event.'
+	count(radnetzDashboardMergeHistory([$nativeOriginal], [$nativeCorrected, $nativeSameDay])),
+	2,
+	'History merge must replace corrected content by stable native id and retain same-day events.'
 );
 
 $previous = [
