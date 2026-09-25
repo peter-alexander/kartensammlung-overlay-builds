@@ -19,7 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
   schedule:
-    - cron: '11 */6 * * *'
+    - cron: '11 */12 * * *'
 
 concurrency:
   group: seaice-capabilities
