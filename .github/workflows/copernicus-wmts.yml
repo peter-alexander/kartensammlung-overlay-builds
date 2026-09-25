@@ -19,7 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
   schedule:
-    - cron: '41 */6 * * *'
+    - cron: '41 0 * * *'
 
 concurrency:
   group: copernicus-wmts
