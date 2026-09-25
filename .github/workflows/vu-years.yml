@@ -34,6 +34,7 @@ jobs:
       MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
       MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
       CURRENT_URL: https://fahrrad.lima-city.de/Maps/VuYears.js
+      CURRENT_JSON_URL: https://fahrrad.lima-city.de/Maps/VuYears.json
 
     steps:
       - uses: actions/checkout@v7
@@ -49,7 +50,9 @@ jobs:
         id: changed
         run: |
           if curl -fsS --retry 3 --retry-delay 2 -o /tmp/current-vu-years.js "$CURRENT_URL" \
-            && cmp -s /tmp/current-vu-years.js vu-years/build/VuYears.js; then
+            && curl -fsS --retry 3 --retry-delay 2 -o /tmp/current-vu-years.json "$CURRENT_JSON_URL" \
+            && cmp -s /tmp/current-vu-years.js vu-years/build/VuYears.js \
+            && cmp -s /tmp/current-vu-years.json vu-years/build/VuYears.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "VU year list unchanged."
           else
@@ -65,3 +68,6 @@ jobs:
           .github/scripts/main-ftp-upload-file.sh \
             vu-years/build/VuYears.js \
             "${MAIN_REMOTE_ROOT%/}/VuYears.js"
+          .github/scripts/main-ftp-upload-file.sh \
+            vu-years/build/VuYears.json \
+            "${MAIN_REMOTE_ROOT%/}/VuYears.json"
