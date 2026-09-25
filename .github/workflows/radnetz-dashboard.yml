@@ -15,7 +15,7 @@ on:
       - '.github/scripts/main-ftp-upload-file.sh'
       - '.github/workflows/radnetz-dashboard.yml'
   schedule:
-    - cron: '7,37 * * * *'
+    - cron: '17 3 * * *'
 
 concurrency:
   group: radnetz-dashboard

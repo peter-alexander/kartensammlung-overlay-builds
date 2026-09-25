@@ -38,8 +38,32 @@ try {
 	$unmapped = (int)($payload['metadata']['unmappedProjects'] ?? 0);
 	$mode = (string)($payload['metadata']['sourceMode'] ?? 'unknown');
 	fwrite(STDOUT, "Radnetz-Dashboard: {$count} Projekte, {$mappable} kartierbar, {$unmapped} ohne Geometrie ({$mode}).\n");
+	foreach ($payload['features'] as $feature) {
+		if (($feature['geometry'] ?? null) !== null) continue;
+		$props = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+		fwrite(
+			STDOUT,
+			'Ohne Geometrie: '
+			. trim((string)($props['Projekttyp'] ?? '')) . ' | '
+			. trim((string)($props['Jahr'] ?? '')) . ' | '
+			. trim((string)($props['Titel'] ?? '')) . ' | '
+			. trim((string)($props['Projektliste'] ?? ''))
+			. PHP_EOL
+		);
+	}
 	if (isset($payload['metadata']['warning'])) {
 		fwrite(STDERR, 'WARNUNG: ' . $payload['metadata']['warning'] . PHP_EOL);
+	}
+	if (isset($payload['metadata']['liveError'])) {
+		fwrite(STDERR, 'Live-Fehler: ' . $payload['metadata']['liveError'] . PHP_EOL);
+	}
+	foreach (($payload['metadata']['sourceStats'] ?? []) as $typeKey => $stats) {
+		if (!empty($stats['yearOnlyMapPaths'])) {
+			fwrite(STDOUT, 'Nur in Jahreskarten (' . $typeKey . '): ' . json_encode($stats['yearOnlyMapPaths'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
+		}
+	}
+	if ($mode === 'stale-production-fallback' && isset($payload['metadata']['sourceStats'])) {
+		fwrite(STDERR, 'Fallback-Quellstatistik: ' . json_encode($payload['metadata']['sourceStats'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
 	}
 } catch (Throwable $error) {
 	fwrite(STDERR, $error->getMessage() . PHP_EOL);
