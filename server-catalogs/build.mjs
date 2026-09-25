@@ -636,6 +636,11 @@ const bev = await buildBevCatalog(bevXml);
 writeJs("GeoserverNames.js", "GeoserverNames", geoserverNames);
 writeJs("WmsNames.js", "WmsNames", wmsNames);
 writeJs("WienWmtsNames.js", "WienWmtsNames", wienWmtsNames);
+fs.writeFileSync(
+	new URL("./build/WienWmtsNames.json", import.meta.url),
+	JSON.stringify(wienWmtsNames) + "\n",
+	"utf8"
+);
 writeJs("LaermkarteNames.js", "LaermkarteNames", laermkarteNames);
 writeJs("NoeWmsNames.js", "NoeWmsNames", noeWmsNames);
 writeJs("StadtplanJson.js", "StadtplanJson", stadtplan);

@@ -58,7 +58,7 @@ jobs:
           test -n "$MAIN_REMOTE_ROOT"
           chmod +x .github/scripts/main-ftp-upload-file.sh
 
-          for file in server-catalogs/build/*.js; do
+          for file in server-catalogs/build/*.js server-catalogs/build/*.json; do
             file_name="$(basename "$file")"
             .github/scripts/main-ftp-upload-file.sh \
               "$file" \
