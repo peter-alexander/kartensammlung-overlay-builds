@@ -4,6 +4,79 @@ const KS_ASSET_VERSION_ENTRY_LIMIT = 100000;
 const KS_ASSET_VERSION_MAX_SECONDS = 3.0;
 const KS_ASSET_VERSION_MAX_DEPTH = 2;
 
+$GLOBALS['ksAssetVersionResponseWritten'] = false;
+$GLOBALS['ksAssetVersionMemoryReserve'] = str_repeat('x', 32768);
+
+function ksJsonEncode($value)
+{
+	$flags = 0;
+	if (defined('JSON_UNESCAPED_SLASHES')) {
+		$flags |= JSON_UNESCAPED_SLASHES;
+	}
+	if (defined('JSON_UNESCAPED_UNICODE')) {
+		$flags |= JSON_UNESCAPED_UNICODE;
+	}
+	if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+		$flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+	}
+
+	$json = json_encode($value, $flags);
+	if ($json !== false) return $json;
+
+	return json_encode(array(
+		'schema' => 1,
+		'files' => new stdClass(),
+		'prefixes' => new stdClass(),
+		'error' => 'asset-version-json-failed',
+		'jsonError' => function_exists('json_last_error_msg')
+			? json_last_error_msg()
+			: (string)json_last_error(),
+	));
+}
+
+function ksWriteJsonResponse($payload, $statusCode)
+{
+	$GLOBALS['ksAssetVersionResponseWritten'] = true;
+	if (!headers_sent()) {
+		http_response_code($statusCode);
+	}
+	echo ksJsonEncode($payload);
+	echo "\n";
+}
+
+function ksAssetVersionShutdown()
+{
+	$GLOBALS['ksAssetVersionMemoryReserve'] = null;
+	if (!empty($GLOBALS['ksAssetVersionResponseWritten'])) return;
+
+	$error = error_get_last();
+	if (!$error) return;
+
+	$message = isset($error['message'])
+		? str_replace(__DIR__, '[root]', (string)$error['message'])
+		: '';
+
+	if (!headers_sent()) {
+		header('Content-Type: application/json; charset=UTF-8');
+		header('Cache-Control: no-store, max-age=0');
+		header('Pragma: no-cache');
+		header('Access-Control-Allow-Origin: *');
+		http_response_code(500);
+	}
+
+	echo ksJsonEncode(array(
+		'schema' => 1,
+		'files' => new stdClass(),
+		'prefixes' => new stdClass(),
+		'error' => 'asset-version-manifest-fatal',
+		'phpErrorType' => isset($error['type']) ? $error['type'] : 0,
+		'phpErrorMessage' => $message,
+	));
+	echo "\n";
+}
+
+register_shutdown_function('ksAssetVersionShutdown');
+
 function ksStaticAsset($name)
 {
 	return preg_match(
@@ -194,7 +267,7 @@ try {
 		$state['coarsePrefixes']
 	));
 
-	echo json_encode(array(
+	ksWriteJsonResponse(array(
 		'schema' => 1,
 		'files' => $files,
 		'prefixes' => $prefixes,
@@ -202,15 +275,12 @@ try {
 		'truncatedPrefixes' => $state['truncatedPrefixes'],
 		'coarsePrefixes' => $state['coarsePrefixes'],
 		'scannedEntries' => $state['visited'],
-	));
-	echo "\n";
+	), 200);
 } catch (Exception $error) {
-	http_response_code(500);
-	echo json_encode(array(
+	ksWriteJsonResponse(array(
 		'schema' => 1,
 		'files' => new stdClass(),
 		'prefixes' => new stdClass(),
 		'error' => 'asset-version-manifest-failed',
-	));
-	echo "\n";
+	), 500);
 }
