@@ -13,6 +13,14 @@ function ksStaticAsset(string $name): bool
 	) === 1;
 }
 
+function ksTileAsset(string $name): bool
+{
+	return preg_match(
+		'/\.(?:avif|jpeg|jpg|mvt|pbf|png|webp)$/i',
+		$name
+	) === 1;
+}
+
 function ksJoinUrl(string $base, string $name): string
 {
 	if ($base === '/') return '/' . ltrim($name, '/');
@@ -23,6 +31,81 @@ function ksFileVersion(string $path): string
 {
 	$mtime = is_file($path) ? filemtime($path) : false;
 	return $mtime === false ? '' : (string)$mtime;
+}
+
+function ksLegacyTileTreeVersion(string $directory): string
+{
+	$latest = filemtime($directory);
+	$latest = $latest === false ? 0 : $latest;
+
+	try {
+		$zoomEntries = new DirectoryIterator($directory);
+	} catch (Throwable) {
+		return '';
+	}
+
+	foreach ($zoomEntries as $zoomEntry) {
+		if (
+			$zoomEntry->isDot()
+			|| !$zoomEntry->isDir()
+			|| $zoomEntry->isLink()
+		) {
+			continue;
+		}
+
+		$zoomName = $zoomEntry->getFilename();
+		if (!preg_match('/^\d{1,2}$/', $zoomName)) continue;
+
+		$zoom = (int)$zoomName;
+		if ($zoom < 0 || $zoom > 24) continue;
+
+		try {
+			$xEntries = new DirectoryIterator(
+				$zoomEntry->getPathname()
+			);
+		} catch (Throwable) {
+			continue;
+		}
+
+		foreach ($xEntries as $xEntry) {
+			if (
+				$xEntry->isDot()
+				|| !$xEntry->isDir()
+				|| $xEntry->isLink()
+				|| !preg_match('/^\d+$/', $xEntry->getFilename())
+			) {
+				continue;
+			}
+
+			try {
+				$tileEntries = new DirectoryIterator(
+					$xEntry->getPathname()
+				);
+			} catch (Throwable) {
+				continue;
+			}
+
+			foreach ($tileEntries as $tileEntry) {
+				if (
+					$tileEntry->isDot()
+					|| !$tileEntry->isFile()
+					|| !ksTileAsset($tileEntry->getFilename())
+				) {
+					continue;
+				}
+
+				$latest = max(
+					$latest,
+					$zoomEntry->getMTime(),
+					$xEntry->getMTime(),
+					$tileEntry->getMTime()
+				);
+				return $latest > 0 ? (string)$latest : '';
+			}
+		}
+	}
+
+	return '';
 }
 
 function ksDatasetVersion(string $directory): string
@@ -59,7 +142,7 @@ function ksDatasetVersion(string $directory): string
 		if ($latest > 0) return (string)$latest;
 	}
 
-	return '';
+	return ksLegacyTileTreeVersion($directory);
 }
 
 function ksScanBudgetExceeded(array &$state, string $urlPrefix): bool
