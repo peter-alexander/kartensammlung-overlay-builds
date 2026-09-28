@@ -86,7 +86,7 @@ async function main() {
 	const args = parseArgs(process.argv);
 	const releasePath = path.join(args.publishDir, "release.json");
 	const tilejsonPath = path.join(args.publishDir, "tilejson.json");
-	const versionPath = path.join(args.publishDir, ".ks-version");
+	const versionPath = path.join(args.publishDir, "ks-version.txt");
 	const tilesDir = path.join(args.publishDir, "tiles");
 
 	const release = JSON.parse(await fsp.readFile(releasePath, "utf8"));
