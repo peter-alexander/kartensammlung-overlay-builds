@@ -94,18 +94,18 @@ const fs = require("fs");
 const release = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const tilejson = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
 const samplesPath = process.argv[4];
-const expectedZooms = [10, 11, 12, 13, 14, 15];
+const expectedZooms = [12, 13, 14, 15];
 const vectorTiles = release?.vectorTiles;
 
 if (!vectorTiles || vectorTiles.layer !== "wien_buildings") {
 	throw new Error("release.json: Wiener Gebäudelayer fehlt");
 }
-if (Number(vectorTiles.minzoom) !== 10 || Number(vectorTiles.maxzoom) !== 15) {
+if (Number(vectorTiles.minzoom) !== 12 || Number(vectorTiles.maxzoom) !== 15) {
 	throw new Error(
 		`release.json: unerwarteter Zoombereich ${vectorTiles.minzoom}-${vectorTiles.maxzoom}`
 	);
 }
-if (Number(tilejson?.minzoom) !== 10 || Number(tilejson?.maxzoom) !== 15) {
+if (Number(tilejson?.minzoom) !== 12 || Number(tilejson?.maxzoom) !== 15) {
 	throw new Error(
 		`tilejson.json: unerwarteter Zoombereich ${tilejson?.minzoom}-${tilejson?.maxzoom}`
 	);
@@ -169,7 +169,7 @@ main() {
 	verify_manifests
 	verify_sample_tiles
 	verify_tile "gemeldete-Z12-Kachel" "tiles/12/2232/1418.pbf"
-	log "Öffentliche Wiener Gebäudekacheln Z10-Z15 vollständig geprüft."
+	log "Öffentliche Wiener Gebäudekacheln Z12-Z15 vollständig geprüft."
 }
 
 main "$@"
