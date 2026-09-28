@@ -51,8 +51,17 @@ STATUS="$(
 
 [ "$STATUS" = "200" ] || {
 	echo "Expected HTTP 200 from $URL, got $STATUS" >&2
+	cat "$HEADERS" >&2 || true
 	exit 1
 }
+
+BODY_BYTES="$(wc -c < "$BODY" | tr -d ' ')"
+if [ "$BODY_BYTES" -eq 0 ]; then
+	echo "Asset-version endpoint returned HTTP 200 with an empty body." >&2
+	echo "Response headers:" >&2
+	cat "$HEADERS" >&2 || true
+	exit 1
+fi
 
 CORS="$(
 	awk 'BEGIN { IGNORECASE=1 }
@@ -70,7 +79,15 @@ fi
 node - "$BODY" "$EXPECTED_PREFIX" "$EXPECTED_VERSION" <<'NODE'
 const fs = require("fs");
 
-const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const raw = fs.readFileSync(process.argv[2], "utf8");
+let manifest;
+try {
+	manifest = JSON.parse(raw);
+} catch (error) {
+	console.error("Invalid asset-version response:");
+	console.error(raw.slice(0, 1000));
+	throw error;
+}
 const prefix = process.argv[3];
 const expected = process.argv[4];
 
