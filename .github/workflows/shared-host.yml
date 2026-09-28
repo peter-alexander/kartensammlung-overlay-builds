@@ -70,3 +70,22 @@ jobs:
             echo 'bye'
           } > "$LFTP_CMDS"
           lftp -f "$LFTP_CMDS"
+
+      - name: Verify PHP health endpoint removal
+        if: ${{ always() }}
+        run: |
+          STATUS="$(
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              --connect-timeout 15 \
+              --max-time 20 \
+              "https://tiles.radlobby.at/php-health.php?verify=$(date +%s)"
+          )"
+          if [ "$STATUS" != "404" ] && [ "$STATUS" != "410" ]; then
+            echo "Expected php-health.php to be gone, got HTTP $STATUS." >&2
+            exit 1
+          fi
