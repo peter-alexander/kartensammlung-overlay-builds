@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 const KS_ASSET_VERSION_ENTRY_LIMIT = 100000;
+const KS_ASSET_VERSION_MAX_SECONDS = 3.0;
 
 function ksStaticAsset(string $name): bool
 {
@@ -18,6 +19,12 @@ function ksJoinUrl(string $base, string $name): string
 	return rtrim($base, '/') . '/' . ltrim($name, '/');
 }
 
+function ksFileVersion(string $path): string
+{
+	$mtime = is_file($path) ? filemtime($path) : false;
+	return $mtime === false ? '' : (string)$mtime;
+}
+
 function ksDatasetVersion(string $directory): string
 {
 	foreach (['.ks-version', 'ks-version.txt'] as $name) {
@@ -27,18 +34,49 @@ function ksDatasetVersion(string $directory): string
 		$value = trim((string)file_get_contents($path));
 		if ($value !== '') return $value;
 
-		$mtime = filemtime($path);
-		if ($mtime !== false) return (string)$mtime;
+		$version = ksFileVersion($path);
+		if ($version !== '') return $version;
 	}
 
 	$tilejson = rtrim($directory, '/') . '/tilejson.json';
 	$tiles = rtrim($directory, '/') . '/tiles';
 	if (is_file($tilejson) && is_dir($tiles)) {
-		$mtime = filemtime($tilejson);
-		if ($mtime !== false) return (string)$mtime;
+		return ksFileVersion($tilejson);
+	}
+
+	$release = rtrim($directory, '/') . '/release.json';
+	if (is_file($release)) {
+		return ksFileVersion($release);
+	}
+
+	$pmtiles = glob(rtrim($directory, '/') . '/*.pmtiles');
+	if (is_array($pmtiles) && $pmtiles !== []) {
+		$latest = 0;
+		foreach ($pmtiles as $path) {
+			$mtime = filemtime($path);
+			if ($mtime !== false) $latest = max($latest, $mtime);
+		}
+		if ($latest > 0) return (string)$latest;
 	}
 
 	return '';
+}
+
+function ksScanBudgetExceeded(array &$state, string $urlPrefix): bool
+{
+	if ($state['visited'] >= KS_ASSET_VERSION_ENTRY_LIMIT) {
+		$state['truncated'] = true;
+		$state['truncatedPrefixes'][] = rtrim($urlPrefix, '/') . '/';
+		return true;
+	}
+
+	if (microtime(true) >= $state['deadline']) {
+		$state['truncated'] = true;
+		$state['truncatedPrefixes'][] = rtrim($urlPrefix, '/') . '/';
+		return true;
+	}
+
+	return false;
 }
 
 function ksScanAssets(
@@ -50,23 +88,29 @@ function ksScanAssets(
 	bool $root = false
 ): void {
 	if (!is_dir($directory) || is_link($directory)) return;
+	if (ksScanBudgetExceeded($state, $urlPrefix)) return;
 
 	if (!$root) {
 		$datasetVersion = ksDatasetVersion($directory);
 		if ($datasetVersion !== '') {
-			$prefixes[rtrim($urlPrefix, '/') . '/']
-				= $datasetVersion;
+			$prefixes[rtrim($urlPrefix, '/') . '/'] = $datasetVersion;
 			return;
 		}
 	}
 
-	$entries = scandir($directory);
-	if ($entries === false) return;
+	try {
+		$entries = new DirectoryIterator($directory);
+	} catch (Throwable) {
+		return;
+	}
 
-	foreach ($entries as $name) {
+	foreach ($entries as $entry) {
+		if (ksScanBudgetExceeded($state, $urlPrefix)) return;
+		if ($entry->isDot()) continue;
+
+		$name = $entry->getFilename();
 		if (
-			$name === '.'
-			|| $name === '..'
+			$name === ''
 			|| str_starts_with($name, '.')
 			|| $name === 'asset-versions.php'
 		) {
@@ -74,21 +118,11 @@ function ksScanAssets(
 		}
 
 		$state['visited']++;
-		if ($state['visited'] > KS_ASSET_VERSION_ENTRY_LIMIT) {
-			$state['truncated'] = true;
-			$mtime = filemtime($directory);
-			if ($mtime !== false) {
-				$prefixes[rtrim($urlPrefix, '/') . '/']
-					= (string)$mtime;
-			}
-			return;
-		}
-
-		$path = rtrim($directory, '/') . '/' . $name;
+		$path = $entry->getPathname();
 		$url = ksJoinUrl($urlPrefix, $name);
 
-		if (is_link($path)) continue;
-		if (is_dir($path)) {
+		if ($entry->isLink()) continue;
+		if ($entry->isDir()) {
 			ksScanAssets(
 				$path,
 				$url,
@@ -99,9 +133,9 @@ function ksScanAssets(
 			continue;
 		}
 
-		if (!is_file($path) || !ksStaticAsset($name)) continue;
-		$mtime = filemtime($path);
-		if ($mtime !== false) {
+		if (!$entry->isFile() || !ksStaticAsset($name)) continue;
+		$mtime = $entry->getMTime();
+		if ($mtime > 0) {
 			$files[$url] = (string)$mtime;
 		}
 	}
@@ -117,6 +151,8 @@ $prefixes = [];
 $state = [
 	'visited' => 0,
 	'truncated' => false,
+	'truncatedPrefixes' => [],
+	'deadline' => microtime(true) + KS_ASSET_VERSION_MAX_SECONDS,
 ];
 
 try {
@@ -130,12 +166,17 @@ try {
 	);
 	ksort($files, SORT_STRING);
 	ksort($prefixes, SORT_STRING);
+	$state['truncatedPrefixes'] = array_values(array_unique(
+		$state['truncatedPrefixes']
+	));
 
 	echo json_encode([
 		'schema' => 1,
 		'files' => $files,
 		'prefixes' => $prefixes,
 		'truncated' => $state['truncated'],
+		'truncatedPrefixes' => $state['truncatedPrefixes'],
+		'scannedEntries' => $state['visited'],
 	], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 	echo "\n";
 } catch (Throwable $error) {
