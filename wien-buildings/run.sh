@@ -10,7 +10,7 @@ PBF_DIR="$PUBLISH_DIR/tiles"
 RELEASE_FILE="$PUBLISH_DIR/release.json"
 TILEJSON_FILE="$PUBLISH_DIR/tilejson.json"
 TIPPECANOE_BIN="${TIPPECANOE_BIN:-tippecanoe}"
-MIN_ZOOM=12
+MIN_ZOOM=13
 MAX_ZOOM=15
 LOW_ZOOM_SIMPLIFICATION=4
 
@@ -83,7 +83,7 @@ for zoom in $(seq "$MIN_ZOOM" "$MAX_ZOOM"); do
 		exit 1
 	fi
 
-	sample_tile="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' | head -n 1)"
+	sample_tile="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' -print -quit)"
 	gzip -t "$sample_tile"
 
 	largest_tile="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' -printf '%s %p\n' | sort -nr | head -n 1 || true)"
