@@ -112,7 +112,7 @@ async function main() {
 	const presentTilesZ15 = tileKeysByZoom[MAX_ZOOM];
 	release.vectorTiles.minzoom = MIN_ZOOM;
 	release.vectorTiles.maxzoom = MAX_ZOOM;
-	release.vectorTiles.compression = "gzip";
+	release.vectorTiles.compression = "none";
 	release.vectorTiles.tileFields = Object.keys(TILE_FIELDS);
 	release.vectorTiles.geometryPolicy = {
 		lowZooms: `${MIN_ZOOM}-${MAX_ZOOM - 1}`,
