@@ -138,22 +138,27 @@ console.log(
 NODE
 }
 
+verify_tile() {
+	local label="$1"
+	local relative="$2"
+	local body="$WORK_DIR/${label}.pbf"
+	local headers="$WORK_DIR/${label}.headers"
+	local bytes
+
+	log "Prüfe $label und CORS: $relative"
+	fetch_public "$relative" "$body" "$headers"
+
+	bytes="$(wc -c < "$body" | tr -d ' ')"
+	[ "$bytes" -ge 16 ] || die "$relative: verdächtig kleine PBF-Antwort ($bytes Byte)"
+	log "$label OK: $bytes Byte, HTTP 200, CORS vorhanden"
+}
+
 verify_sample_tiles() {
 	local samples="$WORK_DIR/samples.tsv"
 
 	while IFS=$'\t' read -r zoom key; do
 		[ -n "$zoom" ] || continue
-		local relative="tiles/$key.pbf"
-		local body="$WORK_DIR/tile-$zoom.pbf"
-		local headers="$WORK_DIR/tile-$zoom.headers"
-
-		log "Prüfe Z$zoom Beispielkachel und CORS: $relative"
-		fetch_public "$relative" "$body" "$headers"
-
-		local bytes
-		bytes="$(wc -c < "$body" | tr -d ' ')"
-		[ "$bytes" -ge 16 ] || die "$relative: verdächtig kleine PBF-Antwort ($bytes Byte)"
-		log "Z$zoom OK: $bytes Byte, HTTP 200, CORS vorhanden"
+		verify_tile "Z$zoom-Beispielkachel" "tiles/$key.pbf"
 	done < "$samples"
 }
 
@@ -163,6 +168,7 @@ main() {
 
 	verify_manifests
 	verify_sample_tiles
+	verify_tile "gemeldete-Z12-Kachel" "tiles/12/2232/1418.pbf"
 	log "Öffentliche Wiener Gebäudekacheln Z10-Z15 vollständig geprüft."
 }
 
