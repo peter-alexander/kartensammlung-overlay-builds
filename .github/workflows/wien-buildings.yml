@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'wien-buildings/**'
+      - 'shared-host/asset-versions.php'
       - '.github/workflows/wien-buildings.yml'
       - '.github/scripts/build-tippecanoe.sh'
       - '.github/tippecanoe-version.txt'
@@ -78,7 +79,14 @@ jobs:
           name: wien-building-vector-tiles
           path: wien-buildings/build/WienBuildings/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 3
+
+      - name: Deploy Easyname asset version endpoint
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_MANIFEST="${REMOTE_ROOT:+$REMOTE_ROOT/}asset-versions.php"
+          .github/scripts/lftp-upload.sh shared-host/asset-versions.php "$REMOTE_MANIFEST"
 
       - name: Deploy Wiener building vector tiles
         run: |
