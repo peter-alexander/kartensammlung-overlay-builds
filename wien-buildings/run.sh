@@ -10,6 +10,8 @@ PBF_DIR="$PUBLISH_DIR/tiles"
 RELEASE_FILE="$PUBLISH_DIR/release.json"
 TILEJSON_FILE="$PUBLISH_DIR/tilejson.json"
 TIPPECANOE_BIN="${TIPPECANOE_BIN:-tippecanoe}"
+MIN_ZOOM=10
+MAX_ZOOM=15
 
 log() {
 	printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -29,11 +31,11 @@ node "$SCRIPT_DIR/build.mjs" \
 test -s "$GEOJSONSEQ_FILE"
 test -s "$RELEASE_FILE"
 
-log "Erzeuge ungekomprimierte Z12-Z15-PBF-Vektorkacheln"
+log "Erzeuge ungekomprimierte Z${MIN_ZOOM}-Z${MAX_ZOOM}-PBF-Vektorkacheln"
 mkdir -p "$PBF_DIR"
 "$TIPPECANOE_BIN" \
-	--minimum-zoom=12 \
-	--maximum-zoom=15 \
+	--minimum-zoom="$MIN_ZOOM" \
+	--maximum-zoom="$MAX_ZOOM" \
 	--layer=wien_buildings \
 	--force \
 	--no-feature-limit \
@@ -43,14 +45,14 @@ mkdir -p "$PBF_DIR"
 	--output-to-directory="$PBF_DIR" \
 	"$GEOJSONSEQ_FILE"
 
-log "Finalisiere TileJSON und Z15-Kachelindex"
+log "Finalisiere TileJSON und Z${MAX_ZOOM}-Kachelindex"
 node "$SCRIPT_DIR/finalize.mjs" --publish-dir "$PUBLISH_DIR"
 
 test -s "$TILEJSON_FILE"
 
-z15_tile_count="$(find "$PBF_DIR/15" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
+z15_tile_count="$(find "$PBF_DIR/$MAX_ZOOM" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
 if [ "$z15_tile_count" -lt 200 ]; then
-	log "Zu wenige Z15-PBF-Kacheln erzeugt: $z15_tile_count"
+	log "Zu wenige Z${MAX_ZOOM}-PBF-Kacheln erzeugt: $z15_tile_count"
 	exit 1
 fi
 
@@ -59,11 +61,11 @@ expected_z15_tile_count="$(node -e '
 	process.stdout.write(String(release.vectorTiles.presentTilesZ15.length));
 ' "$RELEASE_FILE")"
 if [ "$z15_tile_count" -ne "$expected_z15_tile_count" ]; then
-	log "Z15-Kachelindex stimmt nicht: Dateien=$z15_tile_count, Index=$expected_z15_tile_count"
+	log "Z${MAX_ZOOM}-Kachelindex stimmt nicht: Dateien=$z15_tile_count, Index=$expected_z15_tile_count"
 	exit 1
 fi
 
-for zoom in 12 13 14 15; do
+for zoom in $(seq "$MIN_ZOOM" "$MAX_ZOOM"); do
 	tile_count="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
 	if [ "$tile_count" -lt 1 ]; then
 		log "Keine PBF-Kacheln für Z$zoom erzeugt"
@@ -72,4 +74,4 @@ for zoom in 12 13 14 15; do
 	log "Z$zoom: $tile_count PBF-Kacheln"
 done
 
-log "Wiener Gebäudedatensatz-Build fertig: $z15_tile_count vollständige Z15-Kacheln plus Z12-Z14"
+log "Wiener Gebäudedatensatz-Build fertig: $z15_tile_count vollständige Z${MAX_ZOOM}-Kacheln plus Z${MIN_ZOOM}-Z$((MAX_ZOOM - 1))"
