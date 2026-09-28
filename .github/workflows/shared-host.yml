@@ -1,0 +1,53 @@
+name: Deploy shared Easyname host helpers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'shared-host/**'
+      - '.github/workflows/shared-host.yml'
+
+concurrency:
+  group: shared-easyname-host-helpers
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
+      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
+      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
+      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install deploy dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Validate PHP syntax
+        run: php -l shared-host/asset-versions.php
+
+      - name: Deploy asset version endpoint
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_MANIFEST="${REMOTE_ROOT:+$REMOTE_ROOT/}asset-versions.php"
+          .github/scripts/lftp-upload.sh shared-host/asset-versions.php "$REMOTE_MANIFEST"
+
+      - name: Verify public asset version endpoint
+        run: |
+          chmod +x shared-host/verify-asset-versions.sh
+          bash shared-host/verify-asset-versions.sh
