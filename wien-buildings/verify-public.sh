@@ -111,8 +111,8 @@ const vectorTiles = release?.vectorTiles;
 if (!vectorTiles || vectorTiles.layer !== "wien_buildings") {
 	throw new Error("release.json: Wiener Gebäudelayer fehlt");
 }
-if (vectorTiles.compression !== "none") {
-	throw new Error(`release.json: erwartete unkomprimierte PBFs, erhalten ${vectorTiles.compression}`);
+if (vectorTiles.compression !== "gzip") {
+	throw new Error(`release.json: erwartete gzip-Kompression, erhalten ${vectorTiles.compression}`);
 }
 
 const minZoom = Number(vectorTiles.minzoom);
@@ -174,22 +174,19 @@ verify_tile() {
 	local bytes
 	local content_encoding
 
-	log "Prüfe $label, CORS und unkomprimierte PBF-Auslieferung: $relative"
+	log "Prüfe $label, CORS und gzip-Auslieferung: $relative"
 	fetch_public "$relative" "$body" "$headers"
 
 	bytes="$(wc -c < "$body" | tr -d ' ')"
 	[ "$bytes" -ge 16 ] || die "$relative: verdächtig kleine PBF-Antwort ($bytes Byte)"
 
-	if gzip -t "$body" >/dev/null 2>&1; then
-		die "$relative: Antwort ist unerwartet gzip-komprimiert"
-	fi
-
+	gzip -t "$body" || die "$relative: Antwort enthält keine gültigen gzip-Daten"
 	content_encoding="$(header_value "$headers" 'Content-Encoding')"
-	if [ -n "$content_encoding" ]; then
-		die "$relative: unerwartetes Content-Encoding bei unkomprimierter PBF-Auslieferung: $content_encoding"
+	if [ "${content_encoding,,}" != "gzip" ]; then
+		die "$relative: gzip-PBF wird ohne Content-Encoding: gzip ausgeliefert (erhalten: ${content_encoding:-<fehlt>})"
 	fi
 
-	log "$label OK: $bytes Byte, HTTP 200, CORS vorhanden, unkomprimierte PBF-Auslieferung"
+	log "$label OK: $bytes Byte, HTTP 200, CORS vorhanden, Content-Encoding: gzip"
 }
 
 verify_sample_tiles() {
