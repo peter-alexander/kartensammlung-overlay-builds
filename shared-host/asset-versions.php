@@ -118,7 +118,7 @@ function ksScanAssets(
 
 	try {
 		$entries = new DirectoryIterator($directory);
-	} catch (Throwable) {
+	} catch (Throwable $error) {
 		return;
 	}
 
@@ -129,7 +129,7 @@ function ksScanAssets(
 		$name = $entry->getFilename();
 		if (
 			$name === ''
-			|| str_starts_with($name, '.')
+			|| (isset($name[0]) && $name[0] === '.')
 			|| $name === 'asset-versions.php'
 		) {
 			continue;
