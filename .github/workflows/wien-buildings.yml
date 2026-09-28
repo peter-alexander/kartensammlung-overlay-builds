@@ -85,3 +85,8 @@ jobs:
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienBuildings/LOD1"
           .github/scripts/lftp-upload.sh wien-buildings/build/WienBuildings "$REMOTE_BASE"
+
+      - name: Verify public Wiener building tiles
+        run: |
+          chmod +x wien-buildings/verify-public.sh
+          bash wien-buildings/verify-public.sh
