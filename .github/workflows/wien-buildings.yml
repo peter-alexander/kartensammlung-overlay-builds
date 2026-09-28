@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - 'wien-buildings/**'
-      - 'shared-host/asset-versions.php'
+      - 'shared-host/**'
       - '.github/workflows/wien-buildings.yml'
       - '.github/scripts/build-tippecanoe.sh'
       - '.github/tippecanoe-version.txt'
@@ -93,6 +93,11 @@ jobs:
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}WienBuildings/LOD1"
           .github/scripts/lftp-upload.sh wien-buildings/build/WienBuildings "$REMOTE_BASE"
+
+      - name: Verify public asset version endpoint
+        run: |
+          chmod +x shared-host/verify-asset-versions.sh
+          bash shared-host/verify-asset-versions.sh
 
       - name: Verify public Wiener building tiles
         run: |
