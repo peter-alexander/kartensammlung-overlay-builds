@@ -4,7 +4,7 @@ set -euo pipefail
 URL="${ASSET_VERSION_PUBLIC_URL:-https://tiles.radlobby.at/asset-versions.php}"
 MAP_ORIGIN="${ASSET_VERSION_MAP_ORIGIN:-https://fahrrad.lima-city.de}"
 EXPECTED_PREFIX="${ASSET_VERSION_EXPECTED_PREFIX:-/WienBuildings/LOD1/}"
-VERSION_FILE="${ASSET_VERSION_EXPECTED_FILE:-wien-buildings/build/WienBuildings/.ks-version}"
+VERSION_FILE="${ASSET_VERSION_EXPECTED_FILE:-wien-buildings/build/WienBuildings/ks-version.txt}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
