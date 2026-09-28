@@ -5,7 +5,7 @@ import path from "node:path";
 
 const PUBLIC_TILE_BASE = "https://tiles.radlobby.at/WienBuildings/LOD1";
 const DEFAULT_PUBLISH_DIR = path.resolve("wien-buildings/build/WienBuildings");
-const MIN_ZOOM = 10;
+const MIN_ZOOM = 12;
 const MAX_ZOOM = 15;
 
 function parseArgs(argv) {
