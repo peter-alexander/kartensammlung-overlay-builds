@@ -7,6 +7,16 @@ const PUBLIC_TILE_BASE = "https://tiles.radlobby.at/WienBuildings/LOD1";
 const DEFAULT_PUBLISH_DIR = path.resolve("wien-buildings/build/WienBuildings");
 const MIN_ZOOM = 12;
 const MAX_ZOOM = 15;
+const LOW_ZOOM_SIMPLIFICATION = 4;
+const TILE_FIELDS = Object.freeze({
+	render_height: "Number",
+	render_min_height: "Number",
+	KS_ID: "String",
+	BW_GEB_ID: "String",
+	FMZK_ID: "String",
+	BEZUG: "String",
+	F_KLASSE: "Number"
+});
 
 function parseArgs(argv) {
 	const result = {
@@ -102,6 +112,16 @@ async function main() {
 	const presentTilesZ15 = tileKeysByZoom[MAX_ZOOM];
 	release.vectorTiles.minzoom = MIN_ZOOM;
 	release.vectorTiles.maxzoom = MAX_ZOOM;
+	release.vectorTiles.compression = "gzip";
+	release.vectorTiles.tileFields = Object.keys(TILE_FIELDS);
+	release.vectorTiles.geometryPolicy = {
+		lowZooms: `${MIN_ZOOM}-${MAX_ZOOM - 1}`,
+		lowZoomSimplification: LOW_ZOOM_SIMPLIFICATION,
+		maxZoom: MAX_ZOOM,
+		maxZoomSimplification: "none",
+		featureDropping: false,
+		tinyPolygonReduction: false
+	};
 	release.vectorTiles.presentTilesZ15 = presentTilesZ15;
 	release.vectorTiles.tileCounts = Object.fromEntries(
 		Object.entries(tileKeysByZoom).map(([zoom, keys]) => [zoom, keys.length])
@@ -126,14 +146,7 @@ async function main() {
 		vector_layers: [
 			{
 				id: "wien_buildings",
-				fields: {
-					render_height: "Number",
-					render_min_height: "Number",
-					F_KLASSE: "Number",
-					BW_GEB_ID: "String",
-					BEZUG: "String",
-					FMZK_ID: "String"
-				}
+				fields: TILE_FIELDS
 			}
 		]
 	};

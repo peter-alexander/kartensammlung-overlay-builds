@@ -35,22 +35,34 @@ darstellbar.
 - `release.json`: Quelle, Erstellungszeitpunkt, Feature-Zahlen, Höhenmodell und
   Index der tatsächlich vorhandenen Z15-Kacheln.
 - `tilejson.json`: TileJSON für den sichtbaren MapLibre-Layer.
-- `tiles/12/{x}/{y}.pbf` bis `tiles/15/{x}/{y}.pbf`: ungekomprimierte
+- `tiles/12/{x}/{y}.pbf` bis `tiles/15/{x}/{y}.pbf`: gzip-komprimierte
   Vektorkacheln.
 - Source-Layer: `wien_buildings`.
 
-Z12–Z14 dienen der Kartenanzeige. Z15 bleibt die vollständige Eingabe für die
-3D-/Schattenberechnung.
+Die Web-Kacheln enthalten nur Attribute, die zur Laufzeit oder für die
+bestehenden Gebäude-Audits benötigt werden: `render_height`,
+`render_min_height`, `KS_ID`, `BW_GEB_ID`, `FMZK_ID`, `BEZUG` und `F_KLASSE`.
+Die übrigen WFS-Attribute bleiben Teil der Normalisierung, werden aber nicht in
+jede Vektorkachel dupliziert.
 
-Die PBF-Dateien sind bewusst ungekomprimiert, damit der Solar-Loader dieselben
-Kacheln direkt als MVT lesen kann. Tippecanoe darf keine Gebäude wegen
-Dichte- oder Tile-Größen-Grenzen verwerfen.
+Z12–Z14 dienen der Kartenanzeige. Dort vereinfacht Tippecanoe die
+Gebäudegeometrien mit dem Faktor 4. Es werden dabei weiterhin keine Gebäude
+wegen Feature- oder Tile-Größen-Grenzen verworfen und auch die
+Tiny-Polygon-Reduktion bleibt deaktiviert.
+
+Z15 bleibt die vollständige Eingabe für die 3D-/Schattenberechnung. Mit
+`--simplify-only-low-zooms` wird die Geometrie auf Z15 nicht vereinfacht.
+Auch dort bleiben Feature- und Tile-Größen-Limits deaktiviert.
+
+Die PBF-Dateien werden mit der normalen Tippecanoe-gzip-Kompression erzeugt.
+Die frühere unkomprimierte Ausgabe war nur für einen alten Loader notwendig und
+ist nicht mehr erforderlich.
 
 ## Aktualisierung
 
 Der zugrunde liegende Wiener OGD-Datensatz wird unregelmäßig aktualisiert.
-Der Produktionsworkflow läuft deshalb monatlich sowie bei Änderungen an diesem
-Build.
+Der Produktionsworkflow läuft deshalb zweimal wöchentlich sowie bei Änderungen
+an diesem Build.
 
 ## Lokal
 
@@ -62,8 +74,8 @@ Datenquelle: Stadt Wien – data.wien.gv.at, CC BY 4.0
 
 ## Historischer Gebäudeschlüssel
 
-Zusätzlich bleibt `BEZUG` aus dem FMZK erhalten. Das Feld ist der historische
-Adresscode und dient zur kontrollierten Verknüpfung mit dem älteren Wiener
-LOD2.1-Dachmodell, dessen `gml:name` denselben historischen Code verwendet.
-`BW_GEB_ID` bleibt der aktuelle Gebäudeschlüssel; `BEZUG` wird nicht als heutige
-Identität interpretiert.
+`BEZUG` aus dem FMZK ist der historische Adresscode und dient zur kontrollierten
+Verknüpfung mit dem älteren Wiener LOD2.1-Dachmodell, dessen `gml:name` denselben
+historischen Code verwendet. `BW_GEB_ID` bleibt der aktuelle Gebäudeschlüssel;
+`BEZUG` wird nicht als heutige Identität interpretiert. Beide Felder bleiben in
+den Web-Kacheln erhalten, weil die bestehenden LOD2-/Gap-Audits darauf zugreifen.
