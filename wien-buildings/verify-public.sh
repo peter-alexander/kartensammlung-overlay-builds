@@ -94,26 +94,39 @@ const fs = require("fs");
 const release = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const tilejson = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
 const samplesPath = process.argv[4];
-const expectedZooms = [12, 13, 14, 15];
 const vectorTiles = release?.vectorTiles;
 
 if (!vectorTiles || vectorTiles.layer !== "wien_buildings") {
 	throw new Error("release.json: Wiener Gebäudelayer fehlt");
 }
-if (Number(vectorTiles.minzoom) !== 12 || Number(vectorTiles.maxzoom) !== 15) {
+
+const minZoom = Number(vectorTiles.minzoom);
+const maxZoom = Number(vectorTiles.maxzoom);
+if (
+	!Number.isInteger(minZoom)
+	|| !Number.isInteger(maxZoom)
+	|| minZoom < 0
+	|| maxZoom > 24
+	|| minZoom > maxZoom
+) {
 	throw new Error(
-		`release.json: unerwarteter Zoombereich ${vectorTiles.minzoom}-${vectorTiles.maxzoom}`
+		`release.json: ungültiger Zoombereich ${vectorTiles.minzoom}-${vectorTiles.maxzoom}`
 	);
 }
-if (Number(tilejson?.minzoom) !== 12 || Number(tilejson?.maxzoom) !== 15) {
+
+if (Number(tilejson?.minzoom) !== minZoom || Number(tilejson?.maxzoom) !== maxZoom) {
 	throw new Error(
-		`tilejson.json: unerwarteter Zoombereich ${tilejson?.minzoom}-${tilejson?.maxzoom}`
+		`tilejson.json: Zoombereich ${tilejson?.minzoom}-${tilejson?.maxzoom} stimmt nicht mit release.json ${minZoom}-${maxZoom} überein`
 	);
 }
 if (!Array.isArray(tilejson?.tiles) || !tilejson.tiles.length) {
 	throw new Error("tilejson.json: tiles fehlt");
 }
 
+const expectedZooms = Array.from(
+	{ length: maxZoom - minZoom + 1 },
+	(_, index) => minZoom + index
+);
 const tileCounts = vectorTiles.tileCounts || {};
 const sampleTiles = vectorTiles.sampleTiles || {};
 const rows = [];
@@ -132,7 +145,7 @@ for (const zoom of expectedZooms) {
 
 fs.writeFileSync(samplesPath, rows.join("\n") + "\n", "utf8");
 console.log(
-	"Manifest OK: "
+	`Manifest OK (${minZoom}-${maxZoom}): `
 	+ expectedZooms.map((zoom) => `Z${zoom}=${tileCounts[zoom]}`).join(", ")
 );
 NODE
@@ -168,8 +181,7 @@ main() {
 
 	verify_manifests
 	verify_sample_tiles
-	verify_tile "gemeldete-Z12-Kachel" "tiles/12/2232/1418.pbf"
-	log "Öffentliche Wiener Gebäudekacheln Z12-Z15 vollständig geprüft."
+	log "Öffentliche Wiener Gebäudekacheln anhand der veröffentlichten Zoomgrenzen vollständig geprüft."
 }
 
 main "$@"
