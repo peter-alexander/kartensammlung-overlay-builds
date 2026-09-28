@@ -86,6 +86,7 @@ async function main() {
 	const args = parseArgs(process.argv);
 	const releasePath = path.join(args.publishDir, "release.json");
 	const tilejsonPath = path.join(args.publishDir, "tilejson.json");
+	const versionPath = path.join(args.publishDir, ".ks-version");
 	const tilesDir = path.join(args.publishDir, "tiles");
 
 	const release = JSON.parse(await fsp.readFile(releasePath, "utf8"));
@@ -139,13 +140,14 @@ async function main() {
 
 	await Promise.all([
 		fsp.writeFile(releasePath, JSON.stringify(release, null, "\t") + "\n", "utf8"),
-		fsp.writeFile(tilejsonPath, JSON.stringify(tilejson, null, "\t") + "\n", "utf8")
+		fsp.writeFile(tilejsonPath, JSON.stringify(tilejson, null, "\t") + "\n", "utf8"),
+		fsp.writeFile(versionPath, generatedAt + "\n", "utf8")
 	]);
 
 	const counts = Object.entries(tileKeysByZoom)
 		.map(([zoom, keys]) => `Z${zoom}=${keys.length}`)
 		.join(", ");
-	console.log(`Finalized Wiener building manifests: ${counts}`);
+	console.log(`Finalized Wiener building manifests: ${counts}; version=${generatedAt}`);
 }
 
 main().catch((error) => {
