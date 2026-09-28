@@ -4,16 +4,30 @@ set -euo pipefail
 URL="${ASSET_VERSION_PUBLIC_URL:-https://tiles.radlobby.at/asset-versions.php}"
 MAP_ORIGIN="${ASSET_VERSION_MAP_ORIGIN:-https://fahrrad.lima-city.de}"
 EXPECTED_PREFIX="${ASSET_VERSION_EXPECTED_PREFIX:-/WienBuildings/LOD1/}"
-VERSION_FILE="${ASSET_VERSION_EXPECTED_FILE:-wien-buildings/build/WienBuildings/ks-version.txt}"
+VERSION_URL="${ASSET_VERSION_EXPECTED_VERSION_URL:-https://tiles.radlobby.at/WienBuildings/LOD1/ks-version.txt}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-[ -s "$VERSION_FILE" ] || {
-	echo "Missing dataset version file: $VERSION_FILE" >&2
+VERIFY_TOKEN="$(date +%s)"
+EXPECTED_VERSION="$(
+	curl \
+		--silent \
+		--show-error \
+		--location \
+		--fail \
+		--retry 3 \
+		--retry-delay 2 \
+		--connect-timeout 15 \
+		--max-time 30 \
+		"$VERSION_URL?verify=$VERIFY_TOKEN" \
+		| tr -d '\r\n'
+)"
+
+[ -n "$EXPECTED_VERSION" ] || {
+	echo "Empty live dataset version from $VERSION_URL" >&2
 	exit 1
 }
 
-EXPECTED_VERSION="$(tr -d '\r\n' < "$VERSION_FILE")"
 BODY="$WORK_DIR/asset-versions.json"
 HEADERS="$WORK_DIR/headers.txt"
 STATUS="$(
@@ -22,17 +36,17 @@ STATUS="$(
 		--show-error \
 		--location \
 		--fail-with-body \
-		--retry 5 \
-		--retry-delay 3 \
+		--retry 2 \
+		--retry-delay 2 \
 		--retry-all-errors \
-		--connect-timeout 20 \
-		--max-time 90 \
+		--connect-timeout 15 \
+		--max-time 20 \
 		--header "Origin: $MAP_ORIGIN" \
 		--header 'Cache-Control: no-cache' \
 		--dump-header "$HEADERS" \
 		--output "$BODY" \
 		--write-out '%{http_code}' \
-		"$URL?verify=$(date +%s)"
+		"$URL?verify=$VERIFY_TOKEN"
 )"
 
 [ "$STATUS" = "200" ] || {
@@ -64,7 +78,9 @@ if (Number(manifest?.schema) !== 1) {
 	throw new Error("Asset-version manifest schema is not 1.");
 }
 if (manifest?.truncated) {
-	throw new Error("Asset-version manifest is truncated.");
+	throw new Error(
+		`Asset-version manifest is truncated at: ${(manifest?.truncatedPrefixes || []).join(", ") || "unknown"}`
+	);
 }
 if (String(manifest?.prefixes?.[prefix] || "") !== expected) {
 	throw new Error(
