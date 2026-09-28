@@ -5,6 +5,8 @@ import path from "node:path";
 
 const PUBLIC_TILE_BASE = "https://tiles.radlobby.at/WienBuildings/LOD1";
 const DEFAULT_PUBLISH_DIR = path.resolve("wien-buildings/build/WienBuildings");
+const MIN_ZOOM = 10;
+const MAX_ZOOM = 15;
 
 function parseArgs(argv) {
 	const result = {
@@ -67,9 +69,6 @@ function assertRelease(release) {
 	if (!vectorTiles || vectorTiles.layer !== "wien_buildings") {
 		throw new Error("release.json has no Wiener building vector-tile definition.");
 	}
-	if (Number(vectorTiles.minzoom) !== 12 || Number(vectorTiles.maxzoom) !== 15) {
-		throw new Error("Unexpected Wiener building zoom range.");
-	}
 	if (
 		!Array.isArray(vectorTiles.bounds)
 		|| vectorTiles.bounds.length !== 4
@@ -77,6 +76,10 @@ function assertRelease(release) {
 	) {
 		throw new Error("release.json has invalid bounds.");
 	}
+}
+
+function sampleTileKey(keys) {
+	return keys[Math.floor(keys.length / 2)];
 }
 
 async function main() {
@@ -89,16 +92,21 @@ async function main() {
 	assertRelease(release);
 
 	const tileKeysByZoom = {};
-	for (let zoom = 12; zoom <= 15; zoom += 1) {
+	for (let zoom = MIN_ZOOM; zoom <= MAX_ZOOM; zoom += 1) {
 		const keys = await listPbfTileKeys(tilesDir, zoom);
 		if (!keys.length) throw new Error(`No generated PBF tiles found for Z${zoom}.`);
 		tileKeysByZoom[zoom] = keys;
 	}
 
-	const presentTilesZ15 = tileKeysByZoom[15];
+	const presentTilesZ15 = tileKeysByZoom[MAX_ZOOM];
+	release.vectorTiles.minzoom = MIN_ZOOM;
+	release.vectorTiles.maxzoom = MAX_ZOOM;
 	release.vectorTiles.presentTilesZ15 = presentTilesZ15;
 	release.vectorTiles.tileCounts = Object.fromEntries(
 		Object.entries(tileKeysByZoom).map(([zoom, keys]) => [zoom, keys.length])
+	);
+	release.vectorTiles.sampleTiles = Object.fromEntries(
+		Object.entries(tileKeysByZoom).map(([zoom, keys]) => [zoom, sampleTileKey(keys)])
 	);
 
 	const generatedAt = String(release.generatedAt);
@@ -110,8 +118,8 @@ async function main() {
 		tiles: [
 			`${PUBLIC_TILE_BASE}/tiles/{z}/{x}/{y}.pbf?v=${encodeURIComponent(generatedAt)}`
 		],
-		minzoom: 12,
-		maxzoom: 15,
+		minzoom: MIN_ZOOM,
+		maxzoom: MAX_ZOOM,
 		bounds,
 		attribution: "Stadt Wien – data.wien.gv.at, CC BY 4.0",
 		vector_layers: [
@@ -134,11 +142,10 @@ async function main() {
 		fsp.writeFile(tilejsonPath, JSON.stringify(tilejson, null, "\t") + "\n", "utf8")
 	]);
 
-	console.log(
-		`Finalized Wiener building manifests: Z12=${tileKeysByZoom[12].length}, `
-		+ `Z13=${tileKeysByZoom[13].length}, Z14=${tileKeysByZoom[14].length}, `
-		+ `Z15=${presentTilesZ15.length}`
-	);
+	const counts = Object.entries(tileKeysByZoom)
+		.map(([zoom, keys]) => `Z${zoom}=${keys.length}`)
+		.join(", ");
+	console.log(`Finalized Wiener building manifests: ${counts}`);
 }
 
 main().catch((error) => {
