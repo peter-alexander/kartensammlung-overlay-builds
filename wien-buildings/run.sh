@@ -20,6 +20,7 @@ log() {
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$PUBLISH_DIR" "$WORK_DIR"
+cp "$SCRIPT_DIR/.htaccess" "$PUBLISH_DIR/.htaccess"
 
 command -v node >/dev/null 2>&1
 command -v "$TIPPECANOE_BIN" >/dev/null 2>&1
@@ -33,7 +34,7 @@ node "$SCRIPT_DIR/build.mjs" \
 test -s "$GEOJSONSEQ_FILE"
 test -s "$RELEASE_FILE"
 
-log "Erzeuge unkomprimierte Z${MIN_ZOOM}-Z${MAX_ZOOM}-PBF-Vektorkacheln"
+log "Erzeuge gzip-komprimierte Z${MIN_ZOOM}-Z${MAX_ZOOM}-PBF-Vektorkacheln"
 log "Z${MAX_ZOOM} bleibt geometrisch vollständig; Z${MIN_ZOOM}-Z$((MAX_ZOOM - 1)) werden nur geometrisch vereinfacht (Faktor ${LOW_ZOOM_SIMPLIFICATION}), ohne Gebäude wegen Tile-Limits zu verwerfen."
 mkdir -p "$PBF_DIR"
 "$TIPPECANOE_BIN" \
@@ -43,7 +44,6 @@ mkdir -p "$PBF_DIR"
 	--force \
 	--no-feature-limit \
 	--no-tile-size-limit \
-	--no-tile-compression \
 	--no-tiny-polygon-reduction \
 	--simplification="$LOW_ZOOM_SIMPLIFICATION" \
 	--simplify-only-low-zooms \
@@ -61,6 +61,7 @@ log "Finalisiere TileJSON und Z${MAX_ZOOM}-Kachelindex"
 node "$SCRIPT_DIR/finalize.mjs" --publish-dir "$PUBLISH_DIR"
 
 test -s "$TILEJSON_FILE"
+test -s "$PUBLISH_DIR/.htaccess"
 
 z15_tile_count="$(find "$PBF_DIR/$MAX_ZOOM" -type f -name '*.pbf' 2>/dev/null | wc -l | tr -d ' ')"
 if [ "$z15_tile_count" -lt 200 ]; then
@@ -85,19 +86,16 @@ for zoom in $(seq "$MIN_ZOOM" "$MAX_ZOOM"); do
 	fi
 
 	sample_tile="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' -print -quit)"
-	if gzip -t "$sample_tile" >/dev/null 2>&1; then
-		log "Z$zoom-Beispielkachel ist unerwartet gzip-komprimiert: $sample_tile"
-		exit 1
-	fi
+	gzip -t "$sample_tile"
 
 	largest_tile="$(find "$PBF_DIR/$zoom" -type f -name '*.pbf' -printf '%s %p\n' | sort -nr | head -n 1 || true)"
-	log "Z$zoom: $tile_count PBF-Kacheln; größte unkomprimierte Kachel: ${largest_tile:-unbekannt}"
+	log "Z$zoom: $tile_count PBF-Kacheln; größte komprimierte Kachel: ${largest_tile:-unbekannt}"
 done
 
 known_z13_tile="$PBF_DIR/13/4469/2838.pbf"
 if [ -f "$known_z13_tile" ]; then
 	known_z13_bytes="$(wc -c < "$known_z13_tile" | tr -d ' ')"
-	log "Referenzkachel Z13/4469/2838: ${known_z13_bytes} Byte unkomprimiert"
+	log "Referenzkachel Z13/4469/2838: ${known_z13_bytes} Byte komprimiert"
 fi
 
 log "Wiener Gebäudedatensatz-Build fertig: $z15_tile_count vollständige Z${MAX_ZOOM}-Kacheln plus im Feature-Bestand vollständige, geometrisch vereinfachte Z${MIN_ZOOM}-Z$((MAX_ZOOM - 1))"
