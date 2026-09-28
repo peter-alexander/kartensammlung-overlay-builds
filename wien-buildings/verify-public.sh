@@ -20,20 +20,32 @@ require_command() {
 	command -v "$1" >/dev/null 2>&1 || die "Benötigtes Programm fehlt: $1"
 }
 
+header_value() {
+	local headers="$1"
+	local name="$2"
+
+	awk -v wanted="$name" '
+		BEGIN { IGNORECASE=1 }
+		{
+			line=$0
+			sub(/\r$/, "", line)
+			separator=index(line, ":")
+			if (!separator) next
+			key=substr(line, 1, separator - 1)
+			if (tolower(key) != tolower(wanted)) next
+			value=substr(line, separator + 1)
+			sub(/^[[:space:]]+/, "", value)
+			print value
+		}
+	' "$headers" | tail -n 1
+}
+
 assert_cors() {
 	local headers="$1"
 	local relative="$2"
 	local value
 
-	value="$(
-		awk 'BEGIN { IGNORECASE=1 }
-			/^Access-Control-Allow-Origin:/ {
-				sub(/\r$/, "");
-				sub(/^[^:]+:[[:space:]]*/, "");
-				print
-			}' "$headers" | tail -n 1
-	)"
-
+	value="$(header_value "$headers" 'Access-Control-Allow-Origin')"
 	[ -n "$value" ] || die "$relative: Access-Control-Allow-Origin fehlt"
 	if [ "$value" != "*" ] && [ "$value" != "$MAP_ORIGIN" ]; then
 		die "$relative: unerwartetes Access-Control-Allow-Origin: $value"
@@ -99,6 +111,9 @@ const vectorTiles = release?.vectorTiles;
 if (!vectorTiles || vectorTiles.layer !== "wien_buildings") {
 	throw new Error("release.json: Wiener Gebäudelayer fehlt");
 }
+if (vectorTiles.compression !== "gzip") {
+	throw new Error(`release.json: erwartete gzip-Kompression, erhalten ${vectorTiles.compression}`);
+}
 
 const minZoom = Number(vectorTiles.minzoom);
 const maxZoom = Number(vectorTiles.maxzoom);
@@ -157,13 +172,21 @@ verify_tile() {
 	local body="$WORK_DIR/${label}.pbf"
 	local headers="$WORK_DIR/${label}.headers"
 	local bytes
+	local content_encoding
 
-	log "Prüfe $label und CORS: $relative"
+	log "Prüfe $label, CORS und gzip-Auslieferung: $relative"
 	fetch_public "$relative" "$body" "$headers"
 
 	bytes="$(wc -c < "$body" | tr -d ' ')"
 	[ "$bytes" -ge 16 ] || die "$relative: verdächtig kleine PBF-Antwort ($bytes Byte)"
-	log "$label OK: $bytes Byte, HTTP 200, CORS vorhanden"
+
+	gzip -t "$body" || die "$relative: Antwort enthält keine gültigen gzip-Daten"
+	content_encoding="$(header_value "$headers" 'Content-Encoding')"
+	if [ "${content_encoding,,}" != "gzip" ]; then
+		die "$relative: gzip-PBF wird ohne Content-Encoding: gzip ausgeliefert (erhalten: ${content_encoding:-<fehlt>})"
+	fi
+
+	log "$label OK: $bytes Byte, HTTP 200, CORS vorhanden, Content-Encoding: gzip"
 }
 
 verify_sample_tiles() {
@@ -178,6 +201,7 @@ verify_sample_tiles() {
 main() {
 	require_command curl
 	require_command node
+	require_command gzip
 
 	verify_manifests
 	verify_sample_tiles
