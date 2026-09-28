@@ -35,10 +35,6 @@ STATUS="$(
 		--silent \
 		--show-error \
 		--location \
-		--fail-with-body \
-		--retry 2 \
-		--retry-delay 2 \
-		--retry-all-errors \
 		--connect-timeout 15 \
 		--max-time 20 \
 		--header "Origin: $MAP_ORIGIN" \
@@ -49,17 +45,17 @@ STATUS="$(
 		"$URL?verify=$VERIFY_TOKEN"
 )"
 
-[ "$STATUS" = "200" ] || {
-	echo "Expected HTTP 200 from $URL, got $STATUS" >&2
-	cat "$HEADERS" >&2 || true
-	exit 1
-}
-
-BODY_BYTES="$(wc -c < "$BODY" | tr -d ' ')"
-if [ "$BODY_BYTES" -eq 0 ]; then
-	echo "Asset-version endpoint returned HTTP 200 with an empty body." >&2
+if ! grep -q '[^[:space:]]' "$BODY"; then
+	echo "Asset-version endpoint returned HTTP $STATUS without a JSON body." >&2
 	echo "Response headers:" >&2
 	cat "$HEADERS" >&2 || true
+	exit 1
+fi
+
+if [ "$STATUS" != "200" ]; then
+	echo "Asset-version endpoint returned HTTP $STATUS:" >&2
+	cat "$BODY" >&2 || true
+	echo >&2
 	exit 1
 fi
 
@@ -93,6 +89,11 @@ const expected = process.argv[4];
 
 if (Number(manifest?.schema) !== 1) {
 	throw new Error("Asset-version manifest schema is not 1.");
+}
+if (manifest?.error) {
+	throw new Error(
+		`Asset-version endpoint reported ${manifest.error}: ${manifest.jsonError || manifest.phpErrorMessage || "no details"}`
+	);
 }
 if (manifest?.truncated) {
 	throw new Error(
