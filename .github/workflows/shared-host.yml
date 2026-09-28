@@ -39,13 +39,50 @@ jobs:
           sudo apt-get install -y lftp
 
       - name: Validate PHP syntax
-        run: php -l shared-host/asset-versions.php
+        run: |
+          php -l shared-host/php-health.php
+          php -l shared-host/asset-versions.php
+
+      - name: Deploy PHP health endpoint
+        run: |
+          chmod +x .github/scripts/lftp-upload.sh
+          REMOTE_HEALTH="${REMOTE_ROOT:+$REMOTE_ROOT/}php-health.php"
+          .github/scripts/lftp-upload.sh shared-host/php-health.php "$REMOTE_HEALTH"
 
       - name: Deploy asset version endpoint
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_MANIFEST="${REMOTE_ROOT:+$REMOTE_ROOT/}asset-versions.php"
           .github/scripts/lftp-upload.sh shared-host/asset-versions.php "$REMOTE_MANIFEST"
+
+      - name: Verify public PHP runtime
+        run: |
+          HEALTH_FILE="$(mktemp)"
+          trap 'rm -f "$HEALTH_FILE"' EXIT
+          curl \
+            --silent \
+            --show-error \
+            --location \
+            --fail-with-body \
+            --connect-timeout 15 \
+            --max-time 20 \
+            --output "$HEALTH_FILE" \
+            "https://tiles.radlobby.at/php-health.php?verify=$(date +%s)"
+          if [ ! -s "$HEALTH_FILE" ]; then
+            echo "PHP health endpoint returned an empty body." >&2
+            exit 1
+          fi
+          node - "$HEALTH_FILE" <<'NODE'
+          const fs = require("fs");
+          const health = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          if (health?.ok !== true) {
+            throw new Error("PHP health endpoint did not report ok=true.");
+          }
+          if (health?.versionReadable !== true) {
+            throw new Error("PHP cannot read WienBuildings/LOD1/ks-version.txt.");
+          }
+          console.log(`Easyname PHP ${health.php}; Wiener dataset version ${health.version}`);
+          NODE
 
       - name: Verify public asset version endpoint
         run: |
