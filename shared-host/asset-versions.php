@@ -4,19 +4,12 @@ declare(strict_types=1);
 
 const KS_ASSET_VERSION_ENTRY_LIMIT = 100000;
 const KS_ASSET_VERSION_MAX_SECONDS = 3.0;
+const KS_ASSET_VERSION_MAX_DEPTH = 2;
 
 function ksStaticAsset(string $name): bool
 {
 	return preg_match(
 		'/\.(?:avif|bin|bmp|css|csv|geojson|gif|gpx|ico|jpeg|jpg|js|json|kml|kmz|mvt|pbf|pmtiles|png|svg|tif|tiff|topojson|txt|wasm|webp|woff|woff2|xml)$/i',
-		$name
-	) === 1;
-}
-
-function ksTileAsset(string $name): bool
-{
-	return preg_match(
-		'/\.(?:avif|jpeg|jpg|mvt|pbf|png|webp)$/i',
 		$name
 	) === 1;
 }
@@ -33,79 +26,10 @@ function ksFileVersion(string $path): string
 	return $mtime === false ? '' : (string)$mtime;
 }
 
-function ksLegacyTileTreeVersion(string $directory): string
+function ksDirectoryVersion(string $path): string
 {
-	$latest = filemtime($directory);
-	$latest = $latest === false ? 0 : $latest;
-
-	try {
-		$zoomEntries = new DirectoryIterator($directory);
-	} catch (Throwable) {
-		return '';
-	}
-
-	foreach ($zoomEntries as $zoomEntry) {
-		if (
-			$zoomEntry->isDot()
-			|| !$zoomEntry->isDir()
-			|| $zoomEntry->isLink()
-		) {
-			continue;
-		}
-
-		$zoomName = $zoomEntry->getFilename();
-		if (!preg_match('/^\d{1,2}$/', $zoomName)) continue;
-
-		$zoom = (int)$zoomName;
-		if ($zoom < 0 || $zoom > 24) continue;
-
-		try {
-			$xEntries = new DirectoryIterator(
-				$zoomEntry->getPathname()
-			);
-		} catch (Throwable) {
-			continue;
-		}
-
-		foreach ($xEntries as $xEntry) {
-			if (
-				$xEntry->isDot()
-				|| !$xEntry->isDir()
-				|| $xEntry->isLink()
-				|| !preg_match('/^\d+$/', $xEntry->getFilename())
-			) {
-				continue;
-			}
-
-			try {
-				$tileEntries = new DirectoryIterator(
-					$xEntry->getPathname()
-				);
-			} catch (Throwable) {
-				continue;
-			}
-
-			foreach ($tileEntries as $tileEntry) {
-				if (
-					$tileEntry->isDot()
-					|| !$tileEntry->isFile()
-					|| !ksTileAsset($tileEntry->getFilename())
-				) {
-					continue;
-				}
-
-				$latest = max(
-					$latest,
-					$zoomEntry->getMTime(),
-					$xEntry->getMTime(),
-					$tileEntry->getMTime()
-				);
-				return $latest > 0 ? (string)$latest : '';
-			}
-		}
-	}
-
-	return '';
+	$mtime = is_dir($path) ? filemtime($path) : false;
+	return $mtime === false ? '' : (string)$mtime;
 }
 
 function ksDatasetVersion(string $directory): string
@@ -142,7 +66,7 @@ function ksDatasetVersion(string $directory): string
 		if ($latest > 0) return (string)$latest;
 	}
 
-	return ksLegacyTileTreeVersion($directory);
+	return '';
 }
 
 function ksScanBudgetExceeded(array &$state, string $urlPrefix): bool
@@ -168,7 +92,8 @@ function ksScanAssets(
 	array &$files,
 	array &$prefixes,
 	array &$state,
-	bool $root = false
+	bool $root = false,
+	int $depth = 0
 ): void {
 	if (!is_dir($directory) || is_link($directory)) return;
 	if (ksScanBudgetExceeded($state, $urlPrefix)) return;
@@ -177,6 +102,16 @@ function ksScanAssets(
 		$datasetVersion = ksDatasetVersion($directory);
 		if ($datasetVersion !== '') {
 			$prefixes[rtrim($urlPrefix, '/') . '/'] = $datasetVersion;
+			return;
+		}
+
+		if ($depth >= KS_ASSET_VERSION_MAX_DEPTH) {
+			$directoryVersion = ksDirectoryVersion($directory);
+			if ($directoryVersion !== '') {
+				$prefix = rtrim($urlPrefix, '/') . '/';
+				$prefixes[$prefix] = $directoryVersion;
+				$state['coarsePrefixes'][] = $prefix;
+			}
 			return;
 		}
 	}
@@ -211,7 +146,9 @@ function ksScanAssets(
 				$url,
 				$files,
 				$prefixes,
-				$state
+				$state,
+				false,
+				$depth + 1
 			);
 			continue;
 		}
@@ -235,6 +172,7 @@ $state = [
 	'visited' => 0,
 	'truncated' => false,
 	'truncatedPrefixes' => [],
+	'coarsePrefixes' => [],
 	'deadline' => microtime(true) + KS_ASSET_VERSION_MAX_SECONDS,
 ];
 
@@ -245,12 +183,16 @@ try {
 		$files,
 		$prefixes,
 		$state,
-		true
+		true,
+		0
 	);
 	ksort($files, SORT_STRING);
 	ksort($prefixes, SORT_STRING);
 	$state['truncatedPrefixes'] = array_values(array_unique(
 		$state['truncatedPrefixes']
+	));
+	$state['coarsePrefixes'] = array_values(array_unique(
+		$state['coarsePrefixes']
 	));
 
 	echo json_encode([
@@ -259,6 +201,7 @@ try {
 		'prefixes' => $prefixes,
 		'truncated' => $state['truncated'],
 		'truncatedPrefixes' => $state['truncatedPrefixes'],
+		'coarsePrefixes' => $state['coarsePrefixes'],
 		'scannedEntries' => $state['visited'],
 	], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 	echo "\n";
