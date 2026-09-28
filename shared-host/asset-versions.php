@@ -1,12 +1,10 @@
 <?php
 
-declare(strict_types=1);
-
 const KS_ASSET_VERSION_ENTRY_LIMIT = 100000;
 const KS_ASSET_VERSION_MAX_SECONDS = 3.0;
 const KS_ASSET_VERSION_MAX_DEPTH = 2;
 
-function ksStaticAsset(string $name): bool
+function ksStaticAsset($name)
 {
 	return preg_match(
 		'/\.(?:avif|bin|bmp|css|csv|geojson|gif|gpx|ico|jpeg|jpg|js|json|kml|kmz|mvt|pbf|pmtiles|png|svg|tif|tiff|topojson|txt|wasm|webp|woff|woff2|xml)$/i',
@@ -14,27 +12,27 @@ function ksStaticAsset(string $name): bool
 	) === 1;
 }
 
-function ksJoinUrl(string $base, string $name): string
+function ksJoinUrl($base, $name)
 {
 	if ($base === '/') return '/' . ltrim($name, '/');
 	return rtrim($base, '/') . '/' . ltrim($name, '/');
 }
 
-function ksFileVersion(string $path): string
+function ksFileVersion($path)
 {
 	$mtime = is_file($path) ? filemtime($path) : false;
 	return $mtime === false ? '' : (string)$mtime;
 }
 
-function ksDirectoryVersion(string $path): string
+function ksDirectoryVersion($path)
 {
 	$mtime = is_dir($path) ? filemtime($path) : false;
 	return $mtime === false ? '' : (string)$mtime;
 }
 
-function ksDatasetVersion(string $directory): string
+function ksDatasetVersion($directory)
 {
-	foreach (['.ks-version', 'ks-version.txt'] as $name) {
+	foreach (array('.ks-version', 'ks-version.txt') as $name) {
 		$path = rtrim($directory, '/') . '/' . $name;
 		if (!is_file($path)) continue;
 
@@ -57,7 +55,7 @@ function ksDatasetVersion(string $directory): string
 	}
 
 	$pmtiles = glob(rtrim($directory, '/') . '/*.pmtiles');
-	if (is_array($pmtiles) && $pmtiles !== []) {
+	if (is_array($pmtiles) && count($pmtiles) > 0) {
 		$latest = 0;
 		foreach ($pmtiles as $path) {
 			$mtime = filemtime($path);
@@ -69,7 +67,7 @@ function ksDatasetVersion(string $directory): string
 	return '';
 }
 
-function ksScanBudgetExceeded(array &$state, string $urlPrefix): bool
+function ksScanBudgetExceeded(&$state, $urlPrefix)
 {
 	if ($state['visited'] >= KS_ASSET_VERSION_ENTRY_LIMIT) {
 		$state['truncated'] = true;
@@ -87,14 +85,14 @@ function ksScanBudgetExceeded(array &$state, string $urlPrefix): bool
 }
 
 function ksScanAssets(
-	string $directory,
-	string $urlPrefix,
-	array &$files,
-	array &$prefixes,
-	array &$state,
-	bool $root = false,
-	int $depth = 0
-): void {
+	$directory,
+	$urlPrefix,
+	&$files,
+	&$prefixes,
+	&$state,
+	$root = false,
+	$depth = 0
+) {
 	if (!is_dir($directory) || is_link($directory)) return;
 	if (ksScanBudgetExceeded($state, $urlPrefix)) return;
 
@@ -118,7 +116,7 @@ function ksScanAssets(
 
 	try {
 		$entries = new DirectoryIterator($directory);
-	} catch (Throwable $error) {
+	} catch (Exception $error) {
 		return;
 	}
 
@@ -131,6 +129,7 @@ function ksScanAssets(
 			$name === ''
 			|| (isset($name[0]) && $name[0] === '.')
 			|| $name === 'asset-versions.php'
+			|| $name === 'php-health.php'
 		) {
 			continue;
 		}
@@ -166,15 +165,15 @@ header('Cache-Control: no-store, max-age=0');
 header('Pragma: no-cache');
 header('Access-Control-Allow-Origin: *');
 
-$files = [];
-$prefixes = [];
-$state = [
+$files = array();
+$prefixes = array();
+$state = array(
 	'visited' => 0,
 	'truncated' => false,
-	'truncatedPrefixes' => [],
-	'coarsePrefixes' => [],
+	'truncatedPrefixes' => array(),
+	'coarsePrefixes' => array(),
 	'deadline' => microtime(true) + KS_ASSET_VERSION_MAX_SECONDS,
-];
+);
 
 try {
 	ksScanAssets(
@@ -195,7 +194,7 @@ try {
 		$state['coarsePrefixes']
 	));
 
-	echo json_encode([
+	echo json_encode(array(
 		'schema' => 1,
 		'files' => $files,
 		'prefixes' => $prefixes,
@@ -203,15 +202,15 @@ try {
 		'truncatedPrefixes' => $state['truncatedPrefixes'],
 		'coarsePrefixes' => $state['coarsePrefixes'],
 		'scannedEntries' => $state['visited'],
-	], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+	));
 	echo "\n";
-} catch (Throwable $error) {
+} catch (Exception $error) {
 	http_response_code(500);
-	echo json_encode([
+	echo json_encode(array(
 		'schema' => 1,
 		'files' => new stdClass(),
 		'prefixes' => new stdClass(),
 		'error' => 'asset-version-manifest-failed',
-	]);
+	));
 	echo "\n";
 }
