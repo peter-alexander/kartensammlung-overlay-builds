@@ -153,39 +153,35 @@ function displayValue(row) {
 	return null;
 }
 
-function addIndex(
-	index,
-	key,
-	value
-) {
+function compactRow(row) {
+	const display = displayValue(row);
+	const keys = [
+		row.id ?? null,
+		row.short_id ?? null,
+		row.code ?? null,
+		row.name ?? null
+	];
+
 	if (
-		key === null
-		|| key === undefined
-		|| key === ""
+		!display
+		|| !keys.some((value) => value !== null)
 	) {
-		return;
+		return null;
 	}
 
-	index[String(key)] = value;
-}
+	const compact = [
+		display,
+		...keys
+	];
 
-function addDisplayIndex(
-	index,
-	key,
-	display
-) {
-	if (
-		key === null
-		|| key === undefined
-		|| key === ""
-		|| display === null
-		|| display === undefined
-		|| display === ""
+	while (
+		compact.length > 1
+		&& compact[compact.length - 1] === null
 	) {
-		return;
+		compact.pop();
 	}
 
-	index[String(key)] = display;
+	return compact;
 }
 
 function readLookupCsv(filePath) {
@@ -206,15 +202,8 @@ function readLookupCsv(filePath) {
 
 	const header = rows.shift()
 		.map(normalizeCell);
-	const outputRows = [];
-	const byId = {};
-	const byShortId = {};
-	const byCode = {};
-	const byName = {};
-	const displayById = {};
-	const displayByShortId = {};
-	const displayByCode = {};
-	const displayByName = {};
+	const output = [];
+	const seen = new Set();
 
 	for (const values of rows) {
 		if (
@@ -239,68 +228,17 @@ function readLookupCsv(filePath) {
 			);
 		}
 
-		const display = displayValue(row);
-		row.display = display;
-		const rowIndex = outputRows.length;
-		outputRows.push(row);
+		const compact = compactRow(row);
+		if (!compact) continue;
 
-		addIndex(
-			byId,
-			row.id,
-			rowIndex
-		);
-		addIndex(
-			byShortId,
-			row.short_id,
-			rowIndex
-		);
-		addIndex(
-			byCode,
-			row.code,
-			rowIndex
-		);
-		addIndex(
-			byName,
-			row.name,
-			rowIndex
-		);
+		const signature = JSON.stringify(compact);
+		if (seen.has(signature)) continue;
 
-		addDisplayIndex(
-			displayById,
-			row.id,
-			display
-		);
-		addDisplayIndex(
-			displayByShortId,
-			row.short_id,
-			display
-		);
-		addDisplayIndex(
-			displayByCode,
-			row.code,
-			display
-		);
-		addDisplayIndex(
-			displayByName,
-			row.name,
-			display
-		);
+		seen.add(signature);
+		output.push(compact);
 	}
 
-	return {
-		columns: header.filter(Boolean),
-		rows: outputRows,
-		by_id: byId,
-		by_short_id: byShortId,
-		by_code: byCode,
-		by_name: byName,
-		display_by_id: displayById,
-		display_by_short_id:
-			displayByShortId,
-		display_by_code: displayByCode,
-		display_by_name: displayByName,
-		delimiter
-	};
+	return output;
 }
 
 if (!fs.existsSync(inputDir)) {
@@ -351,15 +289,7 @@ for (const required of [
 	}
 }
 
-const catalog = {
-	_meta: {
-		source: "D_lookuptabellen",
-		format: "gip-lookup-index-v2",
-		source_url:
-			"https://open.gip.gv.at/ogd/D_lookuptabellen.zip",
-		table_count: latestByGroup.size
-	}
-};
+const catalog = {};
 
 for (
 	const [group, fileName]
@@ -372,18 +302,30 @@ for (
 					numeric: true,
 					sensitivity: "base"
 				}
-			)
 		))
 ) {
-	catalog[group] = {
-		...readLookupCsv(
-			path.join(
-				inputDir,
-				fileName
-			)
-		),
-		source_file: fileName
-	};
+	const rows = readLookupCsv(
+		path.join(
+			inputDir,
+			fileName
+		)
+	);
+
+	if (rows.length > 0) {
+		catalog[group] = rows;
+	}
+}
+
+for (const required of [
+	"base_type",
+	"bike_feature",
+	"edge_category"
+]) {
+	if (!Array.isArray(catalog[required])) {
+		throw new Error(
+			`GIP-Lookuptabelle ohne nutzbare Zeilen: ${required}`
+		);
+	}
 }
 
 fs.mkdirSync(
@@ -400,7 +342,7 @@ fs.writeFileSync(
 
 console.log(
 	[
-		`GIP Lookups: ${latestByGroup.size} Tabellen`,
+		`GIP Lookups: ${Object.keys(catalog).length} Tabellen`,
 		`CSV-Dateien im Archiv: ${csvFiles.length}`,
 		`Ausgabe: ${outputFile}`
 	].join("\n")
