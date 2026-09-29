@@ -9,6 +9,19 @@ const outputFile = path.resolve(
 		|| "gip-lookups/build/GipLookups.json"
 );
 
+const USED_GROUPS = new Set([
+	"base_type",
+	"bike_feature",
+	"construction_state",
+	"edge_category",
+	"form_of_way",
+	"functional_class",
+	"owner",
+	"regional_code",
+	"surface",
+	"sustainer"
+]);
+
 function decodeBuffer(buffer) {
 	try {
 		return new TextDecoder(
@@ -271,8 +284,11 @@ if (csvFiles.length < 10) {
 const latestByGroup = new Map();
 
 for (const fileName of csvFiles) {
+	const group = normalizeGroupName(fileName);
+	if (!USED_GROUPS.has(group)) continue;
+
 	latestByGroup.set(
-		normalizeGroupName(fileName),
+		group,
 		fileName
 	);
 }
@@ -342,8 +358,7 @@ fs.writeFileSync(
 
 console.log(
 	[
-		`GIP Lookups: ${Object.keys(catalog).length} Tabellen`,
-		`CSV-Dateien im Archiv: ${csvFiles.length}`,
+		`GIP Lookups: ${Object.keys(catalog).length} verwendete Tabellen`,
 		`Ausgabe: ${outputFile}`
 	].join("\n")
 );
