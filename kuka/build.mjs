@@ -71,6 +71,25 @@ function normalizeCache(data) {
 	return cache;
 }
 
+async function loadCurrentCache() {
+	const response = await fetchWithRetry(CACHE_URL);
+	const text = await response.text();
+	let parsed;
+
+	try {
+		parsed = JSON.parse(text);
+	} catch (error) {
+		throw new Error(
+			`Bestehende Kuka_Entries.json ist kein gültiges JSON: ${error.message}`
+		);
+	}
+
+	return {
+		text,
+		cache: normalizeCache(parsed)
+	};
+}
+
 function collectMarkerIds(node, ids) {
 	if (!node || typeof node !== "object") return;
 
@@ -112,8 +131,10 @@ fs.mkdirSync(BUILD_DIR, { recursive: true });
 fs.rmSync(CHANGED_FILE, { force: true });
 
 console.log(`Lade bestehenden Cache: ${CACHE_URL}`);
-const cache = normalizeCache(await fetchJson(CACHE_URL));
-console.log(`Bestehende Titel: ${Object.keys(cache).length}`);
+const current = await loadCurrentCache();
+const cache = current.cache;
+const previousCount = Object.keys(cache).length;
+console.log(`Bestehende Titel: ${previousCount}`);
 
 console.log("Lade Markerliste ...");
 const markerIds = extractMarkerIds(await fetchJson(MARKERS_URL));
@@ -150,19 +171,43 @@ for (const id of missingIds) {
 }
 
 const sortedCache = Object.fromEntries(
-	Object.entries(cache).sort(([a], [b]) => Number(a) - Number(b))
+	markerIds
+		.map((id) => [
+			String(id),
+			cache[String(id)]
+		])
+		.filter(([, title]) => (
+			typeof title === "string"
+			&& title.trim()
+		))
+);
+const output = JSON.stringify(sortedCache) + "\n";
+const prunedCount = Math.max(
+	0,
+	previousCount
+		- Object.keys(sortedCache).length
+		+ newCount
 );
 
 fs.writeFileSync(
 	OUTPUT_FILE,
-	JSON.stringify(sortedCache, null, "\t") + "\n",
+	output,
 	"utf8"
 );
 
-if (newCount > 0) {
-	fs.writeFileSync(CHANGED_FILE, `${newCount}\n`, "utf8");
+if (output.trim() !== current.text.trim()) {
+	fs.writeFileSync(
+		CHANGED_FILE,
+		`${newCount}\n`,
+		"utf8"
+	);
 }
 
 console.log(
-	`Fertig. Neue Einträge: ${newCount}, Fehler: ${errorCount}, Gesamtcache: ${Object.keys(sortedCache).length}`
+	[
+		`Fertig. Neue Einträge: ${newCount}`,
+		`Entfernte nicht mehr aktive Einträge: ${prunedCount}`,
+		`Fehler: ${errorCount}`,
+		`Gesamtcache: ${Object.keys(sortedCache).length}`
+	].join(", ")
 );
