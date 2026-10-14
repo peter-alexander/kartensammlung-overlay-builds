@@ -40,6 +40,8 @@ jobs:
           node-version-file: '.nvmrc'
       - run: node --test steiermark/imagery-test.mjs
       - run: node steiermark/imagery-build.mjs
+      - name: Smoke test ImageServer export
+        run: node steiermark/imagery-smoke.mjs
       - name: Compare existing catalog
         id: changed
         run: |
