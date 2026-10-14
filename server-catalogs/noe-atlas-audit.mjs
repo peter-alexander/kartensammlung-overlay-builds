@@ -65,27 +65,31 @@ for (const url of urls) {
 	}
 }
 
-const tileTemplate = "https://maps.noe.gv.at/tilecache/bmap/epsg3857/gefahrenhinweiskarten_rutschprozesse/L{z_}/R{y_}/C{x_}.png";
-for (const z of [7, 10, 12]) {
-	const lng = 15.62, lat = 48.2;
+// Check both OGD hazard tiles with one lightweight sample each.
+for (const service of [
+	"gefahrenhinweiskarten_rutschprozesse",
+	"gefahrenhinweiskarten_sturzprozesse"
+]) {
+	const z = 10, lng = 15.62, lat = 48.2;
 	const n = 2 ** z, x = Math.floor((lng + 180) / 360 * n);
-	const rad = lat * Math.PI / 180;
-	const y = Math.floor((1 - Math.asinh(Math.tan(rad)) / Math.PI) / 2 * n);
-	const url = tileTemplate.replace("{z_}", String(z).padStart(2, "0"))
-		.replace("{x_}", x.toString(16).padStart(8, "0"))
-		.replace("{y_}", y.toString(16).padStart(8, "0"));
+	const y = Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+	const url = "https://maps.noe.gv.at/tilecache/bmap/epsg3857/" + service
+		+ "/L" + String(z).padStart(2, "0")
+		+ "/R" + y.toString(16).padStart(8, "0")
+		+ "/C" + x.toString(16).padStart(8, "0") + ".png";
 	try {
 		const response = await fetch(url, {
 			signal: AbortSignal.timeout(9000),
-			headers: {Origin: "https://fahrrad.lima-city.de"}
+			headers: { Origin: "https://fahrrad.lima-city.de" }
 		});
+		const bytes = new Uint8Array(await response.arrayBuffer());
 		console.log("ATLAS_TILE_PROBE " + JSON.stringify({
-			url, status: response.status, type: response.headers.get("content-type"),
+			service, status: response.status, type: response.headers.get("content-type"),
 			cors: response.headers.get("access-control-allow-origin"),
-			contentLength: response.headers.get("content-length")
+			bytes: bytes.length,
+			png: bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71
 		}));
-		await response.arrayBuffer();
 	} catch (error) {
-		console.log("ATLAS_TILE_PROBE " + JSON.stringify({url, error: error.message}));
+		console.log("ATLAS_TILE_PROBE " + JSON.stringify({service, error: error.message}));
 	}
 }
