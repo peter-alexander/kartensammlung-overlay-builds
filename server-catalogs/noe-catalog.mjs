@@ -1,7 +1,7 @@
 import { DOMParser } from "@xmldom/xmldom";
 
 const NOE_WMS = "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows";
-const NOE_WFS = "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows";
+const NOE_WFS = "https://sdi.noe.gv.at/at.gv.noe.geoserver/OGD/wfs";
 const NOE_WMTS = "https://sdi.noe.gv.at/at.gv.noe.geoserver/gwc/service/wmts";
 
 function children(node, name) {
