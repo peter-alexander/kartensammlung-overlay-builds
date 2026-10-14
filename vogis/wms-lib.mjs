@@ -3,7 +3,10 @@ import { DOMParser } from "@xmldom/xmldom";
 export const VOGIS_SERVICES = Object.freeze([
 	{ id: "themen", title: "Themen", url: "https://vogis.cnv.at/geoserver/vogis/wms", kind: "overlays" },
 	{ id: "luftbilder", title: "Luftbilder", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_luftbilder_r_wms.map", kind: "imagery" },
-	{ id: "topokarte", title: "Topografische Karte", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_topokarte_isoli_text_20t_r_wms.map", kind: "basemaps" }
+	{ id: "topokarte", title: "Topografische Karte", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_topokarte_isoli_text_20t_r_wms.map", kind: "basemaps" },
+	{ id: "gelaende", title: "Höhen und Gelände", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_hoehen_und_gelaende_r_wms.map", kind: "terrain" },
+	{ id: "relief", title: "Relief", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_relief_r_wms.map", kind: "terrain" },
+	{ id: "flaechenwidmung", title: "Flächenwidmung", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_flaechenwidmung_v_wms.map", kind: "overlays" }
 ]);
 
 function children(node, name) {

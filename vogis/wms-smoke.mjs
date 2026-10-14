@@ -12,10 +12,17 @@ const north = world - y / n * 2 * world;
 const south = world - (y + 1) / n * 2 * world;
 const bbox = [west, south, east, north].join(",");
 for (const [id, service] of Object.entries(catalog.services)) {
-	const layer = id === "themen"
-		? service.layers.find(l => /adressen|gemeinden/.test(l.id)) || service.layers[0]
-		: service.layers.find(l => l.id !== "MS" && (/ef2022/.test(l.id) || /topokarte/.test(l.id)))
-			|| service.layers.find(l => l.id !== "MS");
+	const preferred = {
+		themen: /adressen|gemeinden/,
+		luftbilder: /ef2022/,
+		topokarte: /topokarte/,
+		gelaende: /laser_25m_terrain|relief_fein|hoehenschichtenlinien/,
+		relief: /relief_farb|relief_fein|relief_grob/,
+		flaechenwidmung: /widmung/
+	}[id];
+	const layer = service.layers.find(l => l.id !== "MS" && preferred?.test(l.id))
+		|| service.layers.find(l => l.id !== "MS");
+	if (!layer) throw new Error(`VoGIS ${id}: Keine WMS-Ebene für GetMap-Test`);
 	const params = new URLSearchParams({
 		service: "WMS", request: "GetMap", version: "1.3.0",
 		layers: layer.id, styles: "", format: service.format,

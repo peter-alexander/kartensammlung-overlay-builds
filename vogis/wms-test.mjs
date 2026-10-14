@@ -19,7 +19,15 @@ test("reject unsupported projections and error pages", () => {
 	assert.throws(() => parseVogisWms(xml.replaceAll("EPSG:3857", "EPSG:31254"), VOGIS_SERVICES[0]), /keine EPSG/);
 	assert.throws(() => parseVogisWms("<html>error</html>", VOGIS_SERVICES[0]), /ungültige/);
 });
-test("validate all three services before replacing live catalog", () => {
+test("validate all registered services before replacing live catalog", () => {
 	assert.throws(() => buildVogisCatalog({themen: xml}), /fehlende/);
-	assert.equal(buildVogisCatalog({themen: xml, luftbilder: xml, topokarte: xml}).version, 1);
+	assert.equal(buildVogisCatalog(Object.fromEntries(VOGIS_SERVICES.map(s => [s.id,xml]))).version, 1);
+});
+
+test("new topographic service URLs are pinned to the official Vorarlberg host", () => {
+	for (const id of ["gelaende", "relief", "flaechenwidmung"]) {
+		const entry = VOGIS_SERVICES.find(x => x.id === id);
+		assert.ok(entry);
+		assert.match(entry.url, /^https:\/\/vogis\.cnv\.at\/mapserver\/mapserv\?map=i_[a-z0-9_]+\.map$/);
+	}
 });
