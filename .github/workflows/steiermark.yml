@@ -40,6 +40,8 @@ jobs:
         run: node --test steiermark/test.mjs
       - name: Build Steiermark catalog
         run: node steiermark/build.mjs
+      - name: Smoke test ArcGIS MapServer export
+        run: node steiermark/smoke.mjs
       - name: Compare existing catalog
         id: changed
         run: |
