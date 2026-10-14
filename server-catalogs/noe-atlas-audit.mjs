@@ -20,6 +20,9 @@ for (const url of urls) {
 		const body = await result.text();
 		const contentType = result.headers.get("content-type") || "";
 		const scripts = [...body.matchAll(/<script\b[^>]*src=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
+		if (url.startsWith("https://atlas.noe.gv.at/atlas/portal/")) {
+			console.log("ATLAS_HTML " + JSON.stringify({url, body: body.slice(0, 14000)}));
+		}
 		const links = [...body.matchAll(/<a\b[^>]*href=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
 		const layerNames = [...body.matchAll(/<Name>([^<]+)<\/Name>/gi)].map(x => x[1]);
 		const restKeys = (() => { try { return Object.keys(JSON.parse(body)); } catch { return []; } })();
