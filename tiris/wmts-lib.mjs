@@ -69,7 +69,7 @@ export function buildTirisWmtsCatalog(xml, baseUrl = "https://wmts.kartetirol.at
 	if (!doc?.documentElement || errors.length) {
 		throw new Error(`tiris WMTS: ungültige Capabilities: ${errors.join("; ")}`);
 	}
-	const contents = [...doc.getElementsByTagName("*")].find(
+	const contents = Array.from(doc.getElementsByTagName("*")).find(
 		(node) => node.localName === "Contents"
 	);
 	if (!contents) throw new Error("tiris WMTS: Contents fehlt");
