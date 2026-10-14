@@ -53,6 +53,7 @@ jobs:
       - name: Upload catalog only when changed
         if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
         run: |
+          chmod +x .github/scripts/main-ftp-upload-file.sh
           .github/scripts/main-ftp-upload-file.sh \
             vogis/build/VogisCatalog.json \
             "${MAIN_REMOTE_ROOT%/}/ServerNames/VogisCatalog.json"
