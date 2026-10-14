@@ -1,0 +1,99 @@
+name: Publish NÖ ÖV-Güteklassen PMTiles
+
+on:
+  workflow_run:
+    workflows: ["Build NÖ ÖV-Güteklassen PMTiles"]
+    types: [completed]
+
+concurrency:
+  group: noe-oev-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_branch == 'main'
+          && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Download validated PMTiles build artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/noe-oev-publish
+          gh run download "$RUN_ID" \
+            --repo "${{ github.repository }}" \
+            --name noe-oev-gueteklassen-preview \
+            --dir /tmp/noe-oev-publish
+      - name: Validate PMTiles and create publication marker
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, glob, json, os
+          folder='/tmp/noe-oev-publish'
+          files=glob.glob(folder+'/*.pmtiles')
+          assert len(files)==1, f'Expected exactly one PMTiles: {files}'
+          archive=files[0]
+          assert os.path.basename(archive)=='noe-oev-gueteklassen.pmtiles'
+          size=os.path.getsize(archive)
+          assert 1000<size<250_000_000, f'PMTiles unexpectedly sized {size}'
+          with open(archive,'rb') as fd:
+              assert fd.read(7)==b'PMTiles'
+          payload={
+              'version':1,'year':2025,'ready':True,
+              'dataset':'OeVGueteklassen/noe-oev-gueteklassen.pmtiles',
+              'source':'https://www.mobilitydata.gv.at/daten/%C3%B6v-g%C3%BCteklassen',
+              'generatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sizeBytes':size,
+              'stichtage':{'werktag':'2025-10-22','ohneSchultag':'2025-10-29'},
+              'vectorLayers':['oev_wt_flaechen','oev_wk_flaechen',
+                              'oev_wt_haltestellen','oev_wk_haltestellen']
+          }
+          with open(folder+'/catalog.json','w',encoding='utf-8') as fd:
+              json.dump(payload,fd,ensure_ascii=False)
+              fd.write('\n')
+          print('Ready for staging:',size,'bytes')
+          PY
+      - name: Publish PMTiles before enabling catalog
+        run: |
+          set -euo pipefail
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            /tmp/noe-oev-publish/noe-oev-gueteklassen.pmtiles \
+            "${MAIN_REMOTE_ROOT%/}/OeVGueteklassen/noe-oev-gueteklassen.pmtiles"
+          # A ready manifest is only published after the archive was uploaded.
+          .github/scripts/main-ftp-upload-file.sh \
+            /tmp/noe-oev-publish/catalog.json \
+            "${MAIN_REMOTE_ROOT%/}/OeVGueteklassen/catalog.json"
+      - name: Check published static asset and range requests
+        run: |
+          set -euo pipefail
+          base='https://fahrrad.lima-city.de/Maps/OeVGueteklassen'
+          curl -fsSL --retry 4 --max-time 40 "$base/catalog.json" \
+            | python3 -c 'import json,sys; data=json.load(sys.stdin);assert data["ready"] and data["year"]==2025;print("Published catalog OK")'
+          code="$(curl -sS -L -o /dev/null -w '%{http_code}' \
+            --max-time 40 --range 0-511 \
+            "$base/noe-oev-gueteklassen.pmtiles")"
+          if [[ "$code" != '206' ]]; then
+            echo "PMTiles hosting must support HTTP 206 byte ranges (got $code)" >&2
+            exit 1
+          fi
