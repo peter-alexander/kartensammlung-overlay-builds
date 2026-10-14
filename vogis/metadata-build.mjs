@@ -93,7 +93,7 @@ for (const candidate of audit.newServiceCandidates) {
 		candidate.status = "available";
 		candidate.endpoint = base;
 		candidate.totalLayerEntries = entries.length;
-		candidate.notAlreadyInSixWms = unique.length;
+		candidate.notAlreadyInCatalog = unique.length;
 		candidate.exactIdOverlap = entries.length - unique.length;
 		candidate.newLayerSamples = unique.slice(0,25).map(l=>({id:l.id,name:l.name}));
 		console.log(`VoGIS candidate ${map}: ${entries.length} layers, ${unique.length} new IDs, ${entries.length-unique.length} duplicate IDs`);
@@ -105,7 +105,7 @@ for (const candidate of audit.newServiceCandidates) {
 }
 audit.stats.reachableExtraServiceEndpoints = audit.newServiceCandidates.filter(x=>x.status==="available").length;
 audit.stats.newLayerIdentifiersInExtraServices = audit.newServiceCandidates.reduce(
-	(sum, entry)=>sum+(entry.notAlreadyInSixWms||0), 0
+	(sum, entry)=>sum+(entry.notAlreadyInCatalog||0), 0
 );
 audit.note += " Zusätzliche WMS-Dienste werden über GetCapabilities geprüft; Überschneidungen beruhen ausschließlich auf identischen WMS-Layer-IDs, nicht auf geometrischer Datenäquivalenz.";
 fs.mkdirSync(new URL("./build/", import.meta.url), {recursive:true});

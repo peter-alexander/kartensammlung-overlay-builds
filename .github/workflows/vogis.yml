@@ -42,8 +42,6 @@ jobs:
         run: node vogis/wms-build.mjs
       - name: Check WMS GetMap with one image per service
         run: node vogis/wms-smoke.mjs
-      - name: Probe official VoGIS GeoNetwork CSW metadata API
-        run: node vogis/metadata-probe.mjs
       - name: Test GeoNetwork CSW parser and comparison
         run: node --test vogis/metadata-test.mjs
       - name: Build VoGIS metadata reconciliation report
