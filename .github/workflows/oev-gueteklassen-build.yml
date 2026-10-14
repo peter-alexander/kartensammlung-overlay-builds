@@ -1,0 +1,44 @@
+name: Build NÖ ÖV-Güteklassen PMTiles
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'oev-gueteklassen/build.sh'
+      - '.github/workflows/oev-gueteklassen-build.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+      - name: Install GIS software
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin libsqlite3-dev zlib1g-dev
+          if apt-cache show tippecanoe >/dev/null 2>&1; then
+            sudo apt-get install -y -qq tippecanoe
+          else
+            git clone --depth=1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+            make -C /tmp/tippecanoe -j 2
+            sudo install -m 755 /tmp/tippecanoe/tippecanoe /usr/local/bin/tippecanoe
+          fi
+          go install github.com/protomaps/go-pmtiles@v1.31.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Build NÖ ÖV-Güteklassen clipped to official state boundary
+        run: bash oev-gueteklassen/build.sh /tmp/noe-oev-build
+      - name: Inspect resulting archive
+        run: |
+          ls -lh /tmp/noe-oev-build/output/*.pmtiles
+          sqlite3 /tmp/noe-oev-build/output/*.mbtiles "select name,value from metadata where name in ('json','minzoom','maxzoom','bounds')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noe-oev-gueteklassen-preview
+          path: /tmp/noe-oev-build/output/*.pmtiles
+          if-no-files-found: error
+          retention-days: 5
