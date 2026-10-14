@@ -30,3 +30,23 @@ try{
 		metadata:service.metadata
 	}).slice(0,16000));
 }catch(error){console.log("NOE_ATLAS_ROUTE_ERROR "+error.message)}
+
+for (const [layer, properties] of [
+	["OGD:IST_GIP_HAUPTRADROUTEN", "NAME,SHORTNAME,GNAME_TEXT,ROUTENTYP,LASTUPDATE"],
+	["OGD:IST_RADWEGE_FOERDERUNG", "GEMNAME,POTNAME,REGTYP,RSWNAME,RADBN,RADGRDN,VNAME,LASTUPDATE"]
+]) {
+	const search=new URLSearchParams({
+		service:"WFS",version:"1.1.0",request:"GetFeature",
+		typeName:layer,srsName:"EPSG:4326",maxFeatures:"1",
+		propertyName:properties,outputFormat:"application/json"
+	});
+	try{
+		const response=await fetch(WFS+"?"+search,{signal:AbortSignal.timeout(10000)});
+		const data=await response.json();
+		console.log("NOE_ROUTE_PROPERTIES "+JSON.stringify({
+			layer,status:response.status,geometry:data.features?.[0]?.geometry?.type,
+			keys:Object.keys(data.features?.[0]?.properties||{}),count:data.features?.length||0,
+			error:data.exceptions?.[0]?.text||data.message
+		}));
+	}catch(error){console.log("NOE_ROUTE_PROPERTIES_ERROR "+JSON.stringify({layer,error:error.message}));}
+}
