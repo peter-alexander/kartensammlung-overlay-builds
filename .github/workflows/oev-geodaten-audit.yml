@@ -20,3 +20,21 @@ jobs:
           file /tmp/oev.zip
           du -h /tmp/oev.zip
           unzip -Z -l /tmp/oev.zip | head -80
+          python3 -m pip install --quiet --break-system-packages pyshp
+          python3 - <<'PY'
+          import zipfile, tempfile, os, shapefile
+          archive=zipfile.ZipFile('/tmp/oev.zip')
+          names=[n for n in archive.namelist() if n.endswith('.shp') and ('20251022' in n or '20251029' in n) and '/OeV_Gueteklassen_Raster_' not in n]
+          for shp in names:
+              root=os.path.dirname(shp)
+              base=os.path.basename(shp)[:-4]
+              with tempfile.TemporaryDirectory() as tmp:
+                  for ext in ['shp','shx','dbf','prj']:
+                      n=f'{root}/{base}.{ext}'
+                      if n in archive.namelist():
+                          open(os.path.join(tmp,base+'.'+ext),'wb').write(archive.read(n))
+                  r=shapefile.Reader(os.path.join(tmp,base+'.shp'))
+                  print('SHAPEFILE_META',shp, 'features',len(r), 'bbox',r.bbox,
+                      'fields',[f[0] for f in r.fields[1:]],
+                      'sample_records',[x.as_dict() for x in r.iterRecords()][:5])
+          PY
