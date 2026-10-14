@@ -9,6 +9,13 @@ const urls = [
 	"https://atlas.noe.gv.at/atlas/portal/scripts/webgis-map.min.js?8.26.3101",
 	"https://atlas.noe.gv.at/atlas/portal/scripts/webgis-portal-cloud.js?8.26.3101",
 	"https://atlas.noe.gv.at/atlas/api/rest/services?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/ags_adressen?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/ags_bahn?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/ags_atlas__burgen_und_schloesser?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/wms_flaechenwidmung@atlas_raumordnung?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/tc_gefahrenhinweiskarten_rutschprozesse?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/ags_adressen/metadata?f=json",
+	"https://atlas.noe.gv.at/atlas/api/rest/services/ags_adressen/layers?f=json",
 	"https://geo.noe.gv.at/public/rest/services?f=pjson",
 	"https://geo.noe.gv.at/public/services/wms/geoland_wms_noe/MapServer/WmsServer?SERVICE=WMS&REQUEST=GetCapabilities",
 	"https://sdi2.noe.gv.at/at.gv.noe.geoserver/ows?service=WMS&version=1.1.1&request=GetCapabilities",
@@ -30,7 +37,7 @@ for (const url of urls) {
 			console.log("ATLAS_SCRIPT " + JSON.stringify({url, snippets: urls, sample: body.slice(0, 1100)}));
 		}
 		if (url.includes("?f=json")) {
-			console.log("ATLAS_JSON " + JSON.stringify({url, sample: body.slice(0, 5000)}));
+			console.log("ATLAS_JSON " + JSON.stringify({url, sample: body.slice(0, 4500)}));
 		}
 
 		const links = [...body.matchAll(/<a\b[^>]*href=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
