@@ -66,7 +66,15 @@ tippecanoe -o "$WORK/output/noe-oev-gueteklassen.mbtiles" -Z5 -z14 --force \
 	-L "oev_wt_haltestellen:$WORK/output/wt-stops.geojsonl" \
 	-L "oev_wk_haltestellen:$WORK/output/wk-stops.geojsonl"
 
-pmtiles convert "$WORK/output/noe-oev-gueteklassen.mbtiles" \
+if command -v pmtiles >/dev/null 2>&1; then
+	PMTILES=pmtiles
+elif command -v go-pmtiles >/dev/null 2>&1; then
+	PMTILES=go-pmtiles
+else
+	echo 'PMTiles CLI executable not found' >&2
+	exit 2
+fi
+"$PMTILES" convert "$WORK/output/noe-oev-gueteklassen.mbtiles" \
 	"$WORK/output/noe-oev-gueteklassen.pmtiles"
-pmtiles show "$WORK/output/noe-oev-gueteklassen.pmtiles"
+"$PMTILES" show "$WORK/output/noe-oev-gueteklassen.pmtiles"
 du -h "$WORK/output/noe-oev-gueteklassen.pmtiles"
