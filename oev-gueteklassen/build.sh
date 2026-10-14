@@ -78,3 +78,27 @@ fi
 	"$WORK/output/noe-oev-gueteklassen.pmtiles"
 "$PMTILES" show "$WORK/output/noe-oev-gueteklassen.pmtiles"
 du -h "$WORK/output/noe-oev-gueteklassen.pmtiles"
+
+python3 - "$WORK/output/noe-oev-gueteklassen.pmtiles" "$WORK/output/catalog.json" <<'PY'
+import datetime, hashlib, json, os, sys
+archive, destination = sys.argv[1:]
+size = os.path.getsize(archive)
+assert 1000 < size < 250000000, f'Unexpected PMTiles size: {size}'
+with open(archive, 'rb') as source:
+	assert source.read(7) == b'PMTiles', 'PMTiles header missing'
+catalog = {
+	'version': 1,
+	'year': 2025,
+	'ready': True,
+	'dataset': 'OeVGueteklassen/noe-oev-gueteklassen.pmtiles',
+	'source': 'https://www.mobilitydata.gv.at/daten/%C3%B6v-g%C3%BCteklassen',
+	'generatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+	'sizeBytes': size,
+	'stichtage': {'werktag': '2025-10-22', 'ohneSchultag': '2025-10-29'},
+	'vectorLayers': ['oev_wt_flaechen', 'oev_wk_flaechen', 'oev_wt_haltestellen', 'oev_wk_haltestellen']
+}
+with open(destination, 'w', encoding='utf-8') as stream:
+	json.dump(catalog,stream,ensure_ascii=False)
+	stream.write('\\n')
+print('NOE_OEV_CATALOG',json.dumps(catalog,ensure_ascii=False))
+PY
