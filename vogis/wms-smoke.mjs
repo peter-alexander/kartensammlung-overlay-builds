@@ -18,7 +18,11 @@ for (const [id, service] of Object.entries(catalog.services)) {
 		topokarte: /topokarte/,
 		gelaende: /laser_25m_terrain|relief_fein|hoehenschichtenlinien/,
 		relief: /relief_farb|relief_fein|relief_grob/,
-		flaechenwidmung: /widmung/
+		flaechenwidmung: /widmung/,
+		holzvorrat: /holzvorrat_2023|oberhoehe_2023/,
+		solarpotential: /solar_energie_jahr_rgb/,
+		waldflaeche: /hvs_2017/,
+		umgebung: /bodensee/
 	}[id];
 	const layer = service.layers.find(l => l.id !== "MS" && preferred?.test(l.id))
 		|| service.layers.find(l => l.id !== "MS");

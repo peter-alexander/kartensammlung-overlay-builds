@@ -6,7 +6,11 @@ export const VOGIS_SERVICES = Object.freeze([
 	{ id: "topokarte", title: "Topografische Karte", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_topokarte_isoli_text_20t_r_wms.map", kind: "basemaps" },
 	{ id: "gelaende", title: "Höhen und Gelände", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_hoehen_und_gelaende_r_wms.map", kind: "terrain" },
 	{ id: "relief", title: "Relief", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_relief_r_wms.map", kind: "terrain" },
-	{ id: "flaechenwidmung", title: "Flächenwidmung", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_flaechenwidmung_v_wms.map", kind: "overlays" }
+	{ id: "flaechenwidmung", title: "Flächenwidmung", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_flaechenwidmung_v_wms.map", kind: "overlays" },
+	{ id: "holzvorrat", title: "Holzvorrat & Baumhöhen", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_holzvorrat_r_wms.map", kind: "overlays" },
+	{ id: "solarpotential", title: "Solarpotenzial", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_solarpotential_r_wms.map", kind: "overlays" },
+	{ id: "waldflaeche", title: "Waldfläche", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_waldflaeche_r_wms.map", kind: "overlays" },
+	{ id: "umgebung", title: "Umgebung & Orientierung", url: "https://vogis.cnv.at/mapserver/mapserv?map=i_umgebung_r_wms.map", kind: "overlays" }
 ]);
 
 function children(node, name) {

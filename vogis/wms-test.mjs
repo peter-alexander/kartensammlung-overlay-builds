@@ -25,7 +25,7 @@ test("validate all registered services before replacing live catalog", () => {
 });
 
 test("new topographic service URLs are pinned to the official Vorarlberg host", () => {
-	for (const id of ["gelaende", "relief", "flaechenwidmung"]) {
+	for (const id of ["gelaende", "relief", "flaechenwidmung", "holzvorrat", "solarpotential", "waldflaeche", "umgebung"]) {
 		const entry = VOGIS_SERVICES.find(x => x.id === id);
 		assert.ok(entry);
 		assert.match(entry.url, /^https:\/\/vogis\.cnv\.at\/mapserver\/mapserv\?map=i_[a-z0-9_]+\.map$/);
