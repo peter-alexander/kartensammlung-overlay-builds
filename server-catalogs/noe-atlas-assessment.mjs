@@ -83,3 +83,28 @@ async function worker() {
 }
 await Promise.all(Array.from({length:4},worker));
 console.log("ATLAS_ASSESS_SUMMARY " + JSON.stringify({assessed:results.length, selected:selection.length}));
+
+for (const id of [
+	"ags_oev___oev_gueteklassen",
+	"ags_radwege",
+	"ags_lkw_durchfahrtsverbote",
+	"ags_hochwasser_modellberechnung@atlas_wasser",
+	"wms_iws__luftbild_epochen",
+	"ags_naturschutz"
+]) {
+	const url = "https://atlas.noe.gv.at/atlas/api/ogc/" + encodeURIComponent(id)
+		+ "?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+	try {
+		const response = await fetch(url, {signal:AbortSignal.timeout(12000)});
+		const xml = await response.text();
+		console.log("ATLAS_OGC " + JSON.stringify({
+			id, status: response.status, contentType: response.headers.get("content-type"),
+			length:xml.length, enabled: xml.includes("WMS_Capabilities") || xml.includes("WMT_MS_Capabilities"),
+			denied:/not available|not authorized|not exportable|Exception|fehler/i.test(xml),
+			names:[...xml.matchAll(/<Name>([^<]+)<\/Name>/gi)].map(x=>x[1]).slice(0,15),
+			sample:xml.slice(0,240).replace(/\s+/g," ")
+		}));
+	} catch(error) {
+		console.log("ATLAS_OGC " + JSON.stringify({id,error:error.message}));
+	}
+}
