@@ -1,0 +1,58 @@
+name: Refresh VoGIS WMS catalog
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'vogis/**'
+      - '.github/workflows/vogis.yml'
+  pull_request:
+    paths:
+      - 'vogis/**'
+      - '.github/workflows/vogis.yml'
+  schedule:
+    - cron: '23 4 * * 4'
+
+concurrency:
+  group: vogis-wms-catalog
+  cancel-in-progress: false
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci --no-fund --no-audit
+      - name: Validate WMS catalog parser
+        run: node --test vogis/wms-test.mjs
+      - name: Build VoGIS catalog from live GetCapabilities
+        run: node vogis/wms-build.mjs
+      - name: Compare previously deployed catalog
+        id: changed
+        run: |
+          if curl -fsS --max-time 15 -o /tmp/VogisCatalog.json \
+            https://fahrrad.lima-city.de/Maps/ServerNames/VogisCatalog.json \
+            && cmp -s /tmp/VogisCatalog.json vogis/build/VogisCatalog.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload catalog only when changed
+        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
+        run: |
+          .github/scripts/main-ftp-upload-file.sh \
+            vogis/build/VogisCatalog.json \
+            "${MAIN_REMOTE_ROOT%/}/ServerNames/VogisCatalog.json"
