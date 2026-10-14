@@ -38,6 +38,10 @@ for (const url of urls) {
 		}
 		if (url === "https://atlas.noe.gv.at/atlas/api/rest/services?f=json") {
 			const services = JSON.parse(body).services;
+			console.log("ATLAS_SERVICE_INDEX " + JSON.stringify(services.map(item => ({
+				id: item.id, name: item.name, type: item.type,
+				isbasemap: item.isbasemap === true, supportedCrs: item.supportedCrs
+			}))));
 			console.log("ATLAS_INDEX_SUMMARY " + JSON.stringify({
 				total: services.length,
 				imageOverlays: services.filter(x => x.type === "image" && !x.isbasemap).length,
