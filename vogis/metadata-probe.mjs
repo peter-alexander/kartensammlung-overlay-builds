@@ -18,7 +18,7 @@ for (const base of servers) {
 			"Content-Type", response.headers.get("content-type"),
 			"Length", body.length,
 			"Matched", body.match(/numberOfRecordsMatched="([^"]+)"/)?.[1] ?? "?");
-		console.log("CSW excerpt:", body.slice(0,650).replace(/\\s+/g," "));
+		console.log("CSW excerpt:", body.slice(0,3000).replace(/\s+/g," "));
 	} catch (e) {
 		console.log("VoGIS CSW probe failed:", base, String(e.message || e));
 	}
