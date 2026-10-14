@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from "@xmldom/xmldom";
+import { buildNoeCatalog } from "./noe-catalog.mjs";
 
 const OUTPUT_DIR = new URL("./build/", import.meta.url);
 
@@ -9,6 +10,8 @@ const SOURCES = Object.freeze({
 	wienWmts: "https://mapsneu.wien.gv.at/wmtsneu/1.0.0/WMTSCapabilities.xml",
 	laermkarte: "https://inspire.lfrz.gv.at/000804/wms?version=1.3.0&request=GetCapabilities",
 	noeWms: "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows?service=WMS&version=1.1.1&request=GetCapabilities",
+	noeWfs: "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows?service=WFS&version=1.1.0&request=GetCapabilities",
+	noeWmts: "https://sdi.noe.gv.at/at.gv.noe.geoserver/gwc/service/wmts?service=WMTS&version=1.0.0&request=GetCapabilities",
 	stadtplan: "https://www.wien.gv.at/spezial/stadtplan/json/themes.json",
 	arcgisStyles: "https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/self",
 	bevWms: "https://data.bev.gv.at/geoserver/ows?service=WMS&request=GetCapabilities&version=1.3.0"
@@ -637,6 +640,36 @@ const wmsNames = buildWienWmsNames(wienWmsXml);
 const wienWmtsNames = buildWienWmtsNames(wienWmtsXml);
 const laermkarteNames = buildWienWmsNames(laermXml, "Lärmkarte WMS");
 const noeWmsNames = buildNoeWmsNames(noeXml);
+// WFS/WMTS are optional enhancements. A failed side service must never
+// prevent publication of the other, already available public catalogs.
+const fetchNoeOptional = async (url, label) => {
+	try {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 18000);
+		try {
+			const response = await fetch(url, {
+				signal: controller.signal,
+				headers: { Accept: "application/xml,text/xml,*/*;q=0.8" }
+			});
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			return await response.text();
+		} finally {
+			clearTimeout(timeout);
+		}
+	} catch (error) {
+		console.warn(`NÖ ${label} nicht erreichbar: ${error.message}`);
+		return null;
+	}
+};
+const [noeWfsXml, noeWmtsXml] = await Promise.all([
+	fetchNoeOptional(SOURCES.noeWfs, "WFS"),
+	fetchNoeOptional(SOURCES.noeWmts, "WMTS")
+]);
+const noeCatalog = buildNoeCatalog({
+	wmsXml: noeXml,
+	wfsXml: noeWfsXml,
+	wmtsXml: noeWmtsXml
+});
 const stadtplan = normalizeStadtplanThemes(stadtplanJson);
 const arcgisStyles = buildArcGisStyles(arcgisJson);
 const bev = await buildBevCatalog(bevXml);
@@ -651,6 +684,7 @@ writeJs("LaermkarteNames.js", "LaermkarteNames", laermkarteNames);
 writeJson("LaermkarteNames.json", laermkarteNames);
 writeJs("NoeWmsNames.js", "NoeWmsNames", noeWmsNames);
 writeJson("NoeWmsNames.json", noeWmsNames);
+writeJson("NoeCatalog.json", noeCatalog);
 writeJs("StadtplanJson.js", "StadtplanJson", stadtplan);
 writeJson("StadtplanJson.json", stadtplan);
 writeJs("BevGeoserverNames.js", "BevGeoserverNames", bev.catalog);
@@ -667,7 +701,7 @@ console.log([
 	`Wien WMS: ${Object.keys(wmsNames).length}`,
 	`Wien WMTS: ${wienWmtsNames.length}`,
 	`Lärmkarte: ${Object.keys(laermkarteNames).length}`,
-	`NÖ WMS: ${Object.keys(noeWmsNames).length}`,
+	`NÖ WMS: ${Object.keys(noeWmsNames).length} / WFS: ${noeCatalog.counts.wfs} / Cache: ${noeCatalog.counts.cached}`,
 	`Stadtplan-Themes: ${stadtplan.themes.length}`,
 	`ArcGIS Styles: ${arcgisStyles.count}`,
 	`BEV: ${bev.workspaceCount} Workspaces / ${bev.layerCount} Layer`
