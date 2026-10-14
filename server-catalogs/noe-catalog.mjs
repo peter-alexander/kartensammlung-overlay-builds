@@ -125,7 +125,8 @@ function readWmts(xml) {
 		const formats = children(layer, "Format").map((f) => String(f.textContent).trim());
 		const matrixSets = children(layer, "TileMatrixSetLink")
 			.map((link) => value(link, "TileMatrixSet"));
-		const mercator = matrixSets.some((name) => /(?:900913|3857|googlemapscompatible)/i.test(name));
+		// The existing TMS proxy requests the EPSG:900913 grid explicitly.
+		const mercator = matrixSets.some((name) => /(?:^|:)900913$/i.test(name));
 		if (name && formats.includes("image/png") && mercator) {
 			cache.set(name, { format: "png" });
 		}
