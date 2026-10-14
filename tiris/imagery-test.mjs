@@ -40,7 +40,7 @@ test("tiris refuses partial or unsupported service metadata", () => {
 });
 
 test("tiris classification distinguishes historical layer names", () => {
-	const result = classifyTirisImageryLayer("orthofoto", { name: "Historische Orthofotos 1999", path: [] });
+	const result = classifyTirisImageryLayer("orthofoto", { name: "Image_1999", path: ["Historische Orthofotos 1999"] });
 	assert.equal(result.usable, true);
 	assert.equal(result.category, "Historisch");
 });
