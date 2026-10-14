@@ -50,7 +50,7 @@ jobs:
         run: npm ci --no-fund --no-audit
 
       - name: Test public server catalogs
-        run: node --test server-catalogs/noe-catalog.test.mjs
+        run: node --test server-catalogs/*.test.mjs
 
       - name: Build public server catalogs
         run: node server-catalogs/build.mjs
