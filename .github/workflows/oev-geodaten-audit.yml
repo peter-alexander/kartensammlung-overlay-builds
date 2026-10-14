@@ -1,0 +1,22 @@
+name: Inspect AustriaTech ÖV-Güteklassen source
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/oev-geodaten-audit.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Download official national 2025 revised ZIP
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 2 --max-time 240 \
+            'https://files.austriatech.at/d/33971b2d51a348a5958d/files/?dl=1&p=%2FOeV_Gueteklassen_2025_nap_revised.zip' \
+            --output /tmp/oev.zip
+          file /tmp/oev.zip
+          du -h /tmp/oev.zip
+          unzip -Z -l /tmp/oev.zip | head -80
