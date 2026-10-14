@@ -1,0 +1,60 @@
+name: Refresh tiris imagery and terrain catalog
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'tiris/imagery-*.mjs'
+      - '.github/workflows/tiris-imagery.yml'
+  pull_request:
+    paths:
+      - 'tiris/imagery-*.mjs'
+      - '.github/workflows/tiris-imagery.yml'
+  schedule:
+    - cron: '41 3 * * 3'
+
+concurrency:
+  group: tiris-imagery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+      - name: Test imagery metadata builder
+        run: node --test tiris/imagery-test.mjs
+      - name: Generate imagery metadata
+        run: node tiris/imagery-build.mjs
+      - name: Compare existing catalog
+        id: changed
+        run: |
+          if curl -fsS --max-time 15 -o /tmp/tiris-imagery.json \
+              https://fahrrad.lima-city.de/Maps/ServerNames/TirisImagery.json \
+              && cmp -s /tmp/tiris-imagery.json tiris/build/TirisImagery.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload changed catalog
+        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            tiris/build/TirisImagery.json \
+            "${MAIN_REMOTE_ROOT%/}/ServerNames/TirisImagery.json"
