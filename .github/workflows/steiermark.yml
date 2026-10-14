@@ -1,0 +1,60 @@
+name: Refresh Steiermark OGD catalog
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'steiermark/**'
+      - '.github/workflows/steiermark.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'steiermark/**'
+      - '.github/workflows/steiermark.yml'
+  schedule:
+    - cron: '43 3 * * 2'
+
+concurrency:
+  group: steiermark-ogd-catalog
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
+      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
+      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
+      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+      - name: Test Steiermark catalog builder
+        run: node --test steiermark/test.mjs
+      - name: Build Steiermark catalog
+        run: node steiermark/build.mjs
+      - name: Compare existing catalog
+        id: changed
+        run: |
+          if curl -fsS --max-time 15 -o /tmp/steiermark-current.json \
+            https://fahrrad.lima-city.de/Maps/ServerNames/SteiermarkCatalog.json \
+            && cmp -s /tmp/steiermark-current.json steiermark/build/SteiermarkCatalog.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload changed Steiermark catalog
+        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
+        run: |
+          test -n "$MAIN_REMOTE_ROOT"
+          chmod +x .github/scripts/main-ftp-upload-file.sh
+          .github/scripts/main-ftp-upload-file.sh \
+            steiermark/build/SteiermarkCatalog.json \
+            "${MAIN_REMOTE_ROOT%/}/ServerNames/SteiermarkCatalog.json"
