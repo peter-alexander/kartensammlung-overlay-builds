@@ -1,0 +1,20 @@
+name: Assess NÖ Atlas remaining themes
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'server-catalogs/noe-atlas-assessment.mjs'
+      - '.github/workflows/noe-atlas-assessment.yml'
+permissions:
+  contents: read
+jobs:
+  assess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.0
+      - run: node server-catalogs/noe-atlas-assessment.mjs
