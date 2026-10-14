@@ -82,7 +82,8 @@ function readWms(xml) {
 	function visit(parent, inheritedQueryable = false) {
 		for (const layer of children(parent, "Layer")) {
 			const attr = layer.getAttribute("queryable");
-			const queryable = attr === null ? inheritedQueryable : attr === "1" || attr === "true";
+			const queryable = !layer.hasAttribute("queryable")
+				? inheritedQueryable : attr === "1" || attr === "true";
 			const name = value(layer, "Name");
 			if (/^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$/.test(name)) {
 				const title = titleFor(name, value(layer, "Title"));
