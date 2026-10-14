@@ -134,9 +134,19 @@ function readWmts(xml) {
 
 export function buildNoeCatalog({ wmsXml, wfsXml, wmtsXml = null }) {
 	const wms = readWms(wmsXml);
-	const wfs = readWfs(wfsXml);
-	// No WMTS capabilities means we cannot safely assume the TMS cache exists.
-	const cached = wmtsXml ? readWmts(wmtsXml) : new Map();
+	let wfs = new Set();
+	let cached = new Map();
+	try {
+		if (wfsXml) wfs = readWfs(wfsXml);
+	} catch (error) {
+		console.warn("NÖ WFS-Capabilities fehlerhaft:", error.message);
+	}
+	// No valid WMTS capabilities means we cannot assume the TMS cache exists.
+	try {
+		if (wmtsXml) cached = readWmts(wmtsXml);
+	} catch (error) {
+		console.warn("NÖ WMTS-Capabilities fehlerhaft:", error.message);
+	}
 	const layers = [...wms.values()].map((layer) => ({
 		...layer,
 		wfs: wfs.has(layer.name),
