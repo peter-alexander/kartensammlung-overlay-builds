@@ -12,9 +12,6 @@ async function fetchMetadata(service) {
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			const json = await response.json();
 			console.log(`${service.id}: ${(json.layers || []).length} Dienstebenen`);
-			for (const layer of json.layers || []) {
-				console.log(`  raw [${layer.id}] parent=${layer.parentLayerId}: ${layer.name}`);
-			}
 			return json;
 		} catch (error) {
 			cause = error;

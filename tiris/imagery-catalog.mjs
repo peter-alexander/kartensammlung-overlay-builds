@@ -27,8 +27,9 @@ export function classifyTirisImageryLayer(serviceId, layer) {
 		const infrared = /(?:^|[^a-z])cir(?:[^a-z]|$)|infrarot/.test(text);
 		const historical = !current && (/histor|19\d{2}|20\d{2}|altaufnahme|archiv|schwarzweiß|sw\b/.test(text)
 			|| !/befliegungszeitpunkt|aufnahmejahr|datum|deckung|abdeckung/.test(text));
-		const usable = /(?:rgb|cir|orthofoto|luftbild|histor|sw\b|schwarzweiß)/.test(text)
-			&& !/befliegungszeitpunkt|aufnahmejahr|datum|deckung|abdeckung/.test(text);
+		// ArcGIS mosaics contain FlightYear/Footprint siblings.
+		// Only "Image_*" is the actual raster; historic groups are often just year ranges.
+		const usable = /^image[_ -]/.test(normalize(layer?.name));
 		return {
 			usable,
 			category: historical ? "Historisch" : "Luft- & Satellitenbilder",
@@ -38,7 +39,9 @@ export function classifyTirisImageryLayer(serviceId, layer) {
 		};
 	}
 	const hillshade = /schummer|hillshade|relief/.test(text);
-	const usable = /schummer|hillshade|relief|gelande|terrain|oberflache|hohenlin|neigung|exposition|aspect|slope/.test(text);
+	// Exclude technical Boundary/Footprint sublayers of every raster mosaic.
+	const usable = /^image[_ -]/.test(normalize(layer?.name))
+		|| /^(hohen|hohen|hohen)schichtlinien/.test(normalize(layer?.name));
 	return {
 		usable,
 		category: hillshade ? "Hintergrundkarten" : "Österreich",
