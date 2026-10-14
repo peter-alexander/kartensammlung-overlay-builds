@@ -19,15 +19,15 @@ for (const url of urls) {
 		});
 		const body = await result.text();
 		const contentType = result.headers.get("content-type") || "";
-		const scripts = [...body.matchAll(/<script\\b[^>]*src=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
-		const links = [...body.matchAll(/<a\\b[^>]*href=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
-		const layerNames = [...body.matchAll(/<Name>([^<]+)<\\/Name>/gi)].map(x => x[1]);
+		const scripts = [...body.matchAll(/<script\b[^>]*src=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
+		const links = [...body.matchAll(/<a\b[^>]*href=["']([^"']+)/gi)].map(x => x[1]).slice(0, 14);
+		const layerNames = [...body.matchAll(/<Name>([^<]+)<\/Name>/gi)].map(x => x[1]);
 		const restKeys = (() => { try { return Object.keys(JSON.parse(body)); } catch { return []; } })();
 		console.log(JSON.stringify({
 			url, status: result.status, redirectedUrl: result.url, bytes: body.length,
 			contentType, scripts, links, layerNames: {
 				total: layerNames.length, examples: layerNames.slice(0, 20)
-			}, restKeys, sample: body.slice(0, 550).replace(/\\s+/g, " ")
+			}, restKeys, sample: body.slice(0, 550).replace(/\s+/g, " ")
 		}));
 	} catch (error) {
 		console.log(JSON.stringify({url, error: error.message}));
