@@ -47,7 +47,7 @@ function parse(xml, label) {
 	return doc;
 }
 
-const OMIT = /(?:blatt(?:schnitt|index)|^metadaten?$|^metadata$|^legend(?:e)?$|^service[_-]?info$)/i;
+const OMIT = /(?:blatt(?:schnitt|index)|(?:^|[_-])meta(?:data|daten)?(?:[_-]|$)|^legend(?:e)?$|^service[_-]?info$)/i;
 const TITLES = new Map([
 	["noe_edge", "GIP – Abschnitte"],
 	["noe_linearuse", "GIP – Nutzungsstreifen"],
