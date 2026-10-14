@@ -244,57 +244,6 @@ function buildWienWmsNames(xml, label = "Wien WMS") {
 	return sortObject(result);
 }
 
-const NOE_TITLE_REPLACEMENTS = new Map([
-	["LINIEN_3857", "Verwaltungsgrenzen – Linien"],
-	["noe_edge", "GIP – Abschnitte"],
-	["noe_linearuse", "GIP – Nutzungsstreifen"],
-	["noe_node", "GIP – Knoten"],
-	["noe_plateau", "GIP – Kreuzungsflächen (Plateaus)"],
-	["noe_turnuse", "GIP – Abbiegerelationen"],
-	["VIS_EDGE_INFOLIEFER", "GIP – Abschnitte nach Informationslieferant"]
-]);
-
-function cleanNoeTitle(name, rawTitle) {
-	const localName = String(name || "").split(":").pop();
-	if (NOE_TITLE_REPLACEMENTS.has(localName)) {
-		return NOE_TITLE_REPLACEMENTS.get(localName);
-	}
-
-	return String(rawTitle || "")
-		.replaceAll(" in Niederösterreich", "")
-		.replaceAll(" Niederösterreich", "")
-		.replaceAll(" NÖ", "")
-		.replaceAll("NÖ ", "")
-		.replaceAll(" 1:1000", "")
-		.replaceAll("Intermodales Verkehrsreferenzsystem (GIP.at)", "GIP")
-		.replaceAll("Sieldungsgrenzen", "Siedlungsgrenzen")
-		.replaceAll("NUTS3 Einheiten", "NUTS-3-Einheiten")
-		.replaceAll("UNESCO WORLD HERITAGE", "UNESCO-Welterbe")
-		.replaceAll("Elemente des Straßenquerschnitts_Breite", "Elemente des Straßenquerschnitts – Breite")
-		.replaceAll(" - ", " – ");
-}
-
-function buildNoeWmsNames(xml) {
-	const doc = parseXml(xml, "NÖ WMS");
-	const result = {};
-
-	for (const layer of topLevelWmsLayers(doc)) {
-		const name = firstChildText(layer, "Name");
-		if (!name) continue;
-
-		const title = cleanNoeTitle(name, firstChildText(layer, "Title"));
-
-		if (title.includes("lattschnitt") || title.includes(" 1:")) continue;
-		result[name] = title;
-	}
-
-	if (Object.keys(result).length < 20) {
-		throw new Error(`NÖ WMS: unplausibel wenige Layer: ${Object.keys(result).length}`);
-	}
-
-	return sortObject(result);
-}
-
 function buildWienWmtsNames(xml) {
 	const doc = parseXml(xml, "Wien WMTS");
 	const result = [];
@@ -639,7 +588,6 @@ const geoserverNames = buildWienWfsNames(wienWfsXml);
 const wmsNames = buildWienWmsNames(wienWmsXml);
 const wienWmtsNames = buildWienWmtsNames(wienWmtsXml);
 const laermkarteNames = buildWienWmsNames(laermXml, "Lärmkarte WMS");
-const noeWmsNames = buildNoeWmsNames(noeXml);
 // WFS/WMTS are optional enhancements. A failed side service must never
 // prevent publication of the other, already available public catalogs.
 const fetchNoeOptional = async (url, label) => {
@@ -682,8 +630,6 @@ writeJs("WienWmtsNames.js", "WienWmtsNames", wienWmtsNames);
 writeJson("WienWmtsNames.json", wienWmtsNames);
 writeJs("LaermkarteNames.js", "LaermkarteNames", laermkarteNames);
 writeJson("LaermkarteNames.json", laermkarteNames);
-writeJs("NoeWmsNames.js", "NoeWmsNames", noeWmsNames);
-writeJson("NoeWmsNames.json", noeWmsNames);
 writeJson("NoeCatalog.json", noeCatalog);
 writeJs("StadtplanJson.js", "StadtplanJson", stadtplan);
 writeJson("StadtplanJson.json", stadtplan);
@@ -701,7 +647,7 @@ console.log([
 	`Wien WMS: ${Object.keys(wmsNames).length}`,
 	`Wien WMTS: ${wienWmtsNames.length}`,
 	`Lärmkarte: ${Object.keys(laermkarteNames).length}`,
-	`NÖ WMS: ${Object.keys(noeWmsNames).length} / WFS: ${noeCatalog.counts.wfs} / Cache: ${noeCatalog.counts.cached}`,
+	`NÖ WMS: ${noeCatalog.counts.wms} / WFS: ${noeCatalog.counts.wfs} / Cache: ${noeCatalog.counts.cached}`,
 	`Stadtplan-Themes: ${stadtplan.themes.length}`,
 	`ArcGIS Styles: ${arcgisStyles.count}`,
 	`BEV: ${bev.workspaceCount} Workspaces / ${bev.layerCount} Layer`
