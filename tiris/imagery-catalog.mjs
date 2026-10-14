@@ -17,7 +17,7 @@ const normalize = (value) => String(value || "")
 	.toLowerCase()
 	.normalize("NFD")
 	.replace(/[\u0300-\u036f]/g, "")
-	.replace(/ae/g, "a").replace(/oe/g, "o").replace(/ue/g, "u");
+	.replace(/ae/g, "a").replace(/oe/g, "o");
 
 export function classifyTirisImageryLayer(serviceId, layer) {
 	const title = [layer?.name, ...(layer?.path || [])].join(" ");
