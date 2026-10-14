@@ -108,6 +108,7 @@ function readWms(xml) {
 }
 
 function readWfs(xml) {
+	if (!xml) return new Set();
 	const doc = parse(xml, "NÖ WFS");
 	return new Set(descendants(doc, "FeatureType")
 		.map((node) => value(node, "Name")).filter(Boolean));
