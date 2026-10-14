@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { DOMParser } from "@xmldom/xmldom";
 import { buildNoeCatalog } from "./noe-catalog.mjs";
+import { buildNoeAtlasCatalog, NOE_ATLAS_ELIGIBLE_IDS } from "./noe-atlas-catalog.mjs";
 
 const OUTPUT_DIR = new URL("./build/", import.meta.url);
 
@@ -631,6 +632,30 @@ writeJson("WienWmtsNames.json", wienWmtsNames);
 writeJs("LaermkarteNames.js", "LaermkarteNames", laermkarteNames);
 writeJson("LaermkarteNames.json", laermkarteNames);
 writeJson("NoeCatalog.json", noeCatalog);
+	// Atlas is a separate WebGIS catalog, not part of the SDI GeoServer.
+	// Treat outages/schema changes as optional: never jeopardize the daily core catalogs.
+	try {
+		const index = await fetchJson(
+			"https://atlas.noe.gv.at/atlas/api/rest/services?f=json",
+			{ attempts: 2, timeoutMs: 20000 }
+		);
+		const details = {};
+		for (const id of NOE_ATLAS_ELIGIBLE_IDS) {
+			details[id] = await fetchJson(
+				"https://atlas.noe.gv.at/atlas/api/rest/services/" + id + "?f=json",
+				{ attempts: 2, timeoutMs: 20000 }
+			);
+		}
+		const atlas = buildNoeAtlasCatalog(index, details);
+		writeJson("NoeAtlasCatalog.json", atlas);
+		console.log("NÖ Atlas: " + atlas.counts.total + " Dienste, "
+			+ atlas.counts.imageOverlays + " Bild-Overlays, "
+			+ atlas.counts.tileOverlays + " Tile-Overlays, "
+			+ atlas.counts.integrated + " freigegebene OGD-Overlays");
+	} catch (error) {
+		console.warn("NÖ Atlas nicht aktualisiert (anderer Kataloglauf bleibt intakt):", error.message);
+	}
+
 writeJs("StadtplanJson.js", "StadtplanJson", stadtplan);
 writeJson("StadtplanJson.json", stadtplan);
 writeJs("BevGeoserverNames.js", "BevGeoserverNames", bev.catalog);
