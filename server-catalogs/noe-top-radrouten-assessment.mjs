@@ -7,6 +7,27 @@ for(const layer of layers){
 		const response=await fetch(WFS+"?"+params,{signal:AbortSignal.timeout(17000)});
 		const data=await response.json();
 		const features=Array.isArray(data.features)?data.features:[];
+		if (features.length && layer === "OGD:IST_GIP_HAUPTRADROUTEN") {
+			const coords=features[0]?.geometry?.coordinates;
+			const pos=features[0]?.geometry?.type === "MultiLineString" ? coords?.[0]?.[0] : coords?.[0];
+			if (pos?.length >= 2) {
+				const [lon,lat]=pos, half=20037508.342789244;
+				const x=lon*half/180, y=half*Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/Math.PI;
+				const spatial=new URLSearchParams({
+					service:"WFS", version:"1.1.0", request:"GetFeature", typeName:layer,
+					srsName:"EPSG:4326", maxFeatures:"8", outputFormat:"application/json",
+					bbox:[x-100,y-100,x+100,y+100].join(",")+",EPSG:3857",
+					propertyName:"NAME,GNAME_TEXT,SHORTNAME,ROUTENTYP,LASTUPDATE"
+				});
+				const hit=await fetch(WFS+"?"+spatial,{signal:AbortSignal.timeout(12000)});
+				const result=await hit.json();
+				console.log("NOE_ROUTE_SPATIAL "+JSON.stringify({
+					lon,lat,status:hit.status,total:result.features?.length||0,
+					sample:result.features?.[0]?.properties,
+					hasGeometry:result.features?.[0]?.geometry!=null
+				}));
+			}
+		}
 		const preview=features.map(f=>({
 			id:f.id,fields:Object.keys(f.properties||{}),
 			properties:f.properties,
