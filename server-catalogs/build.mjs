@@ -10,7 +10,7 @@ const SOURCES = Object.freeze({
 	wienWmts: "https://mapsneu.wien.gv.at/wmtsneu/1.0.0/WMTSCapabilities.xml",
 	laermkarte: "https://inspire.lfrz.gv.at/000804/wms?version=1.3.0&request=GetCapabilities",
 	noeWms: "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows?service=WMS&version=1.1.1&request=GetCapabilities",
-	noeWfs: "https://sdi.noe.gv.at/at.gv.noe.geoserver/ows?service=WFS&version=1.1.0&request=GetCapabilities",
+	noeWfs: "https://sdi.noe.gv.at/at.gv.noe.geoserver/OGD/wfs?service=WFS&version=1.1.0&request=GetCapabilities",
 	noeWmts: "https://sdi.noe.gv.at/at.gv.noe.geoserver/gwc/service/wmts?service=WMTS&version=1.0.0&request=GetCapabilities",
 	stadtplan: "https://www.wien.gv.at/spezial/stadtplan/json/themes.json",
 	arcgisStyles: "https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/self",
