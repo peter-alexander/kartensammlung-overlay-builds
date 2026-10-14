@@ -40,6 +40,8 @@ jobs:
         run: node --test vogis/wms-test.mjs
       - name: Build VoGIS catalog from live GetCapabilities
         run: node vogis/wms-build.mjs
+      - name: Check WMS GetMap with one image per service
+        run: node vogis/wms-smoke.mjs
       - name: Compare previously deployed catalog
         id: changed
         run: |
