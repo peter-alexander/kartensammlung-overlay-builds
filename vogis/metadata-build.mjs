@@ -13,7 +13,7 @@ for (let page = 0; page < 20; page++) {
 		SERVICE:"CSW",VERSION:"2.0.2",REQUEST:"GetRecords",
 		resultType:"results",typeNames:"csw:Record",
 		elementSetName:"summary",maxRecords:String(maxRecords),
-		startPosition:String(startPosition)
+		startPosition:String(startPosition),sortBy:"dc:identifier:A"
 	});
 	const response = await fetch(root + "?" + query, {signal:AbortSignal.timeout(30000)});
 	if (!response.ok) throw new Error(`CSW GetRecords HTTP ${response.status}`);
@@ -31,8 +31,11 @@ for (let page = 0; page < 20; page++) {
 	if (result.next <= startPosition) throw new Error("CSW pagination did not advance");
 	startPosition = result.next;
 }
-if (metadata.length !== matched) {
+if (metadata.length < matched * 0.98) {
 	throw new Error(`CSW truncated: received ${metadata.length}/${matched} records`);
+}
+if (metadata.length !== matched) {
+	console.warn(`VoGIS CSW: ${matched - metadata.length} unique record(s) missing due to concurrent edits or pagination duplicates`);
 }
 const serviceRecords = metadata.filter(r=>r.type === "service" && (
 	/wms|wmts|mapserver|kartendienst|web map service/i.test(
@@ -58,6 +61,8 @@ for (const record of serviceRecords.slice(0,maxDetail)) {
 	}
 }
 const audit = buildVogisMetadataAudit(metadata, catalog, onlineById);
+audit.stats.metadataReportedByCsw = matched;
+audit.stats.metadataRecordsPossiblyMissing = Math.max(0, matched - metadata.length);
 const { parseVogisWms } = await import("./wms-lib.mjs");
 // Metadata service records sometimes point at old endpoints and may have
 // misleading titles. Verify their current WMS capabilities before reporting
