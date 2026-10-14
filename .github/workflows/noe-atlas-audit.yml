@@ -1,0 +1,21 @@
+name: Audit NÖ Atlas public sources
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'server-catalogs/noe-atlas-audit.mjs'
+      - '.github/workflows/noe-atlas-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.0
+      - name: Inspect public NÖ Atlas endpoints
+        run: node server-catalogs/noe-atlas-audit.mjs
