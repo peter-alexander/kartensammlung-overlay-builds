@@ -24,7 +24,7 @@ function textOf(xml, name) {
 }
 function resources(xml) {
 	const out=[];
-	for(const block of xml.matchAll(/<resource>([\\s\\S]*?)<\\/resource>/gi)){
+	for(const block of xml.matchAll(new RegExp("<resource>([\\s\\S]*?)</resource>", "gi"))){
 		const b=block[1];
 		out.push({
 			name:textOf(b,"resource_name"),
