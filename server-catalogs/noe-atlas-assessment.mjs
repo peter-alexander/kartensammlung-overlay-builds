@@ -141,3 +141,31 @@ try {
 	console.log("NOE_ATLAS_LOADED_SCRIPTS_ERROR " + JSON.stringify({ error: error.message }));
 }
 
+try {
+	const scriptUrl = "https://atlas.noe.gv.at/atlas/api/scripts/api/api.min.js?8.26.3101";
+	const response = await fetch(scriptUrl, { signal: AbortSignal.timeout(18000) });
+	const source = await response.text();
+	for (const needle of [
+		"getPreviewUrl=function",
+		"getLegendPostData=function",
+		"getMapPostData=function",
+		"webgis_service=function",
+		"/identify",
+		"identify=function",
+		"getIdentify",
+		"appendHMACData=function",
+		"urlParameters=function"
+	]) {
+		const index = source.indexOf(needle);
+		console.log("NOE_ATLAS_API_FUNCTION " + JSON.stringify({
+			needle,
+			index,
+			snippet: index >= 0
+				? source.slice(Math.max(0, index - 700), index + 2600).replace(/\s+/g, " ")
+				: null
+		}));
+	}
+} catch (error) {
+	console.log("NOE_ATLAS_API_FUNCTION_ERROR " + JSON.stringify({ error: error.message }));
+}
+
