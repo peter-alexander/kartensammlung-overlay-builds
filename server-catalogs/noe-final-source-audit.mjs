@@ -3,27 +3,10 @@ const LIST = "https://data.noe.gv.at/api/dataset";
 async function fetchText(url) {
 	const response = await fetch(url, {
 		signal: AbortSignal.timeout(30000),
-		headers: {"User-Agent":"Kartensammlung-NOE-final-source-audit/1.1"}
+		headers: {"User-Agent":"Kartensammlung-NOE-final-source-audit/1.2"}
 	});
 	if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
 	return response.text();
-}
-
-const listXml = await fetchText(LIST);
-const ids = [...listXml.matchAll(/<id\b[^>]*>([^<]+)<\/id>/g)].map(m => m[1].trim());
-console.log("OGD_COUNT " + ids.length);
-
-for (const id of [
-	"203fbf07-9da2-40d2-bc7f-328dae43dafc",
-	"46a7a06a-f69b-405e-aac2-77f775449ad3",
-	"16dd490b-1ec3-4274-8da9-c6371613f241"
-]) {
-	try {
-		const xml = await fetchText(LIST + "/" + id);
-		console.log("OGD_DETAIL_SAMPLE " + JSON.stringify({id,xml:xml.slice(0,20000)}));
-	} catch (error) {
-		console.log("OGD_DETAIL_ERROR " + JSON.stringify({id,error:error.message}));
-	}
 }
 
 function decodeXml(value) {
@@ -34,9 +17,22 @@ function decodeXml(value) {
 		.replace(/&quot;/g,'"')
 		.replace(/&#39;/g,"'");
 }
-function tag(xml, name) {
-	const m = xml.match(new RegExp("<"+name+"(?:\\s[^>]*)?>([\\s\\S]*?)<\\/"+name+">","i"));
+function textOf(xml, name) {
+	const re = new RegExp("<(?:\\w+:)?"+name+"(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?"+name+">","i");
+	const m = xml.match(re);
 	return m ? decodeXml(m[1].replace(/<[^>]+>/g," ").replace(/\\s+/g," ").trim()) : "";
+}
+function resources(xml) {
+	const out=[];
+	for(const block of xml.matchAll(/<resource>([\\s\\S]*?)<\\/resource>/gi)){
+		const b=block[1];
+		out.push({
+			name:textOf(b,"resource_name"),
+			url:textOf(b,"resource_url"),
+			format:textOf(b,"resource_format")
+		});
+	}
+	return out;
 }
 function urls(xml) {
 	return [...new Set(
@@ -45,38 +41,49 @@ function urls(xml) {
 	)];
 }
 
-const spatialWords = /(geo|karte|kart|raster|modell|geländ|gelaend|oberflächenmodell|oberflaechenmodell|boden|hydro|gewässer|gewaesser|luft|ozon|feinstaub|pm10|pm2|stick|schwefel|kohlenmonoxid|wind|temperatur|feuchtigkeit|strahlung|messstell|station|straße|strasse|verkehr|rad|grenz|gebiet|fläche|flaeche|linie|punkt|standort|schutz|widmung|natur|wald|wein|höhe|hoehe|orthofoto|laser|dgm|dom|hang|niederschlag)/i;
-const serviceWords = /(service=wms|service=wfs|\/wms(?:\?|$)|\/wfs(?:\?|$)|getcapabilit)/i;
+const listXml = await fetchText(LIST);
+const listEntries = [...listXml.matchAll(/<id\b([^>]*)>([^<]+)<\/id>/g)].map(m => ({
+	id:m[2].trim(),
+	lastModified:(m[1].match(/last_modified=["']([^"']+)/i)||[])[1]||"",
+	state:(m[1].match(/state=["']([^"']+)/i)||[])[1]||""
+}));
+console.log("OGD_COUNT "+listEntries.length);
 
-const results = [];
-let cursor = 0;
-const workers = Array.from({length:8}, async () => {
-	while (true) {
-		const index = cursor++;
-		if (index >= ids.length) return;
-		const id = ids[index];
-		try {
-			const xml = await fetchText(LIST + "/" + id);
-			const foundUrls = urls(xml);
-			const title = tag(xml,"title") || tag(xml,"name") || tag(xml,"bezeichnung");
-			const description = tag(xml,"description") || tag(xml,"beschreibung");
-			const keywords = tag(xml,"keywords") || tag(xml,"schlagworte");
-			const category = tag(xml,"category") || tag(xml,"kategorie");
-			const hay = [title,description,keywords,category,foundUrls.join(" ")].join(" ");
-			if (!spatialWords.test(hay)) continue;
-			const hasOgc = foundUrls.some(url => serviceWords.test(url));
-			results.push({
-				id,title,category,keywords,
-				hasOgc,
-				urls: foundUrls.filter(url => !/creativecommons|noe\.gv\.at\/noe\/Open-Government-Data\/Nutzungsbedingungen/i.test(url)).slice(0,20),
-				description: description.slice(0,700)
+const serviceWords = /(service=wms|service=wfs|\/wms(?:\?|$)|\/wfs(?:\?|$)|getcapabilit)/i;
+const records=[];
+let cursor=0;
+const workers=Array.from({length:8},async()=>{
+	while(true){
+		const index=cursor++;
+		if(index>=listEntries.length) return;
+		const entry=listEntries[index];
+		try{
+			const xml=await fetchText(LIST+"/"+entry.id);
+			const foundUrls=urls(xml);
+			records.push({
+				id:entry.id,
+				title:textOf(xml,"title")||textOf(xml,"name"),
+				lastModified:entry.lastModified,
+				state:entry.state,
+				updateFrequency:textOf(xml,"update_frequency"),
+				begin:textOf(xml,"begin_datetime"),
+				end:textOf(xml,"end_datetime"),
+				categories:[...xml.matchAll(/<category>([^<]+)<\/category>/gi)].map(m=>decodeXml(m[1].trim())),
+				keywords:[...xml.matchAll(/<keyword>([^<]+)<\/keyword>/gi)].map(m=>decodeXml(m[1].trim())),
+				description:textOf(xml,"description").slice(0,900),
+				hasOgc:foundUrls.some(url=>serviceWords.test(url)),
+				resources:resources(xml)
 			});
-		} catch (error) {
-			console.log("OGD_FETCH_ERROR "+JSON.stringify({id,error:error.message}));
+		}catch(error){
+			console.log("OGD_FETCH_ERROR "+JSON.stringify({id:entry.id,error:error.message}));
 		}
 	}
 });
 await Promise.all(workers);
-results.sort((a,b)=>a.title.localeCompare(b.title,"de"));
-console.log("OGD_SPATIAL_CANDIDATES "+JSON.stringify(results));
-console.log("OGD_NO_OGC_CANDIDATES "+JSON.stringify(results.filter(x=>!x.hasOgc)));
+
+const noOgc=records
+	.filter(r=>!r.hasOgc)
+	.filter(r=>/(geo|karte|raster|modell|geländ|gelaend|oberfläch|oberflaech|boden|hydro|gewässer|gewaesser|luft|ozon|feinstaub|pm10|pm2|stick|schwefel|kohlenmonoxid|wind|temperatur|feuchtigkeit|strahlung|messstell|station|straße|strasse|verkehr|rad|grenz|gebiet|fläche|flaeche|linie|punkt|standort|schutz|widmung|natur|wald|wein|höhe|hoehe|orthofoto|laser|dgm|dom|hang|niederschlag)/i
+		.test([r.title,r.description,r.keywords.join(" ")].join(" ")))
+	.sort((a,b)=>a.title.localeCompare(b.title,"de"));
+console.log("OGD_NO_OGC_DETAIL "+JSON.stringify(noOgc));
