@@ -679,3 +679,5 @@ console.log([
 ].join("\n"));
 
 await import("./noe-atlas-assessment.mjs");
+
+await import("./noe-ogd-compare.mjs");
