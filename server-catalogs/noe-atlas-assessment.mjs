@@ -78,3 +78,30 @@ for (const id of selection) {
 		console.log("NOE_WATER_OGC_ERROR " + JSON.stringify({ id, error: error.message }));
 	}
 }
+
+for (const scriptUrl of [
+	"https://atlas.noe.gv.at/atlas/portal/scripts/webgis-map.min.js?8.26.3101",
+	"https://atlas.noe.gv.at/atlas/portal/scripts/webgis-portal-cloud.js?8.26.3101"
+]) {
+	try {
+		const response = await fetch(scriptUrl, { signal: AbortSignal.timeout(18000) });
+		const source = await response.text();
+		const patterns = [
+			/\.{0,0}/
+		];
+		const snippets = [];
+		for (const match of source.matchAll(/.{0,180}(?:identify|legend|rest\/services|\/map(?:\?|["'])|query).{0,240}/gi)) {
+			const snippet = match[0].replace(/\s+/g, " ");
+			if (!snippets.includes(snippet)) snippets.push(snippet);
+			if (snippets.length >= 80) break;
+		}
+		console.log("NOE_ATLAS_SCRIPT_API " + JSON.stringify({
+			scriptUrl,
+			length: source.length,
+			snippets
+		}));
+	} catch (error) {
+		console.log("NOE_ATLAS_SCRIPT_API_ERROR " + JSON.stringify({ scriptUrl, error: error.message }));
+	}
+}
+
