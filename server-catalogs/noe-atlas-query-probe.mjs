@@ -4,35 +4,27 @@ const text = await (await fetch(url, {
 	headers: {"User-Agent":"Mozilla/5.0"}
 })).text();
 
-const literalRe = /(["'`])((?:\\.|(?!\1).){1,300})\1/g;
-const literals = new Set();
-for (const match of text.matchAll(literalRe)) {
-	const value = match[2];
-	if (/rest\/services|query|identify|featureinfo|intersect|spatial|geometry/i.test(value)) {
-		literals.add(value);
-	}
-}
-console.log("ATLAS_QUERY_LITERALS " + JSON.stringify([...literals].sort()));
-
-const needles = [
-	"rest/services/",
-	".query=function",
-	"query=function",
-	"identify=function",
-	"queryResultFeatures",
-	"queryid=",
-	"queryId",
-	"searchshape",
-	"geometry="
-];
-for (const needle of needles) {
+for (const needle of [
+	'"/rest/services/"',
+	'"/queries/"',
+	"'/queries/'",
+	'c:"query"',
+	"c:'query'",
+	'"#oids#"',
+	'"geometry"',
+	'"shape"',
+	'"bbox"',
+	'"distance"',
+	'"buffer"'
+]) {
 	let from=0,count=0;
-	while(count<40){
+	while(count<80){
 		const i=text.indexOf(needle,from);
 		if(i<0) break;
-		console.log("ATLAS_QUERY_SNIPPET " + JSON.stringify({
+		console.log("ATLAS_QUERY_CALL " + JSON.stringify({
 			needle,
-			snippet:text.slice(Math.max(0,i-1600),i+3600).replace(/\s+/g," ")
+			index:i,
+			snippet:text.slice(Math.max(0,i-2500),i+5000).replace(/\s+/g," ")
 		}));
 		from=i+needle.length;
 		count++;
