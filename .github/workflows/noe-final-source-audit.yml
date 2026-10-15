@@ -1,0 +1,18 @@
+name: Probe final NÖ source audit
+on:
+  pull_request:
+    paths:
+      - 'server-catalogs/noe-final-source-audit.mjs'
+      - '.github/workflows/noe-final-source-audit.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.0
+      - run: node server-catalogs/noe-final-source-audit.mjs
