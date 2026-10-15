@@ -1,8 +1,6 @@
-name: Assess NÖ Atlas remaining themes
+name: Probe NÖ historical raster getmap
 on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+  pull_request:
     paths:
       - 'server-catalogs/noe-atlas-assessment.mjs'
       - '.github/workflows/noe-atlas-assessment.yml'
