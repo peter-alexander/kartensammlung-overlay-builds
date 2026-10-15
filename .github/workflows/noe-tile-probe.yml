@@ -1,0 +1,17 @@
+name: Probe NÖ Atlas tile templates
+on:
+  pull_request:
+    paths:
+      - 'server-catalogs/noe-tile-probe.mjs'
+      - '.github/workflows/noe-tile-probe.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.0
+      - run: node server-catalogs/noe-tile-probe.mjs
