@@ -1,6 +1,10 @@
 name: Assess NÖ Atlas remaining themes
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'server-catalogs/noe-atlas-assessment.mjs'
+      - '.github/workflows/noe-atlas-assessment.yml'
   push:
     branches: [main]
     paths:
