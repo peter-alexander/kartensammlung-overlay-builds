@@ -169,3 +169,99 @@ try {
 	console.log("NOE_ATLAS_API_FUNCTION_ERROR " + JSON.stringify({ error: error.message }));
 }
 
+const retentionService = "ags_wasserrecht__retentionsflaechen@atlas_wasser";
+const retentionBase = "https://atlas.noe.gv.at/atlas/api/rest/services/"
+	+ encodeURIComponent(retentionService);
+const noeMercatorBbox = "1606081.2116918617,6008339.82826084,1913500.0042716584,6280910.072401943";
+
+for (const layer of ["88", "91"]) {
+	const params = new URLSearchParams({
+		f: "bin",
+		width: "768",
+		height: "681",
+		bbox: noeMercatorBbox,
+		layers: layer,
+		crs: "3857",
+		hmac: "false"
+	});
+	try {
+		const response = await fetch(retentionBase + "/getmap?" + params, {
+			signal: AbortSignal.timeout(20000),
+			headers: { "User-Agent": "Kartensammlung-NOE-retention-map-probe/1.0" }
+		});
+		const body = new Uint8Array(await response.arrayBuffer());
+		const png = body.length >= 8
+			&& body[0] === 137 && body[1] === 80 && body[2] === 78 && body[3] === 71;
+		const jpeg = body.length >= 3
+			&& body[0] === 255 && body[1] === 216 && body[2] === 255;
+		console.log("NOE_RETENTION_GETMAP " + JSON.stringify({
+			layer,
+			status: response.status,
+			contentType: response.headers.get("content-type"),
+			cacheControl: response.headers.get("cache-control"),
+			bytes: body.length,
+			png,
+			jpeg,
+			sample: (!png && !jpeg)
+				? new TextDecoder().decode(body.slice(0, 800)).replace(/\s+/g, " ")
+				: null
+		}));
+	} catch (error) {
+		console.log("NOE_RETENTION_GETMAP_ERROR " + JSON.stringify({ layer, error: error.message }));
+	}
+}
+
+for (const layer of ["88", "91"]) {
+	const params = new URLSearchParams({
+		f: "json",
+		width: "768",
+		height: "681",
+		bbox: noeMercatorBbox,
+		layers: layer,
+		crs: "3857",
+		hmac: "false"
+	});
+	try {
+		const response = await fetch(retentionBase + "/getlegend?" + params, {
+			signal: AbortSignal.timeout(16000),
+			headers: {
+				"Accept": "application/json,*/*;q=0.8",
+				"User-Agent": "Kartensammlung-NOE-retention-legend-probe/1.0"
+			}
+		});
+		const body = await response.text();
+		console.log("NOE_RETENTION_LEGEND " + JSON.stringify({
+			layer,
+			status: response.status,
+			contentType: response.headers.get("content-type"),
+			length: body.length,
+			sample: body.slice(0, 3500).replace(/\s+/g, " ")
+		}));
+	} catch (error) {
+		console.log("NOE_RETENTION_LEGEND_ERROR " + JSON.stringify({ layer, error: error.message }));
+	}
+}
+
+try {
+	const payload = await get(base + encodeURIComponent(retentionService) + "?f=json");
+	const service = payload.services?.find((item) => item?.id === retentionService) || payload;
+	const scalarMetadata = {};
+	for (const [key, value] of Object.entries(service || {})) {
+		if (
+			typeof value === "string"
+			&& /copyright|licen|recht|nutz|metadata|source|quelle|owner|provider|description|contact/i.test(key)
+		) {
+			scalarMetadata[key] = value;
+		}
+	}
+	console.log("NOE_RETENTION_RIGHTS_METADATA " + JSON.stringify({
+		keys: Object.keys(service || {}),
+		scalarMetadata,
+		copyright: service?.copyrighttext || service?.copyright || null,
+		metadata: service?.metadata || null,
+		metadataLink: service?.metadata_link || null
+	}));
+} catch (error) {
+	console.log("NOE_RETENTION_RIGHTS_METADATA_ERROR " + JSON.stringify({ error: error.message }));
+}
+
