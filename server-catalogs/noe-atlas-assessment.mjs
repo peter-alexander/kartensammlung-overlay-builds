@@ -105,3 +105,39 @@ for (const scriptUrl of [
 	}
 }
 
+try {
+	const pageUrl = "https://atlas.noe.gv.at/atlas/portal/noe-atlas";
+	const response = await fetch(pageUrl, { signal: AbortSignal.timeout(18000) });
+	const html = await response.text();
+	const scriptUrls = [...new Set(
+		[...html.matchAll(/<script\b[^>]*src=["']([^"']+)/gi)]
+			.map((match) => new URL(match[1], response.url || pageUrl).toString())
+			.filter((url) => url.startsWith("https://atlas.noe.gv.at/"))
+	)].slice(0, 50);
+	console.log("NOE_ATLAS_LOADED_SCRIPTS " + JSON.stringify(scriptUrls));
+
+	for (const scriptUrl of scriptUrls) {
+		if (!/\.js(?:\?|$)/i.test(scriptUrl)) continue;
+		try {
+			const scriptResponse = await fetch(scriptUrl, { signal: AbortSignal.timeout(18000) });
+			const source = await scriptResponse.text();
+			if (!/(?:rest\/services|\/identify|\/legend|\/map)/i.test(source)) continue;
+			const snippets = [];
+			for (const match of source.matchAll(/.{0,220}(?:rest\/services|\/identify|\/legend|\/map).{0,320}/gi)) {
+				const snippet = match[0].replace(/\s+/g, " ");
+				if (!snippets.includes(snippet)) snippets.push(snippet);
+				if (snippets.length >= 40) break;
+			}
+			console.log("NOE_ATLAS_REST_SCRIPT " + JSON.stringify({
+				scriptUrl,
+				length: source.length,
+				snippets
+			}));
+		} catch (error) {
+			console.log("NOE_ATLAS_REST_SCRIPT_ERROR " + JSON.stringify({ scriptUrl, error: error.message }));
+		}
+	}
+} catch (error) {
+	console.log("NOE_ATLAS_LOADED_SCRIPTS_ERROR " + JSON.stringify({ error: error.message }));
+}
+
