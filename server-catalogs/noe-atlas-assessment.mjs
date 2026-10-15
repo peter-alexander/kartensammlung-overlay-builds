@@ -1,110 +1,60 @@
-const base = "https://atlas.noe.gv.at/atlas/api/rest/services/";
-const selection = [
-	"ags_oev___oev_gueteklassen", "ags_radwege", "ags_radwege__rad_basisnetz",
-	"ags_lkw_durchfahrtsverbote", "ags_oev___bus_und_haltestellen",
-	"ags_hochwasser@atlas_wasser", "ags_hochwasser_hq@atlas_wasser",
-	"ags_hochwasser_modellberechnung@atlas_wasser",
-	"ags_wasserrecht__retentionsflaechen@atlas_wasser",
-	"ags_grundwasser@atlas_wasser", "ags_fliessgewaesser__gewaesserguete@atlas_wasser",
-	"ags_fliessgewaesser__abflusskennwerte@atlas_wasser",
-	"wms_iws__historische_karten", "wms_iws__luftbild_epochen",
-	"ags_fernerkundung__flugdaten", "wms_iws__hoehenmodell",
-	"wms_flaechenwidmung@atlas_raumordnung",
-	"ags_flaechenwidmung@atlas_raumordnung",
-	"ags_energieraumplanung@atlas_raumordnung",
-	"ags_raumordnung__zentrumszonen@atlas_raumordnung",
-	"ags_atlas__burgen_und_schloesser", "ags_atlas__museen_und_sammlungen",
-	"ags_naturschutz", "ags_naturschutz_kompensationsflaechen",
-	"ags_naturschutz_projekte", "ags_landwirtschaft__weinbau_rieden_und_fluren",
-	"ags_ragweed", "wms_emikat", "tc_hangwasser@atlas_wasser",
-	"tc_waldentwicklungsplan", "ags_wasserrecht__wasserbuch@atlas_wasser",
-	"ags_wildbach_lawinen_kataster@atlas_wasser"
+const requests = [
+	["Vischer", "wms_iws__historische_karten", "VISCHER|default"],
+	["Administrativkarte", "wms_iws__historische_karten", "ADMINK|default"],
+	["Franzisco-Josephinische Landesaufnahme", "wms_iws__historische_karten", "SPEZIALK|default"],
+	["Luftbild Epoche 1", "wms_iws__luftbild_epochen", "EP01|default"],
+	["Luftbild Epoche 2", "wms_iws__luftbild_epochen", "EP02|default"],
+	["Luftbild Epoche 3", "wms_iws__luftbild_epochen", "EP03|default"],
+	["Luftbild Epoche 4", "wms_iws__luftbild_epochen", "EP04|default"],
+	["Luftbild Epoche 5", "wms_iws__luftbild_epochen", "EP05|default"],
+	["Luftbild Epoche 6", "wms_iws__luftbild_epochen", "EP06|default"],
+	["Luftbild Epoche 7", "wms_iws__luftbild_epochen", "EP07|default"],
+	["Luftbild aktuell", "wms_iws__luftbild_epochen", "FAOF|default"],
+	["Luftbild aktuell CIR", "wms_iws__luftbild_epochen", "FAOFCIR|default"],
+	["Luftbild Epoche 7 CIR", "wms_iws__luftbild_epochen", "EP07CIR|default"]
 ];
-async function get(url) {
-	const res = await fetch(url, {
-		signal: AbortSignal.timeout(18000),
-		headers: { "Accept": "application/json", "User-Agent": "Kartensammlung-NOE-Atlas-assessment/1.0" }
-	});
-	if (!res.ok) throw new Error("HTTP " + res.status);
-	const contentType = res.headers.get("content-type") || "";
-	if (!contentType.includes("json")) throw new Error("unexpected type " + contentType);
-	return res.json();
-}
-const existing = await get("https://fahrrad.lima-city.de/Maps/ServerNames/NoeCatalog.json");
-const layers = Array.isArray(existing?.layers) ? existing.layers : [];
-console.log("EXISTING_NOE " + JSON.stringify({ total: layers.length, names: layers.map(x => [x.name, x.title, x.wfs]) }));
-const index = await get(base + "?f=json");
-console.log("ATLAS_COUNTS " + JSON.stringify({
-	total: index.services.length, curated: selection.length
-}));
-let cursor = 0;
-const results = [];
-async function worker() {
-	while (cursor < selection.length) {
-		const id = selection[cursor++];
-		try {
-			const v = await get(base + encodeURIComponent(id) + "?f=json");
-			const service = v.services?.find(x=>x?.id === id);
-			if (!service) {
-				console.log("NOE_SERVICE_ERROR " + JSON.stringify({id,error:"service unavailable"}));
-				continue;
-			}
-			const matching = layers.filter(x=>(
-				x.title?.toLowerCase().includes(service.name.toLowerCase())
-				|| service.name?.toLowerCase().includes(x.title?.toLowerCase())
-			)).map(x=>x.title).slice(0,5);
-			const summary = {
-				id, name: service.name, type: service.type,
-				crs: service.supportedCrs,
-				layers: (service.layers || []).map(x=>({
-					id: x.id, name: x.name, type: x.type,
-					selectable: x.selectable, minscale: x.minscale,
-					tocname: x.tocname
-				})).slice(0,30),
-				layerCount: service.layers?.length,
-				presentations: service.presentations?.map(x=>({id:x.id,name:x.name,layers:x.layers?.length})).slice(0,25),
-				queries: service.queries?.map(x=>({
-					id:x.id,name:x.name,layerid:x.layerid,fields:x.result_fields?.map(y=>y.name)
-				})).slice(0,20),
-				copyright: service.copyrighttext || service.copyright,
-				description: String(service.servicedescription || "").slice(0,300),
-				metadataLink: service.metadata_link,
-				properties: service.type === "tile"
-					? {tileurl:service.properties?.tileurl, resolutions:service.properties?.resolutions?.length}
-					: {capabilities:service.properties?.capabilities},
-				matching
-			};
-			results.push(summary);
-			console.log("ATLAS_ASSESS " + JSON.stringify(summary));
-		} catch(error) {
-			console.log("NOE_SERVICE_ERROR " + JSON.stringify({id,error:error.message}));
-		}
-	}
-}
-await Promise.all(Array.from({length:4},worker));
-console.log("ATLAS_ASSESS_SUMMARY " + JSON.stringify({assessed:results.length, selected:selection.length}));
 
-for (const id of [
-	"ags_oev___oev_gueteklassen",
-	"ags_radwege",
-	"ags_lkw_durchfahrtsverbote",
-	"ags_hochwasser_modellberechnung@atlas_wasser",
-	"wms_iws__luftbild_epochen",
-	"ags_naturschutz"
-]) {
-	const url = "https://atlas.noe.gv.at/atlas/api/ogc/" + encodeURIComponent(id)
-		+ "?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+const bbox = "1766991.570302777,6147500.519937721,1770244.689998977,6150270.937520729";
+
+for (const [label, service, layer] of requests) {
+	const base = "https://atlas.noe.gv.at/atlas/api/rest/services/" + encodeURIComponent(service) + "/getmap";
+	const params = new URLSearchParams({
+		f: "bin",
+		width: "512",
+		height: "436",
+		bbox,
+		crs: "3857",
+		layers: layer,
+		hmac: "false"
+	});
 	try {
-		const response = await fetch(url, {signal:AbortSignal.timeout(12000)});
-		const xml = await response.text();
-		console.log("ATLAS_OGC " + JSON.stringify({
-			id, status: response.status, contentType: response.headers.get("content-type"),
-			length:xml.length, enabled: xml.includes("WMS_Capabilities") || xml.includes("WMT_MS_Capabilities"),
-			denied:/not available|not authorized|not exportable|Exception|fehler/i.test(xml),
-			names:[...xml.matchAll(/<Name>([^<]+)<\/Name>/gi)].map(x=>x[1]).slice(0,15),
-			sample:xml.slice(0,240).replace(/\s+/g," ")
+		const response = await fetch(base + "?" + params, {
+			signal: AbortSignal.timeout(20000),
+			headers: {
+				Origin: "https://fahrrad.lima-city.de",
+				"User-Agent": "Kartensammlung-NOE-historical-raster-probe/1.0"
+			}
+		});
+		const bytes = new Uint8Array(await response.arrayBuffer());
+		const png = bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
+		const jpeg = bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+		console.log("NOE_HIST_GETMAP " + JSON.stringify({
+			label,
+			service,
+			layer,
+			status: response.status,
+			contentType: response.headers.get("content-type"),
+			cors: response.headers.get("access-control-allow-origin"),
+			bytes: bytes.length,
+			png,
+			jpeg,
+			sample: (!png && !jpeg)
+				? new TextDecoder().decode(bytes.slice(0, 1000)).replace(/\s+/g, " ")
+				: null
 		}));
-	} catch(error) {
-		console.log("ATLAS_OGC " + JSON.stringify({id,error:error.message}));
+	} catch (error) {
+		console.log("NOE_HIST_GETMAP_ERROR " + JSON.stringify({
+			label, service, layer, error: error.message
+		}));
 	}
 }
