@@ -677,3 +677,5 @@ console.log([
 	`ArcGIS Styles: ${arcgisStyles.count}`,
 	`BEV: ${bev.workspaceCount} Workspaces / ${bev.layerCount} Layer`
 ].join("\n"));
+
+await import("./noe-atlas-assessment.mjs");
