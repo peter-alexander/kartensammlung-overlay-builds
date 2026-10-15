@@ -265,3 +265,42 @@ try {
 	console.log("NOE_RETENTION_RIGHTS_METADATA_ERROR " + JSON.stringify({ error: error.message }));
 }
 
+try {
+	const params = new URLSearchParams({
+		f: "bin",
+		width: "256",
+		height: "256",
+		bbox: noeMercatorBbox,
+		layers: "88",
+		crs: "3857",
+		hmac: "false"
+	});
+	const response = await fetch(retentionBase + "/getmap?" + params, {
+		signal: AbortSignal.timeout(16000),
+		headers: {
+			Origin: "https://fahrrad.lima-city.de",
+			"User-Agent": "Kartensammlung-NOE-retention-rights-probe/1.0"
+		}
+	});
+	await response.arrayBuffer();
+
+	const payload = await get(base + encodeURIComponent(retentionService) + "?f=json");
+	const service = payload.services?.find((item) => item?.id === retentionService) || payload;
+	console.log("NOE_RETENTION_CORS_RIGHTS " + JSON.stringify({
+		status: response.status,
+		contentType: response.headers.get("content-type"),
+		accessControlAllowOrigin: response.headers.get("access-control-allow-origin"),
+		accessControlAllowMethods: response.headers.get("access-control-allow-methods"),
+		propertyLinks: service?.PropertyLinks || null,
+		layers: (service?.layers || []).map((layer) => ({
+			id: layer?.id,
+			name: layer?.name,
+			copyright: layer?.copyright || layer?.copyrighttext || null,
+			metadata: layer?.metadata || layer?.metadata_link || null,
+			properties: layer?.properties || null
+		}))
+	}));
+} catch (error) {
+	console.log("NOE_RETENTION_CORS_RIGHTS_ERROR " + JSON.stringify({ error: error.message }));
+}
+
