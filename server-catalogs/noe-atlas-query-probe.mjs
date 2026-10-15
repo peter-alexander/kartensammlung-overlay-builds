@@ -1,51 +1,40 @@
-const roots = [
-	"https://atlas.noe.gv.at/atlas/portal/noe-atlas/map/Basiskarten%20und%20Bilder/N%C3%96%20Adressen",
-	"https://atlas.noe.gv.at/atlas/portal/noe-atlas"
-];
-for (const root of roots) {
-	const response = await fetch(root, {
-		redirect: "follow",
-		signal: AbortSignal.timeout(20000),
-		headers: {
-			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/155 Safari/537.36"
-		}
-	});
-	const html = await response.text();
-	console.log("ATLAS_APP_HTML " + JSON.stringify({
-		requested: root,
-		finalUrl: response.url,
-		status: response.status,
-		html: html.slice(0, 16000).replace(/\s+/g, " ")
-	}));
-	const refs = [
-		...[...html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)].map(m => m[1]),
-		...[...html.matchAll(/<link[^>]+href=["']([^"']+)["']/gi)].map(m => m[1])
-	].map((ref) => {
-		try { return new URL(ref, response.url).href; } catch { return null; }
-	}).filter(Boolean);
-	console.log("ATLAS_APP_ASSETS " + JSON.stringify({root,refs}));
+const url = "https://atlas.noe.gv.at/atlas/api/scripts/api/api.min.js?8.26.3101";
+const text = await (await fetch(url, {
+	signal: AbortSignal.timeout(30000),
+	headers: {"User-Agent":"Mozilla/5.0"}
+})).text();
 
-	for (const url of refs.filter((url) => /\.js(?:\?|$)/i.test(url))) {
-		const text = await (await fetch(url, {
-			signal: AbortSignal.timeout(30000),
-			headers: {"User-Agent":"Mozilla/5.0"}
-		})).text();
-		const hits = [];
-		for (const needle of [
-			"/api/rest/services/", "/query", "/identify", "queryid",
-			"identify", "query", "mapPoint", "geometry", "tolerance"
-		]) {
-			let from=0;
-			while(hits.length<160){
-				const i=text.toLowerCase().indexOf(needle.toLowerCase(),from);
-				if(i<0) break;
-				hits.push({
-					needle,
-					snippet:text.slice(Math.max(0,i-700),i+1800).replace(/\s+/g," ")
-				});
-				from=i+needle.length;
-			}
-		}
-		if(hits.length) console.log("ATLAS_APP_SCRIPT_HITS "+JSON.stringify({url,hits}));
+const literalRe = /(["'`])((?:\\.|(?!\1).){1,300})\1/g;
+const literals = new Set();
+for (const match of text.matchAll(literalRe)) {
+	const value = match[2];
+	if (/rest\/services|query|identify|featureinfo|intersect|spatial|geometry/i.test(value)) {
+		literals.add(value);
+	}
+}
+console.log("ATLAS_QUERY_LITERALS " + JSON.stringify([...literals].sort()));
+
+const needles = [
+	"rest/services/",
+	".query=function",
+	"query=function",
+	"identify=function",
+	"queryResultFeatures",
+	"queryid=",
+	"queryId",
+	"searchshape",
+	"geometry="
+];
+for (const needle of needles) {
+	let from=0,count=0;
+	while(count<40){
+		const i=text.indexOf(needle,from);
+		if(i<0) break;
+		console.log("ATLAS_QUERY_SNIPPET " + JSON.stringify({
+			needle,
+			snippet:text.slice(Math.max(0,i-1600),i+3600).replace(/\s+/g," ")
+		}));
+		from=i+needle.length;
+		count++;
 	}
 }
