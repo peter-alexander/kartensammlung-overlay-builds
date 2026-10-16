@@ -74,6 +74,13 @@ const AUTO_EXCLUDED_RAW_LAYER_IDS = Object.freeze({
 });
 
 const AUTO_EXCLUDED_PRESENTATION_NAMES = Object.freeze({
+	"ags_hochwasser_modellberechnung@atlas_wasser": new Set([
+		"Übersicht"
+	]),
+	"ags_wasserrecht__wasserrecht@atlas_wasser": new Set([
+		"Verordnung vorhanden",
+		"Verordnung nicht vorhanden"
+	]),
 	ags_naturschutz: new Set([
 		"Natura 2000 FFH Außengrenze",
 		"Natura 2000 FFH Gemeldete Erweiterungsflächen",
@@ -387,6 +394,12 @@ function presentationRepresented(byService, serviceId, layerIds) {
 	return existing.some((set) => layerIds.some((id) => set.has(id)));
 }
 
+function globallyRepresentedLayerIds(datasets) {
+	return new Set(
+		datasets.flatMap((dataset) => dataset.layers || [])
+	);
+}
+
 function autoDatasets(indexServices, detailsById, legacy) {
 	const represented = datasetOverlapMap(legacy);
 	const result = [];
@@ -452,7 +465,7 @@ function autoDatasets(indexServices, detailsById, legacy) {
 				|| !["point", "line", "polygon"].includes(
 					cleanText(layer?.type)
 				)
-				|| /ADMINSTRK|Mappenblatt|Flugdatum|Beschriftung|Legende/i.test(
+				|| /ADMINSTRK|Mappenblatt|Flugdatum|Beschriftung|Legende|Politische Bezirke/i.test(
 					layerName
 				)
 				|| presentationRepresented(
