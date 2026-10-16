@@ -20,7 +20,7 @@ const TILE_OVERRIDES = Object.freeze({
 	},
 	tc_waldentwicklungsplan: {
 		id: "waldentwicklungsplan",
-		name: "Waldentwicklungsplan",
+		name: "Waldentwicklungsplan (WEP)",
 		queryDataset: "waldentwicklungsplan"
 	}
 });
