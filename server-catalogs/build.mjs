@@ -794,6 +794,31 @@ writeJson("NoeCatalog.json", noeCatalog);
 			)
 		);
 		writeJson("NoeAtlasCatalog.json", atlas);
+		console.log("NÖ Atlas FINAL AUTO DATASETS "
+			+ JSON.stringify(
+				atlas.datasets
+					.filter((item) => item.source !== "legacy")
+					.map((item) => ({
+						id: item.id,
+						name: item.name,
+						service: item.service,
+						layers: item.layers,
+						queries: item.queries
+					}))
+			));
+		console.log("NÖ Atlas FINAL AUTO BASEMAPS "
+			+ JSON.stringify(
+				atlas.basemaps
+					.filter((item) => item.source !== "legacy")
+					.map((item) => ({
+						id: item.id,
+						name: item.name,
+						service: item.service,
+						layers: item.layers
+					}))
+			));
+		console.log("NÖ Atlas FINAL REJECTED "
+			+ JSON.stringify(atlas.rejected?.autoRasters || []));
 		for (const rejected of atlas.rejected?.autoRasters || []) {
 			console.warn(
 				"NÖ Atlas automatisch verworfen: "
