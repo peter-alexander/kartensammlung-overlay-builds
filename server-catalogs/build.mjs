@@ -662,6 +662,31 @@ writeJson("NoeCatalog.json", noeCatalog);
 			Object.fromEntries(detailEntries)
 		);
 		writeJson("NoeAtlasCatalog.json", atlas);
+		console.log("NÖ Atlas AUTO DATASETS "
+			+ JSON.stringify(
+				atlas.datasets
+					.filter((item) => item.source !== "legacy")
+					.map((item) => ({
+						id: item.id,
+						name: item.name,
+						service: item.service,
+						presentationId: item.presentationId,
+						layers: item.layers,
+						queries: item.queries
+					}))
+			));
+		console.log("NÖ Atlas AUTO BASEMAPS "
+			+ JSON.stringify(
+				atlas.basemaps
+					.filter((item) => item.source !== "legacy")
+					.map((item) => ({
+						id: item.id,
+						name: item.name,
+						service: item.service,
+						presentationId: item.presentationId,
+						layers: item.layers
+					}))
+			));
 		console.log("NÖ Atlas: " + atlas.counts.total + " Dienste, "
 			+ atlas.counts.datasets + " Datenoverlays ("
 			+ atlas.counts.autoDatasets + " automatisch), "
