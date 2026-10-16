@@ -1512,8 +1512,30 @@ export const NOE_ATLAS_LEGACY_BASEMAPS = Object.freeze([
 export const NOE_ATLAS_SPECIAL_QUERY_DATASETS = Object.freeze({
 	"hangwasser-fliesswege": [
 		{
-			"service": "ags_hangwasser@atlas_wasser",
-			"query": "fliesswege_akkumuliert_2018"
+			service: "ags_hangwasser@atlas_wasser",
+			query: "fliesswege_akkumuliert_2018"
+		}
+	],
+	"waldentwicklungsplan": [
+		{
+			service: "ags_waldentwicklungsplan",
+			query: "kreisfunktionsflaechen"
+		},
+		{
+			service: "ags_waldentwicklungsplan",
+			query: "waldfunktionsflaechen"
+		},
+		{
+			service: "ags_waldentwicklungsplan",
+			query: "windschutzanlagen"
+		},
+		{
+			service: "ags_waldentwicklungsplan",
+			query: "zeigerpunkte"
+		},
+		{
+			service: "ags_waldentwicklungsplan",
+			query: "zeigerflaechen"
 		}
 	]
 });
