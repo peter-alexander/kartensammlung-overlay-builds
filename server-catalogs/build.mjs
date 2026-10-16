@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { DOMParser } from "@xmldom/xmldom";
 import { buildNoeCatalog } from "./noe-catalog.mjs";
-import { buildNoeAtlasCatalog, NOE_ATLAS_ELIGIBLE_IDS } from "./noe-atlas-catalog.mjs";
+import { buildNoeAtlasCatalog } from "./noe-atlas-catalog.mjs";
 
 const OUTPUT_DIR = new URL("./build/", import.meta.url);
 
@@ -639,19 +639,34 @@ writeJson("NoeCatalog.json", noeCatalog);
 			"https://atlas.noe.gv.at/atlas/api/rest/services?f=json",
 			{ attempts: 2, timeoutMs: 20000 }
 		);
-		const details = {};
-		for (const id of NOE_ATLAS_ELIGIBLE_IDS) {
-			details[id] = await fetchJson(
-				"https://atlas.noe.gv.at/atlas/api/rest/services/" + id + "?f=json",
-				{ attempts: 2, timeoutMs: 20000 }
-			);
-		}
-		const atlas = buildNoeAtlasCatalog(index, details);
+		const serviceIds = [...new Set(
+			(index.services || [])
+				.map((service) => String(service?.id || "").trim())
+				.filter(Boolean)
+		)];
+		const detailEntries = await mapConcurrent(
+			serviceIds,
+			6,
+			async (id) => [
+				id,
+				await fetchJson(
+					"https://atlas.noe.gv.at/atlas/api/rest/services/"
+						+ encodeURIComponent(id)
+						+ "?f=json",
+					{ attempts: 2, timeoutMs: 30000 }
+				)
+			]
+		);
+		const atlas = buildNoeAtlasCatalog(
+			index,
+			Object.fromEntries(detailEntries)
+		);
 		writeJson("NoeAtlasCatalog.json", atlas);
 		console.log("NÖ Atlas: " + atlas.counts.total + " Dienste, "
-			+ atlas.counts.imageOverlays + " Bild-Overlays, "
-			+ atlas.counts.tileOverlays + " Tile-Overlays, "
-			+ atlas.counts.integrated + " freigegebene OGD-Overlays");
+			+ atlas.counts.datasets + " Datenoverlays ("
+			+ atlas.counts.autoDatasets + " automatisch), "
+			+ atlas.counts.basemaps + " Basemaps, "
+			+ atlas.counts.tiles + " Tile-Overlays");
 	} catch (error) {
 		console.warn("NÖ Atlas nicht aktualisiert (anderer Kataloglauf bleibt intakt):", error.message);
 	}
