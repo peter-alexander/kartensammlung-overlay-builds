@@ -46,6 +46,7 @@ const AUTO_EXCLUDED_IMAGE_SERVICES = new Set([
 	"ags_verwaltungsgrenzen",
 	"ags_wasserrecht__fliessgewaesser@atlas_wasser",
 	"ags_hochwasser_hq@atlas_wasser",
+	"ags_hangwasser@atlas_wasser",
 	"ags_ragweed",
 	"ags_landwirtschaft__weinbau_rieden_und_fluren",
 	"ags_waldentwicklungsplan",
@@ -55,6 +56,22 @@ const AUTO_EXCLUDED_IMAGE_SERVICES = new Set([
 	"wms_iws__oek",
 	"wms_iws__hoehenmodell"
 ]);
+
+const AUTO_EXCLUDED_PRESENTATION_IDS = Object.freeze({
+	"ags_hochwasser_modellberechnung@atlas_wasser": new Set([
+		"dv_wasserspiegel_-_uebersicht",
+		"dv_wassertiefe_-_uebersicht",
+		"dv_fliessgeschwindigkeit_-_uebersicht"
+	]),
+	"ags_wasserrecht__wasserrecht@atlas_wasser": new Set([
+		"verordnung_vorhanden",
+		"verordnung_nicht_vorhanden"
+	])
+});
+
+const AUTO_EXCLUDED_RAW_LAYER_IDS = Object.freeze({
+	ags_tierseuchen: new Set(["1"])
+});
 
 const AUTO_EXCLUDED_PRESENTATION_NAMES = Object.freeze({
 	ags_naturschutz: new Set([
@@ -96,6 +113,23 @@ const AUTO_QUERY_OVERRIDES = Object.freeze({
 });
 
 const AUTO_NAME_OVERRIDES = Object.freeze({
+	"ags_bahn:Bahn Hektometer": "Bahn – Hektometer",
+	"ags_dienststellen:Agrarbezirksbehörde":
+		"Dienststellen – Agrarbezirksbehörde / Güterwege-Regionalstellen",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Abwasserverband":
+		"Wasserrecht – Abwasserverbände",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Bewässerungsgenossenschaft":
+		"Wasserrecht – Bewässerungsgenossenschaften",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Entwässerungsgenossenschaft":
+		"Wasserrecht – Entwässerungsgenossenschaften",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Erhaltungsverband":
+		"Wasserrecht – Erhaltungsverbände",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Marchfeld":
+		"Wasserrecht – Regionalprogramm Marchfeld",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Mitterndorfer Senke":
+		"Wasserrecht – Regionalprogramm Mitterndorfer Senke",
+	"ags_wasserrecht__wasserrecht@atlas_wasser:Wasserversorgungsverband":
+		"Wasserrecht – Wasserversorgungsverbände",
 	"wms_iws__luftbild_hoehe:Höhe (Seehöhe)": "Höhe – Seehöhe (DTM-Schummerung)",
 	"wms_iws__luftbild_hoehe:Höhe (Oberfläche)": "Höhe – Oberfläche (DSM-Schummerung)",
 	"wms_iws__luftbild_hoehe:Hangneigung (Prozent)": "Höhe – Hangneigung (Prozent)",
@@ -226,6 +260,9 @@ function presentationAutoAllowed(serviceId, presentation) {
 			"Hangneigung (Grad)"
 		]).has(name);
 	}
+	const presentationId = cleanText(presentation?.id);
+	const excludedIds = AUTO_EXCLUDED_PRESENTATION_IDS[serviceId];
+	if (presentationId && excludedIds?.has(presentationId)) return false;
 	const excludedNames = AUTO_EXCLUDED_PRESENTATION_NAMES[serviceId];
 	if (excludedNames?.has(name)) return false;
 	return true;
@@ -406,8 +443,10 @@ function autoDatasets(indexServices, detailsById, legacy) {
 		for (const layer of detail.layers || []) {
 			const layerName = String(layer?.name ?? "");
 			const layerId = cleanText(layer?.id);
+			const excludedRawIds = AUTO_EXCLUDED_RAW_LAYER_IDS[detail.id];
 			if (
 				!layerId
+				|| excludedRawIds?.has(layerId)
 				|| referencedNames.has(layerName)
 				|| layer?.selectable !== true
 				|| !["point", "line", "polygon"].includes(
@@ -475,6 +514,9 @@ function validateLegacyBasemap(source, detailsById) {
 
 function autoBasemaps(indexServices, detailsById, legacyBasemaps) {
 	const represented = datasetOverlapMap(legacyBasemaps);
+	const representedLayerIds = new Set(
+		legacyBasemaps.flatMap((basemap) => basemap.layers || [])
+	);
 	const result = [];
 	for (const indexed of indexServices) {
 		if (
@@ -498,6 +540,7 @@ function autoBasemaps(indexServices, detailsById, legacyBasemaps) {
 			const layerIds = presentationLayerIds(detail, presentation);
 			if (
 				!layerIds.length
+				|| layerIds.some((id) => representedLayerIds.has(id))
 				|| presentationRepresented(
 					represented,
 					detail.id,
@@ -526,6 +569,7 @@ function autoBasemaps(indexServices, detailsById, legacyBasemaps) {
 			});
 			if (!represented.has(detail.id)) represented.set(detail.id, []);
 			represented.get(detail.id).push(new Set(layerIds));
+			for (const layerId of layerIds) representedLayerIds.add(layerId);
 		}
 	}
 	return result;
