@@ -166,10 +166,22 @@ async function validateNoeAtlasAutoRaster(item) {
 			response.headers.get("content-type") || ""
 		).toLowerCase();
 		const bytes = Buffer.from(await response.arrayBuffer());
-		if (!contentType.startsWith("image/") || bytes.length === 0) {
+		const png = bytes.length >= 8
+			&& bytes.subarray(0, 8).equals(
+				Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+			);
+		const jpeg = bytes.length >= 3
+			&& bytes[0] === 255
+			&& bytes[1] === 216
+			&& bytes[2] === 255;
+		if (
+			!contentType.startsWith("image/")
+			|| bytes.length === 0
+			|| (!png && !jpeg)
+		) {
 			return {
 				ok: false,
-				reason: "Atlas getmap lieferte kein Bild."
+				reason: "Atlas getmap lieferte kein gültiges Rasterbild."
 			};
 		}
 		const sha = crypto
