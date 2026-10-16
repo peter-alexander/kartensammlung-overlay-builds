@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { DOMParser } from "@xmldom/xmldom";
 import { buildNoeCatalog } from "./noe-catalog.mjs";
 import { buildNoeAtlasCatalog } from "./noe-atlas-catalog.mjs";
@@ -119,6 +120,135 @@ async function fetchJson(url, options = {}) {
 		accept: "application/json,*/*;q=0.8",
 		...options
 	})).json();
+}
+
+
+const NOE_ATLAS_ERROR_IMAGE_SHA256
+	= "ddb92949e3acd503e3efc2900b31c7aa861c22c3a84994290aee5c9a959b5b48";
+
+function noeAtlasProbeBbox() {
+	const halfWorld = 20037508.342789244;
+	const z = 14;
+	const x = 8939;
+	const y = 5681;
+	const span = halfWorld * 2 / (1 << z);
+	return [
+		-halfWorld + x * span,
+		halfWorld - (y + 1) * span,
+		-halfWorld + (x + 1) * span,
+		halfWorld - y * span
+	].join(",");
+}
+
+async function validateNoeAtlasAutoRaster(item) {
+	const params = new URLSearchParams({
+		f: "bin",
+		width: "256",
+		height: "256",
+		bbox: noeAtlasProbeBbox(),
+		crs: "3857",
+		hmac: "false",
+		layers: (item.layers || []).join(",")
+	});
+	try {
+		const response = await fetchWithRetry(
+			"https://atlas.noe.gv.at/atlas/api/rest/services/"
+				+ encodeURIComponent(item.service)
+				+ "/getmap?"
+				+ params,
+			{
+				attempts: 2,
+				timeoutMs: 30000,
+				accept: "image/png,image/jpeg,*/*;q=0.5"
+			}
+		);
+		const contentType = String(
+			response.headers.get("content-type") || ""
+		).toLowerCase();
+		const bytes = Buffer.from(await response.arrayBuffer());
+		if (!contentType.startsWith("image/") || bytes.length === 0) {
+			return {
+				ok: false,
+				reason: "Atlas getmap lieferte kein Bild."
+			};
+		}
+		const sha = crypto
+			.createHash("sha256")
+			.update(bytes)
+			.digest("hex");
+		if (sha === NOE_ATLAS_ERROR_IMAGE_SHA256) {
+			return {
+				ok: false,
+				reason: "Atlas lieferte die bekannte HTTP-200-Fehlergrafik."
+			};
+		}
+		return { ok: true };
+	} catch (error) {
+		return {
+			ok: false,
+			reason: String(error?.message || error)
+		};
+	}
+}
+
+async function validateNoeAtlasAutoRasters(catalog) {
+	const candidates = [
+		...(catalog.datasets || [])
+			.filter((item) => item?.source !== "legacy")
+			.map((item) => ({ kind: "dataset", item })),
+		...(catalog.basemaps || [])
+			.filter((item) => item?.source !== "legacy")
+			.map((item) => ({ kind: "basemap", item }))
+	];
+	const results = await mapConcurrent(
+		candidates,
+		4,
+		async (candidate) => ({
+			...candidate,
+			validation:
+				await validateNoeAtlasAutoRaster(candidate.item)
+		})
+	);
+	const rejected = results
+		.filter((result) => !result.validation.ok)
+		.map((result) => ({
+			kind: result.kind,
+			id: result.item.id,
+			name: result.item.name,
+			service: result.item.service,
+			reason: result.validation.reason
+		}));
+	const rejectedDatasetIds = new Set(
+		rejected
+			.filter((item) => item.kind === "dataset")
+			.map((item) => item.id)
+	);
+	const rejectedBasemapIds = new Set(
+		rejected
+			.filter((item) => item.kind === "basemap")
+			.map((item) => item.id)
+	);
+	catalog.datasets = catalog.datasets.filter(
+		(item) => !rejectedDatasetIds.has(item.id)
+	);
+	catalog.basemaps = catalog.basemaps.filter(
+		(item) => !rejectedBasemapIds.has(item.id)
+	);
+	catalog.rejected = {
+		autoRasters: rejected
+	};
+	catalog.counts.datasets = catalog.datasets.length;
+	catalog.counts.autoDatasets = catalog.datasets.filter(
+		(item) => item.source !== "legacy"
+	).length;
+	catalog.counts.queryableDatasets = catalog.datasets.filter(
+		(item) => Array.isArray(item.queries) && item.queries.length
+	).length;
+	catalog.counts.basemaps = catalog.basemaps.length;
+	catalog.counts.autoBasemaps = catalog.basemaps.filter(
+		(item) => item.source !== "legacy"
+	).length;
+	return catalog;
 }
 
 function parseXml(xml, label) {
@@ -657,11 +787,22 @@ writeJson("NoeCatalog.json", noeCatalog);
 				)
 			]
 		);
-		const atlas = buildNoeAtlasCatalog(
-			index,
-			Object.fromEntries(detailEntries)
+		const atlas = await validateNoeAtlasAutoRasters(
+			buildNoeAtlasCatalog(
+				index,
+				Object.fromEntries(detailEntries)
+			)
 		);
 		writeJson("NoeAtlasCatalog.json", atlas);
+		for (const rejected of atlas.rejected?.autoRasters || []) {
+			console.warn(
+				"NÖ Atlas automatisch verworfen: "
+					+ rejected.name
+					+ " ("
+					+ rejected.reason
+					+ ")"
+			);
+		}
 		console.log("NÖ Atlas: " + atlas.counts.total + " Dienste, "
 			+ atlas.counts.datasets + " Datenoverlays ("
 			+ atlas.counts.autoDatasets + " automatisch), "
