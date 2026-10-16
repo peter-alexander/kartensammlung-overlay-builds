@@ -1,6 +1,7 @@
 // Generated once from the pre-manifest NÖ-Atlas integration.
 // Keep these overrides only for stable public ids/names and intentional
 // presentation composition. New Atlas presentations are discovered automatically.
+// The daily catalog build is the single runtime allowlist for browser and proxies.
 
 export const NOE_ATLAS_LEGACY_DATASETS = Object.freeze([
 	{
