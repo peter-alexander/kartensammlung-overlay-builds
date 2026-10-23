@@ -12,7 +12,7 @@ mkdir -p "$OUTPUT_DIR"
 
 export TIPPECANOE_BIN
 export KS_OUTPUT_DIR="$OUTPUT_DIR"
-export KS_BASENAME="wien-sitzdistanz"
+export KS_BASENAME="sitzmoeglichkeiten"
 export KS_WRITE_GEOJSON="0"
 export KS_KEEP_GEOJSON_AFTER_TIPPECANOE="0"
 export KS_WRITE_MANIFEST="1"

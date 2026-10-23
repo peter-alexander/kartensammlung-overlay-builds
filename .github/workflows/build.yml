@@ -368,10 +368,10 @@ jobs:
       TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'all' }}
       BUILD_LEGACY: ${{ github.event_name != 'workflow_dispatch' || inputs.build_legacy }}
       BUILD_PBF_TILES: ${{ github.event_name == 'workflow_dispatch' && inputs.build_legacy }}
-      REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
-      EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
-      EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
-      EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+      REMOTE_ROOT: /default-website/Maps
+      MAPS_FTP_HOST: ${{ secrets.MAPS_FTP_HOST }}
+      MAPS_FTP_USER: ${{ secrets.MAPS_FTP_USER }}
+      MAPS_FTP_PASSWORD: ${{ secrets.MAPS_FTP_PASSWORD }}
       MAIN_SERVER: ${{ secrets.MAIN_SERVER }}
       LFTP_PARALLEL: 6
       RGE_ANALYSE_READY: ${{ needs.rge-analyse.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'rge-analyse') }}
@@ -459,13 +459,9 @@ jobs:
         if: ${{ env.RGE_ANALYSE_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
-          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}RgE-Analyse"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlobby"
 
           .github/scripts/lftp-upload.sh deploy/rge-analyse/rge_analyse.pmtiles "$REMOTE_BASE/rge_analyse.pmtiles"
-
-          if [ "$BUILD_LEGACY" = "true" ]; then
-            .github/scripts/lftp-upload.sh deploy/rge-analyse/rge_analyse.geojson "$REMOTE_BASE/rge_analyse.geojson"
-          fi
 
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRgeAnalyse.php?date=$(date +%s)"
 
@@ -473,13 +469,9 @@ jobs:
         if: ${{ env.RADPARKEN_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
-          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radparken"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlobby"
 
           .github/scripts/lftp-upload.sh deploy/radparken/radparken.pmtiles "$REMOTE_BASE/radparken.pmtiles"
-
-          if [ "$BUILD_PBF_TILES" = "true" ]; then
-            .github/scripts/lftp-upload.sh deploy/radparken/tiles "$REMOTE_BASE/tiles"
-          fi
 
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedRadparken.php?date=$(date +%s)"
 
@@ -487,13 +479,9 @@ jobs:
         if: ${{ env.SITZMOEGLICHKEITEN_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
-          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Sitzmoeglichkeiten"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlobby"
 
-          .github/scripts/lftp-upload.sh deploy/sitzmoeglichkeiten/wien-sitzdistanz.pmtiles "$REMOTE_BASE/wien-sitzdistanz.pmtiles"
-
-          if [ "$BUILD_PBF_TILES" = "true" ]; then
-            .github/scripts/lftp-upload.sh deploy/sitzmoeglichkeiten/tiles "$REMOTE_BASE/tiles"
-          fi
+          .github/scripts/lftp-upload.sh deploy/sitzmoeglichkeiten/sitzmoeglichkeiten.pmtiles "$REMOTE_BASE/sitzmoeglichkeiten.pmtiles"
 
           curl -fsS --retry 3 --retry-delay 10 -o /dev/null "$MAIN_SERVER/updatedSitzmoeglichkeiten.php?date=$(date +%s)"
 
@@ -501,7 +489,7 @@ jobs:
         if: ${{ env.RADLKARTE_READY == 'true' }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
-          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlkarte"
+          REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}Radlobby"
 
           .github/scripts/lftp-upload.sh deploy/radlkarte/radlkarte.pmtiles "$REMOTE_BASE/radlkarte.pmtiles"
 

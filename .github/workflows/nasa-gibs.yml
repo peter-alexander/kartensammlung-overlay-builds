@@ -7,7 +7,7 @@ on:
       - 'nasa-gibs/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/scripts/lftp-upload.sh'
       - '.github/workflows/nasa-gibs.yml'
   push:
     branches:
@@ -16,7 +16,7 @@ on:
       - 'nasa-gibs/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/scripts/main-ftp-upload-file.sh'
+      - '.github/scripts/lftp-upload.sh'
       - '.github/workflows/nasa-gibs.yml'
   schedule:
     - cron: '43 4 * * *'
@@ -33,11 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      MAIN_FTP_HOST: ${{ secrets.MAIN_FTP_HOST }}
-      MAIN_FTP_USER: ${{ secrets.MAIN_FTP_USER }}
-      MAIN_FTP_PASSWORD: ${{ secrets.MAIN_FTP_PASSWORD }}
-      MAIN_REMOTE_ROOT: ${{ vars.MAIN_REMOTE_ROOT }}
-      CURRENT_CATALOG_URL: https://fahrrad.lima-city.de/Maps/NasaGibs/NasaGibsLayerCatalog.min.json
+      MAPS_FTP_HOST: ${{ secrets.MAPS_FTP_HOST }}
+      MAPS_FTP_USER: ${{ secrets.MAPS_FTP_USER }}
+      MAPS_FTP_PASSWORD: ${{ secrets.MAPS_FTP_PASSWORD }}
+      REMOTE_ROOT: /default-website/Maps
+      CURRENT_CATALOG_URL: https://fahrrad.lima-city.de/Maps/Landsat/NasaGibsLayerCatalog.min.json
 
     steps:
       - uses: actions/checkout@v7
@@ -48,7 +48,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --no-fund --no-audit
+        run: |
+          npm ci --no-fund --no-audit
+          sudo apt-get update
+          sudo apt-get install -y lftp
 
       - name: Build complete NASA GIBS catalog
         run: node nasa-gibs/build.mjs
@@ -68,8 +71,7 @@ jobs:
       - name: Deploy catalog to Lima
         if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
         run: |
-          test -n "$MAIN_REMOTE_ROOT"
-          chmod +x .github/scripts/main-ftp-upload-file.sh
-          .github/scripts/main-ftp-upload-file.sh \
+          chmod +x .github/scripts/lftp-upload.sh
+          .github/scripts/lftp-upload.sh \
             nasa-gibs/build/NasaGibsLayerCatalog.min.json \
-            "${MAIN_REMOTE_ROOT%/}/NasaGibs/NasaGibsLayerCatalog.min.json"
+            "${REMOTE_ROOT%/}/Landsat/NasaGibsLayerCatalog.min.json"

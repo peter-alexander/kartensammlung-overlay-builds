@@ -122,10 +122,10 @@ jobs:
       - name: Deploy Overture admin
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
-          REMOTE_ROOT: ${{ vars.EASYNAME_REMOTE_ROOT }}
-          EASYNAME_FTP_HOST: ${{ secrets.EASYNAME_FTP_HOST }}
-          EASYNAME_FTP_USER: ${{ secrets.EASYNAME_FTP_USER }}
-          EASYNAME_FTP_PASSWORD: ${{ secrets.EASYNAME_FTP_PASSWORD }}
+          REMOTE_ROOT: /default-website/Maps
+          MAPS_FTP_HOST: ${{ secrets.MAPS_FTP_HOST }}
+          MAPS_FTP_USER: ${{ secrets.MAPS_FTP_USER }}
+          MAPS_FTP_PASSWORD: ${{ secrets.MAPS_FTP_PASSWORD }}
         run: |
           chmod +x .github/scripts/lftp-upload.sh
           REMOTE_BASE="${REMOTE_ROOT:+$REMOTE_ROOT/}AdminBoundary"
