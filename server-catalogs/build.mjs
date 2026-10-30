@@ -51,7 +51,8 @@ const WIEN_TITLE_REPLACEMENTS = new Map([
 	["DONAUINSPKTOGD", "Donauinsel – Punkte"],
 	["FOERDERUNGGEBAEUDEOGD", "Geförderte Gebäudebegrünungen"],
 	["GENFLWOGD", "Generalisierte Flächenwidmung mit vier Kategorien"],
-	["LADEZONEOGD", "Ladezone"]
+	["LADEZONEOGD", "Ladezone"],
+	["RADNETZPLANUNGOGD", "Hauptradverkehrsnetz – Planung"]
 ]);
 
 const WIEN_TITLE_SUFFIXES = new Map([
